@@ -103,11 +103,18 @@ export type ProgressCallback = (info: {
 export async function fetchAll(
   userId: string,
   userPwd: string,
-  onProgress?: ProgressCallback
-): Promise<{ items: KtoolsItem[]; fetchedAt: Date }> {
+  onProgress?: ProgressCallback,
+  existingSessionId?: string | null,
+): Promise<{ items: KtoolsItem[]; fetchedAt: Date; sessionId: string }> {
 
-  onProgress?.({ stage: 'login', current: 0, total: 0, message: 'k-tools 로그인 중...' })
-  let sessionId = await ktoolsLogin(userId, userPwd)
+  let sessionId: string
+  if (existingSessionId) {
+    console.log('기존 세션 재사용')
+    sessionId = existingSessionId
+  } else {
+    onProgress?.({ stage: 'login', current: 0, total: 0, message: 'k-tools 로그인 중...' })
+    sessionId = await ktoolsLogin(userId, userPwd)
+  }
 
   const allItems: KtoolsItem[] = []
   const pageCount = 3000
@@ -146,5 +153,5 @@ export async function fetchAll(
   }
 
   console.log(`수집 완료: 총 ${allItems.length}건`)
-  return { items: allItems, fetchedAt: new Date() }
+  return { items: allItems, fetchedAt: new Date(), sessionId }
 }

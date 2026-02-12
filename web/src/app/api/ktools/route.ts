@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchAll } from '@/lib/ktools-fetch'
 import { analyzeAll } from '@/lib/ktools-analyze'
-import { getCache, setCache, getCacheStatus } from '@/lib/cache'
+import { getCache, setCache, getCacheStatus, getSessionId } from '@/lib/cache'
 
 // 쿠키에서 자격증명 추출
 function getCredentials(request: NextRequest): { userId: string; userPwd: string } | null {
@@ -35,10 +35,11 @@ export async function GET(request: NextRequest) {
       console.log(`캐시 사용: ${items.length}건`)
     } else {
       console.log('데이터 수집 시작...')
-      const result = await fetchAll(creds.userId, creds.userPwd)
+      const cachedSession = getSessionId()
+      const result = await fetchAll(creds.userId, creds.userPwd, undefined, cachedSession)
       items = result.items
       fetchedAt = result.fetchedAt
-      setCache(items, fetchedAt)
+      setCache(items, fetchedAt, result.sessionId)
       console.log(`수집 완료 + 캐시 저장: ${items.length}건`)
     }
 

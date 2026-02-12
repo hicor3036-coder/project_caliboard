@@ -137,7 +137,7 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
       )}
 
       <div className="overflow-x-auto">
-        <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: Object.keys(colWidths).length > 0 ? 'fixed' : 'auto' }}>
+        <table ref={tableRef} className="w-full text-xs" style={{ tableLayout: Object.keys(colWidths).length > 0 ? 'fixed' : 'auto' }}>
           {/* colgroup: 리사이즈된 컬럼에 너비 적용 */}
           {Object.keys(colWidths).length > 0 && (
             <colgroup>
@@ -222,14 +222,14 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
             <button
               onClick={() => setPage(0)}
               disabled={safePage === 0}
-              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-2.5 py-1.5 text-sm text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
             >
               {'«'}
             </button>
             <button
               onClick={() => setPage(p => Math.max(0, p - 1))}
               disabled={safePage === 0}
-              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-2.5 py-1.5 text-sm text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
             >
               {'‹'}
             </button>
@@ -243,7 +243,7 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`min-w-[28px] px-1.5 py-1 text-xs rounded transition-colors ${
+                  className={`min-w-[32px] px-2 py-1.5 text-sm rounded transition-colors ${
                     p === safePage
                       ? 'bg-slate-700 text-white font-medium'
                       : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
@@ -257,14 +257,14 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
             <button
               onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
               disabled={safePage >= totalPages - 1}
-              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-2.5 py-1.5 text-sm text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
             >
               {'›'}
             </button>
             <button
               onClick={() => setPage(totalPages - 1)}
               disabled={safePage >= totalPages - 1}
-              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-2.5 py-1.5 text-sm text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
             >
               {'»'}
             </button>

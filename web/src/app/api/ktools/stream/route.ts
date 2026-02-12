@@ -2,7 +2,7 @@
 import { NextRequest } from 'next/server'
 import { fetchAll } from '@/lib/ktools-fetch'
 import { analyzeAll } from '@/lib/ktools-analyze'
-import { setCache, getCacheStatus } from '@/lib/cache'
+import { setCache, getCacheStatus, getSessionId } from '@/lib/cache'
 
 function getCredentials(request: NextRequest): { userId: string; userPwd: string } | null {
   const auth = request.cookies.get('ktools_auth')?.value
@@ -29,15 +29,16 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        // 수집 (진행 상황 콜백)
+        // 기존 세션 재사용 시도
+        const cachedSession = getSessionId()
         const result = await fetchAll(creds.userId, creds.userPwd, (info) => {
           send('progress', info)
-        })
+        }, cachedSession)
 
         // 분석
         send('progress', { stage: 'analyze', current: 0, total: 0, message: '데이터 분석 중...' })
         const analysis = analyzeAll(result.items, result.fetchedAt)
-        setCache(result.items, result.fetchedAt)
+        setCache(result.items, result.fetchedAt, result.sessionId)
 
         // 완료 — 분석 결과 전송
         send('complete', { ...analysis, cache: getCacheStatus() })

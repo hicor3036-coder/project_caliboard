@@ -7,6 +7,7 @@ interface CacheData {
   items: KtoolsItem[]
   fetchedAt: Date
   sessionExpiresAt: Date  // 로그인 후 약 2시간
+  sessionId?: string      // k-tools JSESSIONID 재사용
 }
 
 let cache: CacheData | null = null
@@ -26,11 +27,24 @@ export function getCache(): CacheData | null {
   return cache
 }
 
-export function setCache(items: KtoolsItem[], fetchedAt: Date): void {
+export function setCache(items: KtoolsItem[], fetchedAt: Date, sessionId?: string): void {
   cache = {
     items,
     fetchedAt,
     sessionExpiresAt: new Date(Date.now() + SESSION_TTL_MS),
+    sessionId,
+  }
+}
+
+export function getSessionId(): string | null {
+  if (!cache?.sessionId) return null
+  if (new Date() > cache.sessionExpiresAt) return null
+  return cache.sessionId
+}
+
+export function setSessionId(sessionId: string): void {
+  if (cache) {
+    cache.sessionId = sessionId
   }
 }
 

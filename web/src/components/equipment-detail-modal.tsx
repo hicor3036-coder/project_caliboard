@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import DataTable, { type Column } from './data-table'
 
 interface DetailItem {
   prjcCd: string
@@ -32,9 +33,12 @@ interface DetailItem {
   apcnEmlAdrs: string
 }
 
+interface TableRow extends DetailItem {
+  no: number
+}
+
 interface Props {
   groupNm: string
-  /** 모달 닫기 제목용 장비명 */
   equipmentName: string
   onClose: () => void
 }
@@ -44,9 +48,54 @@ function fmtDate(d: string): string {
   return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
 }
 
-function fmtCurrency(n: number): string {
-  return n > 0 ? `${n.toLocaleString()}원` : '-'
-}
+const historyColumns: Column<TableRow>[] = [
+  {
+    key: 'no', header: 'No', align: 'center',
+    sortValue: i => i.no,
+    render: i => <span className="text-gray-400">{i.no}</span>,
+  },
+  {
+    key: 'prjcCd', header: '과제',
+    sortValue: i => i.prjcCd,
+    render: i => <span className="font-mono text-gray-500">{i.prjcCd}</span>,
+  },
+  {
+    key: 'acptNo', header: '접수번호',
+    sortValue: i => i.acptNo,
+    render: i => <span className="font-mono text-gray-500">{i.acptNo}</span>,
+  },
+  {
+    key: 'rcpnYmd', header: '접수일',
+    sortValue: i => i.rcpnYmd,
+    render: i => <span className="text-gray-600">{fmtDate(i.rcpnYmd)}</span>,
+  },
+  {
+    key: 'exrsWrtnYmd', header: '교정완료일',
+    sortValue: i => i.exrsWrtnYmd,
+    render: i => <span className="text-gray-600">{fmtDate(i.exrsWrtnYmd)}</span>,
+  },
+  {
+    key: 'nxtrExrsYmd', header: '차기교정일',
+    sortValue: i => i.nxtrExrsYmd,
+    render: i => <span className="text-gray-600">{fmtDate(i.nxtrExrsYmd)}</span>,
+  },
+  {
+    key: 'pgstNm', header: '상태',
+    sortValue: i => i.pgstNm,
+    render: i => {
+      const s = i.pgstNm
+      const color = s.includes('미처리') ? 'bg-amber-100 text-amber-700'
+        : s.includes('완료') ? 'bg-green-100 text-green-700'
+        : 'bg-gray-100 text-gray-600'
+      return <span className={`inline-block px-1.5 py-0.5 rounded font-medium ${color}`}>{s || '-'}</span>
+    },
+  },
+  {
+    key: 'mngmRsprNm', header: '교정담당자',
+    sortValue: i => i.mngmRsprNm,
+    render: i => <span className="text-gray-600">{i.mngmRsprNm || '-'}</span>,
+  },
+]
 
 export default function EquipmentDetailModal({ groupNm, equipmentName, onClose }: Props) {
   const [items, setItems] = useState<DetailItem[]>([])
@@ -71,27 +120,27 @@ export default function EquipmentDetailModal({ groupNm, equipmentName, onClose }
 
   useEffect(() => { fetchDetail() }, [fetchDetail])
 
-  // ESC 키로 닫기
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
   }, [onClose])
 
-  // 첫 번째 항목에서 장비 기본 정보 추출
   const info = items[0]
 
-  // 이력을 접수일 기준 최신순 정렬
-  const sorted = [...items].sort((a, b) => (b.rcpnYmd ?? '').localeCompare(a.rcpnYmd ?? ''))
+  const tableData: TableRow[] = useMemo(() =>
+    [...items]
+      .sort((a, b) => (b.rcpnYmd ?? '').localeCompare(a.rcpnYmd ?? ''))
+      .map((item, idx) => ({ ...item, no: idx + 1 })),
+    [items]
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-      {/* 백드롭 */}
       <div className="absolute inset-0 bg-black/50" />
 
-      {/* 모달 */}
       <div
-        className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col"
+        className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full mx-4 max-h-[85vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
@@ -100,7 +149,9 @@ export default function EquipmentDetailModal({ groupNm, equipmentName, onClose }
             <h2 className="text-lg font-bold text-slate-800 truncate">{equipmentName || '장비 상세'}</h2>
             {info && (
               <p className="text-sm text-slate-500 mt-0.5">
-                {info.prdnCmpnNm} · {info.stszNm || info.mctlNo}
+                {info.prdNm && <span className="text-slate-600 font-medium">{info.prdNm}</span>}
+                {info.prdNm && (info.prdnCmpnNm || info.stszNm) && <span> · </span>}
+                {info.prdnCmpnNm}{info.stszNm && ` · ${info.stszNm}`}
               </p>
             )}
           </div>
@@ -135,71 +186,48 @@ export default function EquipmentDetailModal({ groupNm, equipmentName, onClose }
 
           {!loading && !error && info && (
             <div className="space-y-5">
-              {/* 장비 기본 정보 */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <InfoCell label="품목명" value={info.prdNm} />
-                <InfoCell label="제조사" value={info.prdnCmpnNm} />
-                <InfoCell label="모델" value={info.stszNm} />
-                <InfoCell label="기기번호" value={info.mctlNo} />
-                <InfoCell label="관리번호" value={info.custEqpmSrno} />
-                <InfoCell label="교정주기" value={info.affcCyclCd ? `${info.affcCyclCd}개월` : '-'} />
-                <InfoCell label="차기교정" value={fmtDate(info.nxtrExrsYmd)} />
-                <InfoCell label="신청업체" value={info.apcnCmnm} />
-              </div>
-
-              {/* 교정 이력 */}
-              <div>
-                <h3 className="text-sm font-semibold text-slate-700 mb-3">
-                  교정 이력 <span className="text-slate-400 font-normal ml-1">{sorted.length}건</span>
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b-2 border-gray-200 bg-gray-50 text-left">
-                        <th className="py-2 px-2 text-xs font-bold uppercase text-gray-600">과제</th>
-                        <th className="py-2 px-2 text-xs font-bold uppercase text-gray-600">접수번호</th>
-                        <th className="py-2 px-2 text-xs font-bold uppercase text-gray-600">접수일</th>
-                        <th className="py-2 px-2 text-xs font-bold uppercase text-gray-600">교정일</th>
-                        <th className="py-2 px-2 text-xs font-bold uppercase text-gray-600">상태</th>
-                        <th className="py-2 px-2 text-xs font-bold uppercase text-gray-600">결재</th>
-                        <th className="py-2 px-2 text-xs font-bold uppercase text-gray-600">담당자</th>
-                        <th className="py-2 px-2 text-xs font-bold uppercase text-gray-600 text-right">교정비</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sorted.map((item, idx) => (
-                        <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50">
-                          <td className="py-2 px-2 font-mono text-xs text-gray-500">{item.prjcCd}</td>
-                          <td className="py-2 px-2 font-mono text-xs text-gray-500">{item.acptNo}</td>
-                          <td className="py-2 px-2 text-gray-600">{fmtDate(item.rcpnYmd)}</td>
-                          <td className="py-2 px-2 text-gray-600">{fmtDate(item.exrsWrtnYmd)}</td>
-                          <td className="py-2 px-2">
-                            <StatusBadge status={item.pgstNm} />
-                          </td>
-                          <td className="py-2 px-2">
-                            <ApprovalBadge status={item.gyeoljeStatus} />
-                          </td>
-                          <td className="py-2 px-2 text-gray-600">{item.mngmRsprNm || '-'}</td>
-                          <td className="py-2 px-2 text-right text-gray-600">{fmtCurrency(item.totalSum)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* 신청자 정보 */}
-              {info.apcnNm && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">신청자 정보</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                    <InfoCell label="신청자" value={info.apcnNm} />
-                    <InfoCell label="연락처" value={info.apcnTlno} />
-                    <InfoCell label="이메일" value={info.apcnEmlAdrs} />
-                    <InfoCell label="소속" value={info.mngmDvsnNm} />
+              {/* 장비 기본 정보 — 2단 카드 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 장비 식별 */}
+                <div className="bg-slate-50 rounded-xl p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">장비 정보</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <InfoRow label="제조사" value={info.prdnCmpnNm} />
+                    <InfoRow label="모델" value={info.stszNm} />
+                    <InfoRow label="기기번호" value={info.mctlNo} />
+                    <InfoRow label="관리번호" value={info.custEqpmSrno} />
                   </div>
                 </div>
-              )}
+
+                {/* 교정 관리 */}
+                <div className="bg-blue-50/50 rounded-xl p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">교정 관리</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <InfoRow label="교정주기" value={info.affcCyclCd ? `${info.affcCyclCd}개월` : '-'} />
+                    <InfoRow label="차기교정" value={fmtDate(info.nxtrExrsYmd)} />
+                    <InfoRow label="교정 이력" value={`${items.length}건`} />
+                    <DdayBadge nxtrExrsYmd={info.nxtrExrsYmd} />
+                  </div>
+                </div>
+              </div>
+
+              {/* 교정 이력 테이블 (DataTable 공통 컴포넌트) */}
+              <DataTable
+                columns={historyColumns}
+                data={tableData}
+                rowKey={i => `${i.acptNo}-${i.no}`}
+                defaultSort={{ key: 'no', direction: 'asc' }}
+              />
             </div>
           )}
         </div>
@@ -208,29 +236,65 @@ export default function EquipmentDetailModal({ groupNm, equipmentName, onClose }
   )
 }
 
-function InfoCell({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <p className="text-xs text-gray-400 mb-0.5">{label}</p>
-      <p className="text-sm text-gray-800 font-medium truncate" title={value}>{value || '-'}</p>
+    <div className="flex items-baseline gap-2">
+      <span className="text-xs text-gray-400 whitespace-nowrap min-w-[52px]">{label}</span>
+      <span className="text-sm text-gray-800 font-medium truncate" title={value}>{value || '-'}</span>
     </div>
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const color = status.includes('미처리') ? 'bg-amber-100 text-amber-700'
-    : status.includes('완료') ? 'bg-green-100 text-green-700'
-    : 'bg-gray-100 text-gray-600'
-  return (
-    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${color}`}>
-      {status || '-'}
-    </span>
-  )
-}
+function DdayBadge({ nxtrExrsYmd }: { nxtrExrsYmd: string }) {
+  if (!nxtrExrsYmd || nxtrExrsYmd.length < 8) return <div />
 
-function ApprovalBadge({ status }: { status: string }) {
-  const color = status.includes('완료') ? 'text-green-600'
-    : status.includes('진행') ? 'text-amber-600'
-    : 'text-gray-400'
-  return <span className={`text-xs ${color}`}>{status || '-'}</span>
+  const target = new Date(
+    Number(nxtrExrsYmd.slice(0, 4)),
+    Number(nxtrExrsYmd.slice(4, 6)) - 1,
+    Number(nxtrExrsYmd.slice(6, 8)),
+  )
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = Math.ceil((target.getTime() - today.getTime()) / 86_400_000)
+
+  let label: string
+  let color: string
+
+  if (diff < 0) {
+    const abs = Math.abs(diff)
+    if (abs >= 365) {
+      const y = Math.floor(abs / 365)
+      const m = Math.floor((abs % 365) / 30)
+      label = m > 0 ? `${y}년 ${m}개월 초과` : `${y}년 초과`
+    } else if (abs >= 30) {
+      label = `${Math.floor(abs / 30)}개월 초과`
+    } else {
+      label = `${abs}일 초과`
+    }
+    color = 'text-red-600 bg-red-50'
+  } else if (diff === 0) {
+    label = '오늘 만료'
+    color = 'text-red-600 bg-red-50'
+  } else if (diff <= 30) {
+    label = `D-${diff}`
+    color = 'text-orange-600 bg-orange-50'
+  } else if (diff <= 60) {
+    label = `D-${diff}`
+    color = 'text-amber-600 bg-amber-50'
+  } else if (diff <= 90) {
+    label = `D-${diff}`
+    color = 'text-blue-600 bg-blue-50'
+  } else {
+    label = `D-${diff}`
+    color = 'text-green-600 bg-green-50'
+  }
+
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="text-xs text-gray-400 whitespace-nowrap min-w-[52px]">만료까지</span>
+      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>
+        {label}
+      </span>
+    </div>
+  )
 }
