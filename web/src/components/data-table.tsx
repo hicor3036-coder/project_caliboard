@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useMemo, useCallback, type ReactNode } from 'react'
+import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react'
 
 export interface Column<T> {
   key: string
   header: string
   align?: 'left' | 'center' | 'right'
   headerClassName?: string
+  minWidth?: number
   sortValue?: (item: T) => string | number | null
   render: (item: T) => ReactNode
 }
@@ -32,6 +33,45 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
   const [sort, setSort] = useState<SortState | null>(defaultSort ?? null)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(defaultPageSize)
+
+  // 컬럼 리사이즈 상태
+  const [colWidths, setColWidths] = useState<Record<string, number>>({})
+  const resizing = useRef<{ key: string; startX: number; startW: number } | null>(null)
+  const tableRef = useRef<HTMLTableElement>(null)
+
+  // 리사이즈 핸들 드래그 시작
+  const onResizeStart = useCallback((e: React.MouseEvent, colKey: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    // 현재 th의 실제 너비를 초기값으로
+    const th = (e.target as HTMLElement).closest('th')
+    const startW = colWidths[colKey] || th?.offsetWidth || 100
+
+    resizing.current = { key: colKey, startX: e.clientX, startW }
+
+    const onMove = (ev: MouseEvent) => {
+      const r = resizing.current
+      if (!r) return
+      const diff = ev.clientX - r.startX
+      const minW = columns.find(c => c.key === r.key)?.minWidth ?? 50
+      const newW = Math.max(minW, r.startW + diff)
+      setColWidths(prev => ({ ...prev, [r.key]: newW }))
+    }
+
+    const onUp = () => {
+      resizing.current = null
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [colWidths, columns])
 
   const handleSort = useCallback((col: Column<T>) => {
     if (!col.sortValue) return
@@ -96,7 +136,15 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: Object.keys(colWidths).length > 0 ? 'fixed' : 'auto' }}>
+          {/* colgroup: 리사이즈된 컬럼에 너비 적용 */}
+          {Object.keys(colWidths).length > 0 && (
+            <colgroup>
+              {columns.map(col => (
+                <col key={col.key} style={colWidths[col.key] ? { width: colWidths[col.key] } : undefined} />
+              ))}
+            </colgroup>
+          )}
           <thead>
             <tr className="border-b-2 border-gray-200 bg-gray-50 text-left">
               {columns.map((col, i) => {
@@ -106,7 +154,7 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
                   <th
                     key={col.key}
                     onClick={sortable ? () => handleSort(col) : undefined}
-                    className={`py-2.5 px-2 whitespace-nowrap text-xs font-bold uppercase tracking-wide ${
+                    className={`relative py-2.5 px-2 whitespace-nowrap text-xs font-bold uppercase tracking-wide ${
                       i < columns.length - 1 ? 'pr-3' : ''
                     } ${
                       col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''
@@ -129,6 +177,13 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
                         </span>
                       )}
                     </span>
+                    {/* 리사이즈 핸들 (마지막 컬럼 제외) */}
+                    {i < columns.length - 1 && (
+                      <span
+                        onMouseDown={e => onResizeStart(e, col.key)}
+                        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-400/40 active:bg-blue-500/50 z-10"
+                      />
+                    )}
                   </th>
                 )
               })}
@@ -140,7 +195,7 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
                 {columns.map((col, i) => (
                   <td
                     key={col.key}
-                    className={`py-2 px-2 whitespace-nowrap ${
+                    className={`py-2 px-2 whitespace-nowrap overflow-hidden text-ellipsis ${
                       i < columns.length - 1 ? 'pr-3' : ''
                     } ${
                       col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''

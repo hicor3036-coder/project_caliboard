@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
 import DataTable, { type Column } from './data-table'
 
 interface UnprocessedItem {
@@ -67,29 +67,51 @@ function MiniTooltip({ active, payload, label }: any) {
   )
 }
 
+type DaysFilter = 'within14' | 'over14' | 'over30' | 'overdue' | null
+
 export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }) {
   const [excludeLongTerm, setExcludeLongTerm] = useState(true)
   const [chartsOpen, setChartsOpen] = useState(false)
+  const [selectedManager, setSelectedManager] = useState<string | null>(null)
+  const [daysFilter, setDaysFilter] = useState<DaysFilter>(null)
 
-  // 1. 필터링 (최상단 토글 기준)
+  // 체류일수 필터 조건
+  const matchDaysFilter = (item: UnprocessedItem, filter: DaysFilter) => {
+    switch (filter) {
+      case 'within14': return item.체류일수 <= 14
+      case 'over14': return item.체류일수 > 14
+      case 'over30': return item.체류일수 > 30
+      case 'overdue': return item.남은일수 !== null && item.남은일수 < 0
+      default: return true
+    }
+  }
+
+  // 1. 필터링 (장기 미처리 토글 + 담당자 + 체류일수 필터)
   const filtered = useMemo(() => {
-    if (excludeLongTerm) return items.filter(i => i.체류일수 < 100)
-    return items
-  }, [items, excludeLongTerm])
+    let result = excludeLongTerm ? items.filter(i => i.체류일수 < 100) : items
+    if (selectedManager) result = result.filter(i => (i.mngmRsprNm || '(없음)') === selectedManager)
+    if (daysFilter) result = result.filter(i => matchDaysFilter(i, daysFilter))
+    return result
+  }, [items, excludeLongTerm, selectedManager, daysFilter])
 
   const 장기건수 = useMemo(() => items.filter(i => i.체류일수 >= 100).length, [items])
 
-  // 2. 요약 통계 (필터 결과 기준)
+  // 2. 요약 통계 (담당자/체류일수 필터 적용 전 — 장기 미처리 토글만 반영)
+  const baseItems = useMemo(() =>
+    excludeLongTerm ? items.filter(i => i.체류일수 < 100) : items
+  , [items, excludeLongTerm])
+
   const stats = useMemo(() => {
-    if (filtered.length === 0) return { 평균: 0, over14: 0, over30: 0, overdue: 0 }
-    const sum = filtered.reduce((s, i) => s + i.체류일수, 0)
+    if (baseItems.length === 0) return { 평균: 0, within14: 0, over14: 0, over30: 0, overdue: 0 }
+    const sum = baseItems.reduce((s, i) => s + i.체류일수, 0)
     return {
-      평균: Math.round((sum / filtered.length) * 10) / 10,
-      over14: filtered.filter(i => i.체류일수 > 14).length,
-      over30: filtered.filter(i => i.체류일수 > 30).length,
-      overdue: filtered.filter(i => i.남은일수 !== null && i.남은일수 < 0).length,
+      평균: Math.round((sum / baseItems.length) * 10) / 10,
+      within14: baseItems.filter(i => i.체류일수 <= 14).length,
+      over14: baseItems.filter(i => i.체류일수 > 14).length,
+      over30: baseItems.filter(i => i.체류일수 > 30).length,
+      overdue: baseItems.filter(i => i.남은일수 !== null && i.남은일수 < 0).length,
     }
-  }, [filtered])
+  }, [baseItems])
 
   // 3. 차트 데이터 (필터 결과 기준)
   const 체류분포 = useMemo(() => {
@@ -120,9 +142,11 @@ export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }
     return bins.map(b => ({ name: b.label, 건수: b.count }))
   }, [filtered])
 
+  // 담당자별 집계는 담당자 필터 적용 전 데이터로 계산 (차트는 항상 전체 표시)
   const 담당자별 = useMemo(() => {
+    const base = excludeLongTerm ? items.filter(i => i.체류일수 < 100) : items
     const map = new Map<string, number>()
-    for (const item of filtered) {
+    for (const item of base) {
       const key = item.mngmRsprNm || '(없음)'
       map.set(key, (map.get(key) ?? 0) + 1)
     }
@@ -130,7 +154,7 @@ export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }
       .map(([label, value]) => ({ label, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8)
-  }, [filtered])
+  }, [items, excludeLongTerm])
 
   // 4. 테이블 데이터
   const display = filtered
@@ -146,20 +170,25 @@ export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }
     )
   }
 
-  const summaryCards = [
-    { label: '평균 체류', value: `${stats.평균.toFixed(1)}일`, color: 'text-slate-700' },
-    { label: '14일 초과', value: `${stats.over14}건`, color: stats.over14 > 0 ? 'text-amber-600' : 'text-gray-500' },
-    { label: '30일 초과', value: `${stats.over30}건`, color: stats.over30 > 0 ? 'text-red-600' : 'text-gray-500' },
-    { label: '완료예정 초과', value: `${stats.overdue}건`, color: stats.overdue > 0 ? 'text-red-600' : 'text-gray-500' },
+  const filterCards: { key: DaysFilter; label: string; count: number; color: string; activeColor: string }[] = [
+    { key: 'within14', label: '14일 이내', count: stats.within14, color: 'text-green-600', activeColor: 'border-green-400 bg-green-50' },
+    { key: 'over14', label: '14일 초과', count: stats.over14, color: 'text-amber-600', activeColor: 'border-amber-400 bg-amber-50' },
+    { key: 'over30', label: '30일 초과', count: stats.over30, color: 'text-red-600', activeColor: 'border-red-400 bg-red-50' },
+    { key: 'overdue', label: '완료예정 초과', count: stats.overdue, color: 'text-red-600', activeColor: 'border-red-400 bg-red-50' },
   ]
 
   return (
     <div className="space-y-4">
-      {/* 헤더 + 필터 토글 */}
+      {/* 헤더: 제목 + 평균 체류 + 토글 */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">
-          미처리 현황 <span className="text-red-500 text-base font-normal ml-2">{filtered.length}건</span>
-        </h2>
+        <div className="flex items-baseline gap-4">
+          <h2 className="text-lg font-bold">
+            미처리 현황 <span className="text-red-500 text-base font-normal ml-1">{filtered.length}건</span>
+          </h2>
+          <span className="text-sm text-slate-500">
+            평균 체류 <span className="font-semibold text-slate-700">{stats.평균.toFixed(1)}일</span>
+          </span>
+        </div>
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <span className="text-xs text-gray-500">
             장기 미처리 제외 {장기건수 > 0 && <span className="text-slate-400">({장기건수}건)</span>}
@@ -183,14 +212,23 @@ export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }
         </div>
       )}
 
-      {/* 요약 카드 */}
-      <div className="grid grid-cols-4 gap-3">
-        {summaryCards.map(c => (
-          <div key={c.label} className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
-            <p className="text-xs text-gray-400 mb-0.5">{c.label}</p>
-            <p className={`text-lg font-bold ${c.color}`}>{c.value}</p>
-          </div>
-        ))}
+      {/* 필터 카드 (클릭하여 테이블 필터) */}
+      <div className="flex gap-3">
+        {filterCards.map(c => {
+          const isActive = daysFilter === c.key
+          return (
+            <button
+              key={c.key}
+              onClick={() => setDaysFilter(isActive ? null : c.key)}
+              className={`flex-1 rounded-xl shadow-sm border px-4 py-3 text-left transition-all cursor-pointer ${
+                isActive ? c.activeColor + ' ring-1 ring-offset-0' : 'bg-white border-gray-100 hover:border-gray-200'
+              }`}
+            >
+              <p className="text-xs text-gray-400 mb-0.5">{c.label}</p>
+              <p className={`text-lg font-bold ${c.count > 0 ? c.color : 'text-gray-400'}`}>{c.count}건</p>
+            </button>
+          )
+        })}
       </div>
 
       {/* 접이식 차트 */}
@@ -222,20 +260,95 @@ export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }
               </ResponsiveContainer>
             </div>
             <div>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">담당자별 미처리</h3>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                담당자별 미처리
+                <span className="text-[10px] font-normal text-slate-400 ml-2">클릭하여 필터</span>
+              </h3>
               <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={담당자별} layout="vertical" margin={{ left: 30, right: 16 }} barCategoryGap="25%">
+                <BarChart
+                  data={담당자별}
+                  layout="vertical"
+                  margin={{ left: 30, right: 16 }}
+                  barCategoryGap="25%"
+                  onClick={(state) => {
+                    const label = state?.activeLabel != null ? String(state.activeLabel) : null
+                    if (label) setSelectedManager(prev => prev === label ? null : label)
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="label" tick={{ fontSize: 12, fill: '#475569' }} width={60} interval={0} axisLine={false} tickLine={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    tick={({ x, y, payload }: any) => {
+                      const isSelected = selectedManager === payload.value
+                      return (
+                        <text
+                          x={x} y={y}
+                          textAnchor="end"
+                          dominantBaseline="central"
+                          fontSize={12}
+                          fill={selectedManager ? (isSelected ? '#1e293b' : '#cbd5e1') : '#475569'}
+                          fontWeight={isSelected ? 700 : 400}
+                        >
+                          {payload.value}
+                        </text>
+                      )
+                    }}
+                    width={60}
+                    interval={0}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip content={<MiniTooltip />} cursor={{ fill: '#f8fafc' }} />
-                  <Bar dataKey="value" name="건수" fill="#1e3a5f" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="value" name="건수" radius={[0, 6, 6, 0]}>
+                    {담당자별.map((entry) => (
+                      <Cell
+                        key={entry.label}
+                        fill={selectedManager ? (selectedManager === entry.label ? '#1e3a5f' : '#cbd5e1') : '#1e3a5f'}
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
         )}
       </div>
+
+      {/* 활성 필터 칩 */}
+      {(selectedManager || daysFilter) && (
+        <div className="flex items-center gap-2">
+          {daysFilter && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-sm font-medium rounded-lg border border-amber-200">
+              {filterCards.find(c => c.key === daysFilter)?.label}
+              <button
+                onClick={() => setDaysFilter(null)}
+                className="ml-0.5 text-amber-400 hover:text-amber-600"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          )}
+          {selectedManager && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg border border-blue-200">
+              {selectedManager}
+              <button
+                onClick={() => setSelectedManager(null)}
+                className="ml-0.5 text-blue-400 hover:text-blue-600"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          )}
+          <span className="text-xs text-gray-400">{filtered.length}건</span>
+        </div>
+      )}
 
       {/* 테이블 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">

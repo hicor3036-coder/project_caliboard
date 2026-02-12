@@ -7,6 +7,14 @@ import SummaryCards from '@/components/summary-cards'
 import UnprocessedTable from '@/components/unprocessed-table'
 import UpcomingCalibration from '@/components/upcoming-calibration'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
+import EquipmentSearch from '@/components/equipment-search'
+
+interface EquipmentItem {
+  acptNo: string; entpPrdNm: string; prdnCmpnNm: string;
+  stszNm: string; mctlNo: string; custEqpmSrno: string;
+  rcpnYmd: string; pgstNm: string; mngmRsprNm: string;
+  nxtrExrsYmd: string; exrsWrtnYmd: string
+}
 
 interface AnalysisData {
   summary: {
@@ -16,6 +24,7 @@ interface AnalysisData {
     평균소요일: number
     데이터시점: string
   }
+  전체장비: EquipmentItem[]
   미처리현황: Array<{
     acptNo: string; rcpnYmd: string; 체류일수: number;
     예상완료일: string | null; 남은일수: number | null;
@@ -242,6 +251,8 @@ export default function Dashboard() {
         return <UnprocessedTable items={data.미처리현황} />
       case 'upcoming':
         return <UpcomingCalibration data={data.차기교정임박} />
+      case 'search':
+        return <EquipmentSearch items={data.전체장비} />
     }
   }
 

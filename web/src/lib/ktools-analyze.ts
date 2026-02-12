@@ -81,6 +81,21 @@ export interface UpcomingCalibration {
   items: UpcomingItem[]
 }
 
+// 전체 장비 검색용 간소화 항목
+export interface EquipmentItem {
+  acptNo: string
+  entpPrdNm: string
+  prdnCmpnNm: string
+  stszNm: string
+  mctlNo: string
+  custEqpmSrno: string
+  rcpnYmd: string
+  pgstNm: string
+  mngmRsprNm: string
+  nxtrExrsYmd: string
+  exrsWrtnYmd: string
+}
+
 export interface AnalysisResult {
   summary: {
     총건수: number
@@ -89,6 +104,7 @@ export interface AnalysisResult {
     평균소요일: number
     데이터시점: string
   }
+  전체장비: EquipmentItem[]
   미처리현황: UnprocessedItem[]
   교정소요기간: CalibrationDuration
   차기교정임박: UpcomingCalibration
@@ -310,6 +326,28 @@ function analyzeByManager(items: KtoolsItem[]) {
     .sort((a, b) => b.value - a.value)
 }
 
+// 전체 장비 목록 — raw 데이터를 검색용 간소화 형태로 변환
+function toEquipmentList(items: KtoolsItem[]): EquipmentItem[] {
+  function fmtDate(d: string | null): string {
+    if (!d || d.length < 8) return ''
+    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
+  }
+
+  return items.map(item => ({
+    acptNo: item.acptNo,
+    entpPrdNm: item.entpPrdNm ?? '',
+    prdnCmpnNm: item.prdnCmpnNm ?? '',
+    stszNm: item.stszNm ?? '',
+    mctlNo: item.mctlNo ?? '',
+    custEqpmSrno: item.custEqpmSrno ?? '',
+    rcpnYmd: fmtDate(item.rcpnYmd),
+    pgstNm: item.pgstNm ?? '',
+    mngmRsprNm: item.mngmRsprNm ?? '',
+    nxtrExrsYmd: fmtDate(item.nxtrExrsYmd),
+    exrsWrtnYmd: fmtDate(item.exrsWrtnYmd),
+  }))
+}
+
 // === 메인 분석 함수 ===
 
 export function analyzeAll(items: KtoolsItem[], fetchedAt: Date): AnalysisResult {
@@ -326,6 +364,7 @@ export function analyzeAll(items: KtoolsItem[], fetchedAt: Date): AnalysisResult
       평균소요일: duration.전체중앙값,
       데이터시점: fetchedAt.toISOString(),
     },
+    전체장비: toEquipmentList(items),
     미처리현황: unprocessed,
     교정소요기간: duration,
     차기교정임박: upcoming,
