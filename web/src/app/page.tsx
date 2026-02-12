@@ -8,6 +8,7 @@ import UnprocessedTable from '@/components/unprocessed-table'
 import UpcomingCalibration from '@/components/upcoming-calibration'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import EquipmentSearch from '@/components/equipment-search'
+import AiChat from '@/components/ai-chat'
 
 interface EquipmentItem {
   acptNo: string; entpPrdNm: string; prdnCmpnNm: string;
@@ -253,6 +254,8 @@ export default function Dashboard() {
         return <UpcomingCalibration data={data.차기교정임박} />
       case 'search':
         return <EquipmentSearch items={data.전체장비} />
+      case 'ai-chat':
+        return <AiChat dataLoaded={!!data} />
     }
   }
 

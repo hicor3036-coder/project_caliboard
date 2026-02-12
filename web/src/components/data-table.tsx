@@ -2,6 +2,12 @@
 
 import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react'
 
+/** YYYYMMDD → YYYY-MM-DD 변환 */
+export function fmtDate(d: string | null | undefined): string {
+  if (!d || d.length < 8) return '-'
+  return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
+}
+
 export interface Column<T> {
   key: string
   header: string

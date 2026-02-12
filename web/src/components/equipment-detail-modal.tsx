@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import DataTable, { type Column } from './data-table'
+import DataTable, { type Column, fmtDate } from './data-table'
 
 interface DetailItem {
   prjcCd: string
@@ -43,10 +43,6 @@ interface Props {
   onClose: () => void
 }
 
-function fmtDate(d: string): string {
-  if (!d || d.length < 8) return '-'
-  return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
-}
 
 const historyColumns: Column<TableRow>[] = [
   {
