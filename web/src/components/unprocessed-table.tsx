@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
 import DataTable, { type Column } from './data-table'
+import EquipmentDetailModal from './equipment-detail-modal'
 
 interface UnprocessedItem {
   acptNo: string
@@ -17,10 +18,25 @@ interface UnprocessedItem {
   custEqpmSrno: string
   mngmRsprNm: string
   fnshScdlYmd: string
+  groupNm: string
+  groupCnt: number
 }
 
 const columns: Column<UnprocessedItem>[] = [
-  { key: 'acptNo', header: '접수번호', sortValue: i => i.acptNo, render: i => <span className="font-mono text-xs text-gray-500">{i.acptNo}</span> },
+  {
+    key: 'acptNo', header: '접수번호', sortValue: i => i.acptNo,
+    render: i => (
+      <span className="inline-flex items-center gap-1.5 font-mono text-xs text-gray-500">
+        {i.acptNo}
+        {i.groupCnt > 1 && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 rounded px-1 py-px font-sans font-medium">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            {i.groupCnt}
+          </span>
+        )}
+      </span>
+    ),
+  },
   { key: 'entpPrdNm', header: '업체품명', sortValue: i => i.entpPrdNm, render: i => <span className="text-gray-800 font-medium max-w-[200px] truncate block" title={i.entpPrdNm}>{i.entpPrdNm}</span> },
   { key: 'prdnCmpnNm', header: '제조사', sortValue: i => i.prdnCmpnNm, render: i => <span className="text-gray-600">{i.prdnCmpnNm}</span> },
   { key: 'stszNm', header: '모델', sortValue: i => i.stszNm, render: i => <span className="text-gray-600 max-w-[120px] truncate block" title={i.stszNm}>{i.stszNm || '-'}</span> },
@@ -74,6 +90,7 @@ export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }
   const [chartsOpen, setChartsOpen] = useState(false)
   const [selectedManager, setSelectedManager] = useState<string | null>(null)
   const [daysFilter, setDaysFilter] = useState<DaysFilter>(null)
+  const [detailItem, setDetailItem] = useState<UnprocessedItem | null>(null)
 
   // 체류일수 필터 조건
   const matchDaysFilter = (item: UnprocessedItem, filter: DaysFilter) => {
@@ -352,8 +369,17 @@ export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }
 
       {/* 테이블 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <DataTable columns={columns} data={display} rowKey={i => i.acptNo} />
+        <DataTable columns={columns} data={display} rowKey={i => i.acptNo} onRowClick={setDetailItem} />
       </div>
+
+      {/* 상세 모달 */}
+      {detailItem && detailItem.groupNm && (
+        <EquipmentDetailModal
+          groupNm={detailItem.groupNm}
+          equipmentName={detailItem.entpPrdNm}
+          onClose={() => setDetailItem(null)}
+        />
+      )}
     </div>
   )
 }

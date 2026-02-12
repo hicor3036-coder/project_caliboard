@@ -2,7 +2,7 @@
 
 import { ktoolsLogin } from './ktools-login'
 
-const API_URL = 'https://k-tools.ktl.re.kr/spm/api/spm0907_getConsignCnfrmRvfrmList.ajax'
+const API_URL = 'https://k-tools.ktl.re.kr/spm/api/spm0907_getConsignPrjcDtlEquipList.ajax'
 
 // KAI 과제코드 목록
 const PRJC_CD_LIST = '[KL151000, KL161020, KL171020, KL171140, KL180940, KL181200, KL211420, KL221490, KL231360, KL241520, KL251650]'
@@ -49,12 +49,23 @@ async function fetchPage(
     pageCount: String(pageCount),
     startDt: '',
     endDt: '',
+    exrsWrtnYmdStart: '',
+    exrsWrtnYmdEnd: '',
     entpPrdNm: '',
     prdnCmpnNm: '',
     stszNm: '',
+    mctlNo: '',
+    mctlNoTwo: '',
     acptNo: '',
+    exrsCmnm: '',
+    pgstNm: '',
+    custEqpmSrno: '',
     cnsnClsIdx: '32',
     prjcCdList: PRJC_CD_LIST,
+    apcnNmList: '',
+    apcnDvsnNmList: '',
+    prjcCdFList: '',
+    filterCol: 'PRJC_CD',
   })
 
   const res = await fetch(API_URL, {

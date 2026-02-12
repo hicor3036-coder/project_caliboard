@@ -13,7 +13,7 @@ interface EquipmentItem {
   acptNo: string; entpPrdNm: string; prdnCmpnNm: string;
   stszNm: string; mctlNo: string; custEqpmSrno: string;
   rcpnYmd: string; pgstNm: string; mngmRsprNm: string;
-  nxtrExrsYmd: string; exrsWrtnYmd: string
+  nxtrExrsYmd: string; exrsWrtnYmd: string; groupNm: string; groupCnt: number
 }
 
 interface AnalysisData {
@@ -29,7 +29,7 @@ interface AnalysisData {
     acptNo: string; rcpnYmd: string; 체류일수: number;
     예상완료일: string | null; 남은일수: number | null;
     entpPrdNm: string; prdnCmpnNm: string; stszNm: string;
-    mctlNo: string; custEqpmSrno: string; mngmRsprNm: string; fnshScdlYmd: string
+    mctlNo: string; custEqpmSrno: string; mngmRsprNm: string; fnshScdlYmd: string; groupNm: string; groupCnt: number
   }>
   차기교정임박: {
     평균소요일: number; 여유일: number;
@@ -38,7 +38,7 @@ interface AnalysisData {
       acptNo: string; entpPrdNm: string; prdnCmpnNm: string;
       stszNm: string; mctlNo: string; custEqpmSrno: string;
       nxtrExrsYmd: string; dDay: number; 접수권장일: string;
-      접수시급: boolean; 구간: string
+      접수시급: boolean; 구간: string; groupNm: string; groupCnt: number
     }>
   }
   진행상태분포: { label: string; value: number }[]

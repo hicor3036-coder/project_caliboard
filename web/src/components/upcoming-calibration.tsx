@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import DataTable, { type Column } from './data-table'
+import EquipmentDetailModal from './equipment-detail-modal'
 
 interface UpcomingItem {
   acptNo: string
@@ -15,6 +16,8 @@ interface UpcomingItem {
   접수권장일: string
   접수시급: boolean
   구간: string
+  groupNm: string
+  groupCnt: number
 }
 
 interface UpcomingData {
@@ -41,7 +44,20 @@ function formatDDay(d: number): string {
 }
 
 const columns: Column<UpcomingItem>[] = [
-  { key: 'acptNo', header: '접수번호', sortValue: i => i.acptNo, render: i => <span className="font-mono text-xs text-gray-500">{i.acptNo}</span> },
+  {
+    key: 'acptNo', header: '접수번호', sortValue: i => i.acptNo,
+    render: i => (
+      <span className="inline-flex items-center gap-1.5 font-mono text-xs text-gray-500">
+        {i.acptNo}
+        {i.groupCnt > 1 && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 rounded px-1 py-px font-sans font-medium">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            {i.groupCnt}
+          </span>
+        )}
+      </span>
+    ),
+  },
   {
     key: '상태', header: '상태', align: 'center',
     sortValue: i => i.접수시급 ? 0 : i.구간 === '장기경과' ? 2 : 1,
@@ -75,6 +91,7 @@ const columns: Column<UpcomingItem>[] = [
 
 export default function UpcomingCalibration({ data }: { data: UpcomingData }) {
   const [filter, setFilter] = useState<string>('전체')
+  const [detailItem, setDetailItem] = useState<UpcomingItem | null>(null)
 
   const activeCount = data.만료 + data.d30 + data.d60 + data.d90
 
@@ -126,7 +143,16 @@ export default function UpcomingCalibration({ data }: { data: UpcomingData }) {
         </div>
       )}
 
-      <DataTable columns={columns} data={display} rowKey={i => i.acptNo} />
+      <DataTable columns={columns} data={display} rowKey={i => i.acptNo} onRowClick={setDetailItem} />
+
+      {/* 상세 모달 */}
+      {detailItem && detailItem.groupNm && (
+        <EquipmentDetailModal
+          groupNm={detailItem.groupNm}
+          equipmentName={detailItem.entpPrdNm}
+          onClose={() => setDetailItem(null)}
+        />
+      )}
     </div>
   )
 }

@@ -46,6 +46,8 @@ export interface UnprocessedItem {
   custEqpmSrno: string
   mngmRsprNm: string
   fnshScdlYmd: string
+  groupNm: string
+  groupCnt: number
 }
 
 export interface CalibrationDuration {
@@ -68,6 +70,8 @@ export interface UpcomingItem {
   접수권장일: string
   접수시급: boolean
   구간: '장기경과' | '만료' | 'D-30' | 'D-60' | 'D-90' | 'D-90+'
+  groupNm: string
+  groupCnt: number
 }
 
 export interface UpcomingCalibration {
@@ -94,6 +98,8 @@ export interface EquipmentItem {
   mngmRsprNm: string
   nxtrExrsYmd: string
   exrsWrtnYmd: string
+  groupNm: string
+  groupCnt: number
 }
 
 export interface AnalysisResult {
@@ -172,6 +178,8 @@ function analyzeUnprocessed(items: KtoolsItem[], durationByProduct: Map<string, 
         custEqpmSrno: item.custEqpmSrno ?? '',
         mngmRsprNm: item.mngmRsprNm ?? '',
         fnshScdlYmd: item.fnshScdlYmd ? `${item.fnshScdlYmd.slice(0, 4)}-${item.fnshScdlYmd.slice(4, 6)}-${item.fnshScdlYmd.slice(6, 8)}` : '',
+        groupNm: (item as Record<string, unknown>).groupNm as string ?? '',
+        groupCnt: ((item as Record<string, unknown>).groupCnt as number) ?? 1,
       }
     })
     .sort((a, b) => b.체류일수 - a.체류일수)
@@ -254,6 +262,8 @@ function analyzeUpcoming(items: KtoolsItem[], 전체중앙값: number): Upcoming
       접수권장일: formatDate(접수권장일),
       접수시급,
       구간,
+      groupNm: (item as Record<string, unknown>).groupNm as string ?? '',
+      groupCnt: ((item as Record<string, unknown>).groupCnt as number) ?? 1,
     })
   }
 
@@ -345,6 +355,8 @@ function toEquipmentList(items: KtoolsItem[]): EquipmentItem[] {
     mngmRsprNm: item.mngmRsprNm ?? '',
     nxtrExrsYmd: fmtDate(item.nxtrExrsYmd),
     exrsWrtnYmd: fmtDate(item.exrsWrtnYmd),
+    groupNm: (item as Record<string, unknown>).groupNm as string ?? '',
+    groupCnt: ((item as Record<string, unknown>).groupCnt as number) ?? 1,
   }))
 }
 

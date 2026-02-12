@@ -27,9 +27,10 @@ interface DataTableProps<T> {
   rowKey: (item: T) => string
   defaultSort?: { key: string; direction: SortDirection }
   defaultPageSize?: number
+  onRowClick?: (item: T) => void
 }
 
-export default function DataTable<T>({ columns, data, rowKey, defaultSort, defaultPageSize = 10 }: DataTableProps<T>) {
+export default function DataTable<T>({ columns, data, rowKey, defaultSort, defaultPageSize = 10, onRowClick }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortState | null>(defaultSort ?? null)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(defaultPageSize)
@@ -191,7 +192,11 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
           </thead>
           <tbody>
             {paged.map(item => (
-              <tr key={rowKey(item)} className="border-b border-gray-50 hover:bg-gray-50">
+              <tr
+                key={rowKey(item)}
+                onClick={onRowClick ? () => onRowClick(item) : undefined}
+                className={`border-b border-gray-50 hover:bg-gray-50${onRowClick ? ' cursor-pointer' : ''}`}
+              >
                 {columns.map((col, i) => (
                   <td
                     key={col.key}

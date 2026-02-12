@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import DataTable, { type Column } from './data-table'
+import EquipmentDetailModal from './equipment-detail-modal'
 
 // === 타입 ===
 
@@ -17,6 +18,8 @@ interface EquipmentItem {
   mngmRsprNm: string
   nxtrExrsYmd: string
   exrsWrtnYmd: string
+  groupNm: string
+  groupCnt: number
 }
 
 // === 검색 대상 필드 (통합 텍스트 검색) ===
@@ -32,7 +35,17 @@ const columns: Column<EquipmentItem>[] = [
   {
     key: 'acptNo', header: '접수번호',
     sortValue: i => i.acptNo,
-    render: i => <span className="font-mono text-xs text-gray-500">{i.acptNo}</span>,
+    render: i => (
+      <span className="inline-flex items-center gap-1.5 font-mono text-xs text-gray-500">
+        {i.acptNo}
+        {i.groupCnt > 1 && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 rounded px-1 py-px font-sans font-medium">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            {i.groupCnt}
+          </span>
+        )}
+      </span>
+    ),
   },
   {
     key: 'entpPrdNm', header: '업체품명',
@@ -134,6 +147,7 @@ export default function EquipmentSearch({ items }: { items: EquipmentItem[] }) {
   const [status, setStatus] = useState('')
   const [manufacturer, setManufacturer] = useState('')
   const [manager, setManager] = useState('')
+  const [detailItem, setDetailItem] = useState<EquipmentItem | null>(null)
 
   // 필터 드롭다운 옵션 — items에서 고유값 추출
   const filterOptions = useMemo(() => {
@@ -163,7 +177,7 @@ export default function EquipmentSearch({ items }: { items: EquipmentItem[] }) {
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
     return items.filter(item => {
-      if (q && !SEARCH_FIELDS.some(f => item[f].toLowerCase().includes(q))) return false
+      if (q && !SEARCH_FIELDS.some(f => String(item[f]).toLowerCase().includes(q))) return false
       if (status && item.pgstNm !== status) return false
       if (manufacturer && item.prdnCmpnNm !== manufacturer) return false
       if (manager && item.mngmRsprNm !== manager) return false
@@ -244,9 +258,19 @@ export default function EquipmentSearch({ items }: { items: EquipmentItem[] }) {
             rowKey={i => i.acptNo}
             defaultSort={{ key: 'rcpnYmd', direction: 'desc' }}
             defaultPageSize={30}
+            onRowClick={setDetailItem}
           />
         )}
       </div>
+
+      {/* 상세 모달 */}
+      {detailItem && detailItem.groupNm && (
+        <EquipmentDetailModal
+          groupNm={detailItem.groupNm}
+          equipmentName={detailItem.entpPrdNm}
+          onClose={() => setDetailItem(null)}
+        />
+      )}
     </div>
   )
 }
