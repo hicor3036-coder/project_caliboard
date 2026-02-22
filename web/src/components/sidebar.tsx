@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 
-export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'ai-chat'
+export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'ai-chat' | 'equipment-detail'
 
 interface SidebarProps {
   activeView: ViewType

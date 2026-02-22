@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react'
 import DataTable, { type Column } from './data-table'
-import EquipmentDetailModal from './equipment-detail-modal'
 
 interface UpcomingItem {
   acptNo: string
@@ -89,9 +88,8 @@ const columns: Column<UpcomingItem>[] = [
   { key: '접수권장일', header: '접수권장', sortValue: i => i.접수권장일, render: i => <span className="text-gray-600">{i.접수권장일}</span> },
 ]
 
-export default function UpcomingCalibration({ data }: { data: UpcomingData }) {
+export default function UpcomingCalibration({ data, onOpenDetail }: { data: UpcomingData; onOpenDetail?: (groupNm: string, equipmentName: string) => void }) {
   const [filter, setFilter] = useState<string>('전체')
-  const [detailItem, setDetailItem] = useState<UpcomingItem | null>(null)
 
   const activeCount = data.만료 + data.d30 + data.d60 + data.d90
 
@@ -143,16 +141,7 @@ export default function UpcomingCalibration({ data }: { data: UpcomingData }) {
         </div>
       )}
 
-      <DataTable columns={columns} data={display} rowKey={i => i.acptNo} onRowClick={setDetailItem} />
-
-      {/* 상세 모달 */}
-      {detailItem && detailItem.groupNm && (
-        <EquipmentDetailModal
-          groupNm={detailItem.groupNm}
-          equipmentName={detailItem.entpPrdNm}
-          onClose={() => setDetailItem(null)}
-        />
-      )}
+      <DataTable columns={columns} data={display} rowKey={i => i.acptNo} onRowClick={item => { if (item.groupNm && onOpenDetail) onOpenDetail(item.groupNm, item.entpPrdNm) }} />
     </div>
   )
 }

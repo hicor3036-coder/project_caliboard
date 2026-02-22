@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts'
 import DataTable, { type Column } from './data-table'
-import EquipmentDetailModal from './equipment-detail-modal'
 
 interface UnprocessedItem {
   acptNo: string
@@ -85,13 +84,12 @@ function MiniTooltip({ active, payload, label }: any) {
 
 type DaysFilter = 'before' | 'after' | null
 
-export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }) {
+export default function UnprocessedTable({ items, onOpenDetail }: { items: UnprocessedItem[]; onOpenDetail?: (groupNm: string, equipmentName: string) => void }) {
   const [excludeLongTerm, setExcludeLongTerm] = useState(true)
   const [chartsOpen, setChartsOpen] = useState(false)
   const [selectedManager, setSelectedManager] = useState<string | null>(null)
   const [daysFilter, setDaysFilter] = useState<DaysFilter>(null)
   const [selectedBin, setSelectedBin] = useState<string | null>(null)
-  const [detailItem, setDetailItem] = useState<UnprocessedItem | null>(null)
 
   // 완료예정일 기준 필터
   const matchDaysFilter = (item: UnprocessedItem, filter: DaysFilter) => {
@@ -427,17 +425,8 @@ export default function UnprocessedTable({ items }: { items: UnprocessedItem[] }
 
       {/* 테이블 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <DataTable columns={columns} data={display} rowKey={i => i.acptNo} onRowClick={setDetailItem} />
+        <DataTable columns={columns} data={display} rowKey={i => i.acptNo} onRowClick={item => { if (item.groupNm && onOpenDetail) onOpenDetail(item.groupNm, item.entpPrdNm) }} />
       </div>
-
-      {/* 상세 모달 */}
-      {detailItem && detailItem.groupNm && (
-        <EquipmentDetailModal
-          groupNm={detailItem.groupNm}
-          equipmentName={detailItem.entpPrdNm}
-          onClose={() => setDetailItem(null)}
-        />
-      )}
     </div>
   )
 }

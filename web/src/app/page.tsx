@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar, { type ViewType } from '@/components/sidebar'
 import SummaryCards from '@/components/summary-cards'
 import UnprocessedTable from '@/components/unprocessed-table'
 import UpcomingCalibration from '@/components/upcoming-calibration'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import EquipmentSearch from '@/components/equipment-search'
+import EquipmentDetailPage from '@/components/equipment-detail-page'
 import AiChat from '@/components/ai-chat'
 
 interface EquipmentItem {
@@ -56,14 +57,61 @@ interface Progress {
   message: string
 }
 
-export default function Dashboard() {
+// URL ↔ 상태 동기화 헬퍼
+const VALID_VIEWS: ViewType[] = ['home', 'search', 'unprocessed', 'upcoming', 'ai-chat']
+
+function viewFromParams(params: URLSearchParams): { view: ViewType; equipment: { groupNm: string; equipmentName: string } | null } {
+  const v = params.get('view')
+  if (v === 'equipment-detail') {
+    const groupNm = params.get('groupNm')
+    const name = params.get('name') ?? ''
+    if (groupNm) return { view: 'equipment-detail', equipment: { groupNm, equipmentName: name } }
+  }
+  if (v && VALID_VIEWS.includes(v as ViewType)) return { view: v as ViewType, equipment: null }
+  return { view: 'home', equipment: null }
+}
+
+function buildUrl(view: ViewType, equipment?: { groupNm: string; equipmentName: string } | null): string {
+  const params = new URLSearchParams()
+  if (view !== 'home') params.set('view', view)
+  if (view === 'equipment-detail' && equipment) {
+    params.set('groupNm', equipment.groupNm)
+    if (equipment.equipmentName) params.set('name', equipment.equipmentName)
+  }
+  const qs = params.toString()
+  return qs ? `?${qs}` : '/'
+}
+
+export default function Page() {
+  return (
+    <Suspense>
+      <Dashboard />
+    </Suspense>
+  )
+}
+
+function Dashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [data, setData] = useState<AnalysisData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [initialized, setInitialized] = useState(false)
   const [progress, setProgress] = useState<Progress | null>(null)
-  const [activeView, setActiveView] = useState<ViewType>('home')
+  const [previousView, setPreviousView] = useState<ViewType>('home')
+
+  // URL에서 현재 뷰/장비 파싱
+  const { view: activeView, equipment: selectedEquipment } = viewFromParams(searchParams)
+
+  // 뷰 변경 → URL 업데이트
+  const setActiveView = useCallback((view: ViewType) => {
+    router.push(buildUrl(view), { scroll: false })
+  }, [router])
+
+  const openEquipmentDetail = useCallback((groupNm: string, equipmentName: string) => {
+    setPreviousView(activeView !== 'equipment-detail' ? activeView : previousView)
+    router.push(buildUrl('equipment-detail', { groupNm, equipmentName }), { scroll: false })
+  }, [activeView, previousView, router])
 
   // 캐시된 데이터 로드 (프로그레스바 불필요)
   const fetchCached = useCallback(async () => {
@@ -249,13 +297,24 @@ export default function Dashboard() {
           </div>
         )
       case 'unprocessed':
-        return <UnprocessedTable items={data.미처리현황} />
+        return <UnprocessedTable items={data.미처리현황} onOpenDetail={openEquipmentDetail} />
       case 'upcoming':
-        return <UpcomingCalibration data={data.차기교정임박} />
+        return <UpcomingCalibration data={data.차기교정임박} onOpenDetail={openEquipmentDetail} />
       case 'search':
-        return <EquipmentSearch items={data.전체장비} />
+        return <EquipmentSearch items={data.전체장비} onOpenDetail={openEquipmentDetail} searchParams={searchParams} />
       case 'ai-chat':
         return <AiChat dataLoaded={!!data} />
+      case 'equipment-detail':
+        if (selectedEquipment) {
+          return (
+            <EquipmentDetailPage
+              groupNm={selectedEquipment.groupNm}
+              equipmentName={selectedEquipment.equipmentName}
+              onBack={() => router.back()}
+            />
+          )
+        }
+        return null
     }
   }
 

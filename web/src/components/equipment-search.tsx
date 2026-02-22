@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import DataTable, { type Column } from './data-table'
-import EquipmentDetailModal from './equipment-detail-modal'
 
 // === 타입 ===
 
@@ -141,13 +141,36 @@ function FilterSelect({
 
 // === 메인 컴포넌트 (부모에서 items를 props로 전달받음) ===
 
-export default function EquipmentSearch({ items }: { items: EquipmentItem[] }) {
-  // 필터 상태
-  const [query, setQuery] = useState('')
-  const [status, setStatus] = useState('')
-  const [manufacturer, setManufacturer] = useState('')
-  const [manager, setManager] = useState('')
-  const [detailItem, setDetailItem] = useState<EquipmentItem | null>(null)
+export default function EquipmentSearch({ items, onOpenDetail, searchParams }: { items: EquipmentItem[]; onOpenDetail: (groupNm: string, equipmentName: string) => void; searchParams: URLSearchParams }) {
+  const router = useRouter()
+
+  // URL 파라미터에서 필터 상태 읽기 (드롭다운은 URL 직접 연동)
+  const query = searchParams.get('q') ?? ''
+  const status = searchParams.get('status') ?? ''
+  const manufacturer = searchParams.get('mfr') ?? ''
+  const manager = searchParams.get('mgr') ?? ''
+
+  // 텍스트 검색은 로컬 state → Enter/버튼 클릭 시에만 URL 반영
+  const [inputValue, setInputValue] = useState(query)
+
+  // URL 파라미터 업데이트 헬퍼
+  const updateFilter = useCallback((key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value) {
+      params.set(key, value)
+    } else {
+      params.delete(key)
+    }
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }, [searchParams, router])
+
+  const submitQuery = useCallback(() => {
+    updateFilter('q', inputValue.trim())
+  }, [updateFilter, inputValue])
+
+  const setStatus = useCallback((v: string) => updateFilter('status', v), [updateFilter])
+  const setManufacturer = useCallback((v: string) => updateFilter('mfr', v), [updateFilter])
+  const setManager = useCallback((v: string) => updateFilter('mgr', v), [updateFilter])
 
   // 필터 드롭다운 옵션 — items에서 고유값 추출
   const filterOptions = useMemo(() => {
@@ -167,11 +190,9 @@ export default function EquipmentSearch({ items }: { items: EquipmentItem[] }) {
   }, [items])
 
   const resetFilters = useCallback(() => {
-    setQuery('')
-    setStatus('')
-    setManufacturer('')
-    setManager('')
-  }, [])
+    setInputValue('')
+    router.replace('?view=search', { scroll: false })
+  }, [router])
 
   // 클라이언트 사이드 필터링 (텍스트 + 드롭다운 AND 조합)
   const filtered = useMemo(() => {
@@ -198,28 +219,37 @@ export default function EquipmentSearch({ items }: { items: EquipmentItem[] }) {
 
       {/* 검색 + 필터 영역 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        {/* 검색바 */}
-        <div className="relative mb-3">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="접수번호, 품명, 제조사, 모델, 기기번호, 관리번호, 담당자 검색"
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 placeholder:text-gray-400"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
+        {/* 검색바 — Enter 키 또는 검색 버튼으로 실행 */}
+        <div className="flex gap-2 mb-3">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') submitQuery() }}
+              placeholder="접수번호, 품명, 제조사, 모델, 기기번호, 관리번호, 담당자 검색"
+              className="w-full pl-10 pr-9 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 placeholder:text-gray-400"
+            />
+            {inputValue && (
+              <button
+                onClick={() => { setInputValue(''); updateFilter('q', '') }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <button
+            onClick={submitQuery}
+            className="px-4 py-2.5 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors shrink-0"
+          >
+            검색
+          </button>
         </div>
 
         {/* 필터 드롭다운 + 초기화 */}
@@ -258,19 +288,11 @@ export default function EquipmentSearch({ items }: { items: EquipmentItem[] }) {
             rowKey={i => i.acptNo}
             defaultSort={{ key: 'rcpnYmd', direction: 'desc' }}
             defaultPageSize={30}
-            onRowClick={setDetailItem}
+            onRowClick={item => { if (item.groupNm) onOpenDetail(item.groupNm, item.entpPrdNm) }}
           />
         )}
       </div>
 
-      {/* 상세 모달 */}
-      {detailItem && detailItem.groupNm && (
-        <EquipmentDetailModal
-          groupNm={detailItem.groupNm}
-          equipmentName={detailItem.entpPrdNm}
-          onClose={() => setDetailItem(null)}
-        />
-      )}
     </div>
   )
 }
