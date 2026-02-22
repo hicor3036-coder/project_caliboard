@@ -74,7 +74,13 @@ def call_mistral(prompt, system_prompt=None, temperature=0.0, max_tokens=2000):
     }
 
     t0 = time.time()
-    res = requests.post(MISTRAL_URL, json=payload, headers=headers, timeout=60)
+    for attempt in range(3):
+        res = requests.post(MISTRAL_URL, json=payload, headers=headers, timeout=60)
+        if res.status_code == 429:
+            wait = 2 ** attempt + 1
+            time.sleep(wait)
+            continue
+        break
     elapsed = time.time() - t0
 
     if res.status_code != 200:

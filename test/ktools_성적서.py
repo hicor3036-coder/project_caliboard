@@ -4,9 +4,46 @@ Created on Sat Feb 22 2026
 
 @author: hicor
 교정성적서 Excel 다운로드 & 파싱
-- 로그인 → 토큰 발급 → PDF→Excel 변환 → 다운로드 → 파싱
-- 갑지(기본정보) + 적합성검토서(Conformity Review) 위주로 파싱
-- 2차 시도: 규칙기반 실패 시 Mistral LLM API로 보강
+
+=== 전체 흐름 ===
+  k-tools 로그인(세션)
+    → 보안 토큰 발급 (get_token)
+    → PDF→Excel 변환 요청 (서버에서 변환)
+    → Excel 다운로드 (download_cert_excel)
+    → 규칙기반 파싱 (parse_cert_excel)
+    → [필요 시] LLM 백업 파싱 (_llm_supplement)
+
+=== 교정성적서 구조 (PDF→Excel 변환 결과) ===
+  - 갑지 (Page 1):  표지. 장비 기본 정보 (성적서번호, 고객명, 장비명, 제조사/모델, 시리얼 등)
+  - 을지 (Page 2~): 교정 측정 결과. 비정형 데이터라 규칙기반 파싱 불가 → LLM에 위임
+  - 적합성검토서 (마지막 페이지, 선택): Conformity Review. 장비정보 + PASS/FAIL 측정 결과
+    ※ 적합성검토서가 없는 성적서도 많음 (약 50%)
+
+=== 3단계 fallback 파싱 전략 ===
+  1차: 규칙기반 (로컬 로직) — 갑지 + 적합성검토서에서 정형 필드 추출
+  2차: Mistral API (mistral-small) — 핵심 필드 2개 이상 누락 시 발동, 최대 2회 재시도
+  3차: Groq API (llama-3.3-70b) — Mistral 실패(429 등) 시 최후의 보루, 최대 1회 재시도
+
+=== 유의사항 ===
+  - acptNo 변환: DB는 zero-padded (예: 02-012), API는 unpadded (예: 2-12) → make_api_acpt_no()
+  - 갑지 파싱 시 영문 라벨("Serial Number" 등)이 값으로 잘못 추출되는 케이스 있음 → BAD_VALUES로 후처리
+  - 적합성검토서 헤더는 2가지 레이아웃(패턴A/B)이 있음 → _parse_conformity() 내 주석 참고
+  - LLM은 빈 필드만 채움 (규칙기반 결과 우선). 기존 값은 절대 덮어쓰지 않음
+  - LLM 호출 시 Excel 전체를 텍스트로 변환 → 8,000자 초과 시 truncate
+  - Mistral 무료 티어: rate limit 빡빡 (1 req/sec, 30 req/min) → 429 시 exponential backoff
+  - Groq 무료 티어: 일일 토큰 무제한이지만 요청 수 제한 (250 req/day, 30 req/min)
+  - API 키는 현재 이 파일에 하드코딩됨. 추후 환경변수나 별도 config로 분리 권장
+
+=== 외부 모듈 의존성 ===
+  - ktools_login.py: k-tools 로그인 세션 생성
+  - ktools_수집.py:  장비 목록 전체 수집 (fetch_all)
+  - openpyxl:        Excel 파일 읽기
+  - requests:        HTTP API 호출 (k-tools, Mistral, Groq)
+
+=== 주요 함수 (외부 호출용) ===
+  - make_api_acpt_no(item) → API용 접수번호 문자열
+  - download_cert_excel(session, api_acpt_no) → Excel 바이트 또는 None
+  - parse_cert_excel(excel_bytes, use_llm=True) → 구조화된 dict
 """
 
 import sys
@@ -18,7 +55,9 @@ import openpyxl
 from io import BytesIO
 from ktools_login import ktools_login
 
-# Windows 콘솔 인코딩 문제 방지 (Spyder IDE 호환)
+# Windows 콘솔 인코딩 문제 방지
+# - Windows cmd/PowerShell은 cp949라 한글 깨짐 → UTF-8로 강제
+# - Spyder IDE의 TTYOutStream은 buffer 속성이 없어서 hasattr 체크 필요
 if sys.platform == 'win32' and hasattr(sys.stdout, 'buffer') and not isinstance(sys.stdout, io.TextIOWrapper):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
@@ -26,12 +65,30 @@ USER_ID = 'hicor'
 USER_PWD = 'dlacodnr1!'
 BASE_URL = 'https://k-tools.ktl.re.kr'
 
-# Mistral LLM API 설정
+# =============================================================================
+# LLM API 설정 (TODO: 추후 환경변수 또는 config 파일로 분리)
+# =============================================================================
+
+# 2차 fallback: Mistral
+# - 무료 토큰 넉넉하지만 rate limit 빡빡 (1 req/sec, 30 req/min)
+# - 429 발생 시 exponential backoff로 최대 2회 재시도
+# - OpenAI 호환 API 형식 (chat/completions)
 MISTRAL_API_KEY = '8GmClOHJYZr3PpZUAunyzQykOJPghT8D'
 MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions'
 MISTRAL_MODEL = 'mistral-small-latest'
 
-# LLM fallback 발동 기준: 핵심 필드 중 이 개수 이상 누락 시 LLM 호출
+# 3차 fallback: Groq (Mistral 429 실패 시 최후의 보루)
+# - Groq LPU 칩 기반이라 응답 매우 빠름 (~1초)
+# - 무료 티어: 일일 토큰 무제한, 요청 수 제한 (250 req/day)
+# - OpenAI 호환 API 형식 (chat/completions)
+GROQ_API_KEY = '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'
+GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+GROQ_MODEL = 'llama-3.3-70b-versatile'
+
+# LLM fallback 발동 기준
+# - 아래 핵심 필드 중 THRESHOLD 이상 누락 시 LLM 호출
+# - 적합성검토서가 있는 성적서는 규칙기반으로 대부분 추출 → LLM 불필요
+# - 적합성검토서가 없는 성적서는 갑지만으로 부족한 경우가 많아 LLM 발동률 높음
 LLM_MISSING_THRESHOLD = 2
 LLM_KEY_FIELDS = ['제조사', '모델', '시리얼', '교정일']
 
@@ -58,13 +115,19 @@ def make_api_acpt_no(item):
 
 def download_cert_excel(session, api_acpt_no):
     """교정성적서 Excel 다운로드
-    1) PDF→Excel 변환 요청 (서버에서 변환)
+    1) PDF→Excel 변환 요청 (서버에서 MarkAny DRM 해제 + PDF→Excel 변환)
     2) 변환된 Excel 파일 다운로드
     반환: Excel 바이트 또는 None (실패 시)
+
+    ※ 실패 케이스:
+      - DRM 해제 불가 (서버에서 code != 200)
+      - MarkAny 라이선스 만료
+      - 성적서 원본 PDF가 존재하지 않는 경우
     """
     token = get_token(session)
 
-    # Step 1: 변환 요청
+    # Step 1: 변환 요청 — 서버에서 DRM 해제 + PDF→Excel 변환
+    # ※ 변환은 세션 단위. 이전 변환 결과가 남아있으면 덮어씀
     convert_res = session.post(
         f'{BASE_URL}/spm/api/spm0907_saveReportCardPdfToExcel.ajax',
         data=f'acptNo={api_acpt_no}&token={token}',
@@ -73,7 +136,8 @@ def download_cert_excel(session, api_acpt_no):
     if result.get('code') != 200:
         return None
 
-    # Step 2: 다운로드
+    # Step 2: 다운로드 — Step 1에서 변환된 Excel을 가져옴
+    # ※ Content-Type이 spreadsheet가 아니면 HTML 에러 페이지일 수 있음
     download_res = session.get(f'{BASE_URL}/excel/getAcptNoPdfToExcel.do')
     content_type = download_res.headers.get('Content-Type', '')
     if 'spreadsheet' not in content_type:
@@ -83,7 +147,7 @@ def download_cert_excel(session, api_acpt_no):
 
 
 # =============================================================================
-# LLM 백업 파서 (Mistral API)
+# LLM 백업 파서 (3단계 fallback: Mistral → Groq)
 # =============================================================================
 
 _LLM_SYSTEM_PROMPT = """You are a calibration certificate data extraction assistant.
@@ -114,9 +178,32 @@ Rules:
 - Dates should be in original format
 - For 전체판정: PASS only if ALL measurement points passed, FAIL if any failed"""
 
+# LLM 프로바이더 설정 (순서대로 시도, 실패 시 다음으로 fallback)
+# - retries: 429 rate limit 시 재시도 횟수 (exponential backoff: 1초→3초→5초)
+# - 새 프로바이더 추가 시 이 리스트에 dict 추가하면 됨 (OpenAI 호환 API만 가능)
+_LLM_PROVIDERS = [
+    {
+        'name': 'Mistral',
+        'url': MISTRAL_URL,
+        'key': MISTRAL_API_KEY,
+        'model': MISTRAL_MODEL,
+        'retries': 2,
+    },
+    {
+        'name': 'Groq',
+        'url': GROQ_URL,
+        'key': GROQ_API_KEY,
+        'model': GROQ_MODEL,
+        'retries': 1,
+    },
+]
+
 
 def _excel_to_text(excel_bytes):
-    """Excel 바이트 → 시트별 텍스트 변환 (LLM 입력용)"""
+    """Excel 바이트 → 시트별 텍스트 변환 (LLM 입력용)
+    각 시트를 '=== Sheet: 이름 ===' 구분자로 나누고, 셀을 ' | '로 연결
+    ※ 빈 행은 스킵하여 토큰 절약
+    """
     wb = openpyxl.load_workbook(BytesIO(excel_bytes))
     parts = []
     for sn in wb.sheetnames:
@@ -132,72 +219,100 @@ def _excel_to_text(excel_bytes):
     return '\n\n'.join(parts)
 
 
-def _call_mistral(prompt, system_prompt=None, temperature=0.0, max_tokens=2000):
-    """Mistral API 호출 → 응답 텍스트 반환"""
+def _call_llm(provider, prompt, system_prompt=None):
+    """단일 LLM 프로바이더 호출 (429 재시도 포함)
+    반환: 응답 텍스트 또는 Exception 발생
+
+    ※ OpenAI 호환 API 형식 — Mistral, Groq 모두 동일 포맷
+    ※ response_format: json_object → 응답이 반드시 JSON으로 옴
+    ※ temperature=0.0 → 동일 입력에 대해 일관된 결과
+    ※ 429 재시도: wait = 2^attempt + 1 (1초 → 3초 → 5초)
+    """
     messages = []
     if system_prompt:
         messages.append({'role': 'system', 'content': system_prompt})
     messages.append({'role': 'user', 'content': prompt})
 
     payload = {
-        'model': MISTRAL_MODEL,
+        'model': provider['model'],
         'messages': messages,
-        'temperature': temperature,
-        'max_tokens': max_tokens,
+        'temperature': 0.0,
+        'max_tokens': 2000,
         'response_format': {'type': 'json_object'},
     }
     headers = {
-        'Authorization': f'Bearer {MISTRAL_API_KEY}',
+        'Authorization': f'Bearer {provider["key"]}',
         'Content-Type': 'application/json',
     }
 
-    res = requests.post(MISTRAL_URL, json=payload, headers=headers, timeout=30)
-    if res.status_code != 200:
-        raise Exception(f'Mistral API {res.status_code}: {res.text[:200]}')
+    retries = provider.get('retries', 2)
+    for attempt in range(retries + 1):
+        res = requests.post(provider['url'], json=payload, headers=headers, timeout=30)
+        if res.status_code == 429:
+            wait = 2 ** attempt + 1
+            time.sleep(wait)
+            continue
+        if res.status_code != 200:
+            raise Exception(f'{provider["name"]} {res.status_code}: {res.text[:200]}')
+        data = res.json()
+        return data['choices'][0]['message']['content']
 
-    data = res.json()
-    return data['choices'][0]['message']['content']
+    raise Exception(f'{provider["name"]} 429: rate limit {retries+1}회 초과')
 
 
 def _llm_parse(excel_bytes):
-    """Mistral LLM으로 교정성적서 파싱 (2차 시도용)
-    반환: dict (필드명: 값) 또는 None (실패 시)
+    """LLM으로 교정성적서 파싱 (3단계 fallback)
+
+    2차: Mistral (최대 2회 재시도)
+    3차: Groq Llama 3.3 70B (최후의 보루)
+
+    반환: (dict, provider_name) 또는 (None, None)
+
+    ※ 텍스트 8,000자 초과 시 truncate — 을지(측정 데이터)가 길면 잘릴 수 있으나
+      갑지 + 적합성검토서 정보는 앞쪽에 위치하므로 대부분 포함됨
+    ※ JSON 파싱 실패 시 응답에서 { } 범위를 찾아 재시도
     """
-    try:
-        text = _excel_to_text(excel_bytes)
-        if len(text) > 8000:
-            text = text[:8000] + '\n... (truncated)'
+    text = _excel_to_text(excel_bytes)
+    if len(text) > 8000:
+        text = text[:8000] + '\n... (truncated)'
 
-        content = _call_mistral(
-            f'다음은 교정성적서 Excel 파일의 내용입니다. 정보를 추출해주세요.\n\n{text}',
-            system_prompt=_LLM_SYSTEM_PROMPT,
-        )
+    prompt = f'다음은 교정성적서 Excel 파일의 내용입니다. 정보를 추출해주세요.\n\n{text}'
 
-        # JSON 파싱
+    for provider in _LLM_PROVIDERS:
         try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            start = content.find('{')
-            end = content.rfind('}') + 1
-            if start >= 0 and end > start:
-                return json.loads(content[start:end])
-            return None
-    except Exception:
-        return None
+            content = _call_llm(provider, prompt, system_prompt=_LLM_SYSTEM_PROMPT)
+
+            # JSON 파싱
+            try:
+                return json.loads(content), provider['name']
+            except json.JSONDecodeError:
+                start = content.find('{')
+                end = content.rfind('}') + 1
+                if start >= 0 and end > start:
+                    return json.loads(content[start:end]), provider['name']
+        except Exception:
+            continue  # 다음 프로바이더로 fallback
+
+    return None, None
 
 
 def _llm_supplement(result, excel_bytes):
     """규칙기반 결과에 LLM으로 누락 필드 보강
 
     핵심 필드 중 LLM_MISSING_THRESHOLD 이상 누락 시 LLM 호출.
-    LLM 결과로 빈 필드만 채움 (기존 규칙기반 결과 우선).
+    LLM 결과로 빈 필드만 채움 (기존 규칙기반 결과 우선 — 절대 덮어쓰지 않음).
     반환: (보강된 result, llm_used: bool)
+
+    ※ result에 추가되는 메타 필드:
+      - _llm_보강:     LLM이 채운 필드명 리스트 (예: ['제조사', '모델'])
+      - _llm_provider: 사용된 프로바이더명 (예: 'Mistral' 또는 'Groq')
+      - 측정요약:      LLM이 생성한 1~2문장 한글 요약 (규칙기반에는 없는 필드)
     """
     missing = [f for f in LLM_KEY_FIELDS if not result.get(f)]
     if len(missing) < LLM_MISSING_THRESHOLD:
         return result, False
 
-    llm = _llm_parse(excel_bytes)
+    llm, provider = _llm_parse(excel_bytes)
     if not llm:
         return result, False
 
@@ -215,15 +330,22 @@ def _llm_supplement(result, excel_bytes):
         result['측정요약'] = str(llm['측정요약'])
 
     result['_llm_보강'] = filled
+    result['_llm_provider'] = provider
     return result, True
 
 
 # =============================================================================
-# 파싱 함수
+# 규칙기반 파싱 함수
+# ※ Excel 시트 구조는 PDF→Excel 변환기에 의해 결정되므로 셀 위치가 유동적
+# ※ 라벨(영문) 기반으로 값을 찾는 방식 → 라벨 위치가 바뀌면 파싱 실패 가능
+# ※ 파싱 실패 시 LLM fallback이 보완하므로 100% 정확할 필요는 없음
 # =============================================================================
 
 def _find_conformity_sheet(wb):
-    """적합성검토서 시트 찾기 (마지막 시트에서 역순 탐색)"""
+    """적합성검토서 시트 찾기 (마지막 시트에서 역순 탐색)
+    ※ 적합성검토서는 보통 마지막 시트에 있으므로 역순으로 찾음
+    ※ 첫 3행 내에 'CONFORMITY' 문자열 포함 여부로 판단
+    """
     for sn in reversed(wb.sheetnames):
         ws = wb[sn]
         for row in ws.iter_rows(max_row=3, values_only=True):
@@ -234,10 +356,25 @@ def _find_conformity_sheet(wb):
 
 
 def _parse_cover(wb):
-    """갑지 (Page 1) 파싱 — 기본 정보 추출"""
+    """갑지 (Page 1) 파싱 — 기본 정보 추출
+
+    ※ 갑지 레이아웃 예시:
+      Certificate No.: 25-074958-01-265
+      Client
+        Name:                    KOREA AEROSPACE INDUSTRIES, LTD.
+      Description:               ACCELEROMETER
+      Manufacturer and Model:    PCB / 352C33
+      Serial Number:             SN-LW331510 [Identification Number: K30917]
+      Date of Calibration:       13   November   2025
+
+    ※ 셀 위치가 고정이 아님 — 라벨 오른쪽(c+1, c+2, c+3 등)에서 값을 찾음
+    ※ 한글 양식도 있어서 '성적서 번호', '교정일자' 등 한글 라벨도 처리
+    """
     info = {}
     ws = wb['Page 1'] if 'Page 1' in wb.sheetnames else wb[wb.sheetnames[0]]
 
+    # 모든 셀을 (행, 열) → 값 딕셔너리로 변환
+    # ※ values_only=False로 셀 좌표를 유지해야 인접 셀 탐색 가능
     cells = {}
     for row in ws.iter_rows(values_only=False):
         for cell in row:
@@ -292,6 +429,8 @@ def _parse_cover(wb):
                 info['교정일'] = str(date_val).strip()
 
     # 후처리: 영문 라벨이 값으로 잘못 파싱된 경우 제거
+    # ※ 한글 양식 성적서에서 발생 — 영문 라벨이 별도 셀에 있어 값 위치로 잘못 인식
+    # ※ 예: 제조사='Serial Number', 시리얼='The due date' 등
     BAD_VALUES = {'Serial Number', 'The due date', 'Manufacturer', 'Model',
                   'Description', 'Date of Calibration', 'Certificate No',
                   'Identification Number', 'Client', 'Name'}
@@ -303,7 +442,15 @@ def _parse_cover(wb):
 
 
 def _parse_conformity(ws):
-    """적합성검토서 파싱 — 장비정보 + 측정결과 + PASS/FAIL"""
+    """적합성검토서 파싱 — 장비정보 + 측정결과 + PASS/FAIL
+
+    ※ 적합성검토서는 2개 영역으로 구성:
+      1) 장비 헤더: Manufacturer, Model, Description, Serial Number 등
+      2) 측정 데이터: 각 포인트별 측정값 + PASS/FAIL 판정
+
+    ※ 헤더 레이아웃이 2가지 패턴으로 나뉨 (아래 주석 참고)
+    ※ 측정 데이터는 PASS/FAIL 문자열이 포함된 행만 추출
+    """
     info = {}
     measurements = []
 
@@ -505,17 +652,24 @@ def _cross_validate(cover, conf):
 
 
 def parse_cert_excel(excel_bytes, use_llm=True):
-    """교정성적서 Excel 파싱 → 구조화된 dict 반환
+    """교정성적서 Excel 파싱 → 구조화된 dict 반환 (메인 진입점)
+
+    Args:
+        excel_bytes: download_cert_excel()로 받은 Excel 바이트
+        use_llm:     True면 핵심 필드 누락 시 LLM fallback 발동 (기본값 True)
+                     대량 처리 시 False로 끄면 API 비용/시간 절약
+
+    Returns:
+        dict — 주요 키:
+          성적서번호, 고객명, 장비명, 제조사, 모델, 시리얼, 관리번호,
+          교정일, 차기교정일, 적합성검토(bool), 전체판정(PASS/FAIL/None),
+          측정포인트수, 측정결과(list), 불일치(list),
+          _llm_보강(list), _llm_provider(str), 측정요약(str)
 
     파싱 전략:
-    1차: 규칙기반 파싱 (갑지 + 적합성검토서)
-    2차: 핵심 필드 누락 시 Mistral LLM API로 보강 (use_llm=True일 때)
-
-    구조:
-    - 갑지: 기본 정보 (Page 1)
-    - 적합성검토서: 측정 결과 + PASS/FAIL (마지막 시트)
-    - 갑지 ↔ 적합성검토서 교차검증 (불일치 감지)
-    - 적합성검토서가 없으면 갑지 정보만 반환
+      1차: 규칙기반 — 갑지 + 적합성검토서
+      2차: Mistral LLM — 핵심 필드 2개 이상 누락 시
+      3차: Groq Llama — Mistral 실패 시 최후의 보루
     """
     wb = openpyxl.load_workbook(BytesIO(excel_bytes))
 
@@ -561,7 +715,9 @@ def parse_cert_excel(excel_bytes, use_llm=True):
 
     wb.close()
 
-    # 2차: LLM 백업 파싱 (핵심 필드 누락 시)
+    # LLM 백업 파싱 (핵심 필드 누락 시)
+    # ※ _llm_보강이 빈 리스트면 규칙기반만으로 충분했다는 의미
+    # ※ _llm_provider가 'Mistral' 또는 'Groq'면 해당 LLM이 보강한 것
     result['_llm_보강'] = []
     if use_llm:
         result, _ = _llm_supplement(result, excel_bytes)
@@ -570,7 +726,10 @@ def parse_cert_excel(excel_bytes, use_llm=True):
 
 
 # =============================================================================
-# 실행
+# 테스트 실행 (직접 실행 시)
+# - Spyder에서 그대로 실행 가능
+# - 랜덤 10건을 뽑아 규칙기반 + LLM fallback 통합 테스트
+# - 각 건마다 [Mistral+5] 또는 [Groq+3] 형태로 어떤 LLM이 몇 개 필드를 보강했는지 표시
 # =============================================================================
 
 if __name__ == '__main__':
@@ -582,6 +741,7 @@ if __name__ == '__main__':
     print('=' * 70)
 
     # 1. 로그인 & 데이터 수집
+    # ※ session.get(spm0907.do)는 교정 관리 메뉴 접근용 — 이걸 해야 API 호출 가능
     print('\n[1] 로그인 & 데이터 수집...')
     session = ktools_login(USER_ID, USER_PWD)
     session.get(f'{BASE_URL}/spm/contents/spm0907.do?cnsnClsIdx=32')
@@ -619,7 +779,8 @@ if __name__ == '__main__':
 
         # 결과 출력
         conf_mark = 'O' if cert['적합성검토'] else 'X'
-        llm_mark = f' [LLM+{len(llm_fields)}]' if llm_fields else ''
+        provider = cert.get('_llm_provider', '')
+        llm_mark = f' [{provider}+{len(llm_fields)}]' if llm_fields else ''
         print(f'  [{i+1}] {api_acpt:22s}  적합{conf_mark}{llm_mark}  {prd}')
         print(f'       성적서번호={cert.get("성적서번호", "?")}')
         print(f'       제조사={cert.get("제조사", "?")} / 모델={cert.get("모델", "?")}')
@@ -627,7 +788,7 @@ if __name__ == '__main__':
         print(f'       교정일={cert.get("교정일", "?")} / 차기={cert.get("차기교정일", "?")}')
         print(f'       판정={cert.get("전체판정", "-")} / 측정={cert.get("측정포인트수", 0)}pt')
         if llm_fields:
-            print(f'       LLM 보강 필드: {", ".join(llm_fields)}')
+            print(f'       {provider} 보강: {", ".join(llm_fields)}')
         if cert.get('측정요약'):
             print(f'       측정요약: {cert["측정요약"]}')
         print()
