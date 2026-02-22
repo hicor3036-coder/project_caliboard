@@ -149,28 +149,41 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
   const status = searchParams.get('status') ?? ''
   const manufacturer = searchParams.get('mfr') ?? ''
   const manager = searchParams.get('mgr') ?? ''
+  const urlPage = parseInt(searchParams.get('page') ?? '0', 10) || 0
+  const urlPageSize = parseInt(searchParams.get('size') ?? '30', 10) || 30
 
   // 텍스트 검색은 로컬 state → Enter/버튼 클릭 시에만 URL 반영
   const [inputValue, setInputValue] = useState(query)
 
-  // URL 파라미터 업데이트 헬퍼
-  const updateFilter = useCallback((key: string, value: string) => {
+  // URL 파라미터 업데이트 헬퍼 (여러 키를 한 번에 업데이트 가능)
+  const updateFilter = useCallback((updates: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (value) {
-      params.set(key, value)
-    } else {
-      params.delete(key)
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) {
+        params.set(key, value)
+      } else {
+        params.delete(key)
+      }
     }
     router.replace(`?${params.toString()}`, { scroll: false })
   }, [searchParams, router])
 
   const submitQuery = useCallback(() => {
-    updateFilter('q', inputValue.trim())
+    updateFilter({ q: inputValue.trim(), page: '' })
   }, [updateFilter, inputValue])
 
-  const setStatus = useCallback((v: string) => updateFilter('status', v), [updateFilter])
-  const setManufacturer = useCallback((v: string) => updateFilter('mfr', v), [updateFilter])
-  const setManager = useCallback((v: string) => updateFilter('mgr', v), [updateFilter])
+  const setStatus = useCallback((v: string) => updateFilter({ status: v, page: '' }), [updateFilter])
+  const setManufacturer = useCallback((v: string) => updateFilter({ mfr: v, page: '' }), [updateFilter])
+  const setManager = useCallback((v: string) => updateFilter({ mgr: v, page: '' }), [updateFilter])
+
+  // 페이지네이션 URL 업데이트 콜백
+  const handlePageChange = useCallback((p: number) => {
+    updateFilter({ page: p > 0 ? String(p) : '' })
+  }, [updateFilter])
+
+  const handlePageSizeChange = useCallback((s: number) => {
+    updateFilter({ size: s !== 30 ? String(s) : '', page: '' })
+  }, [updateFilter])
 
   // 필터 드롭다운 옵션 — items에서 고유값 추출
   const filterOptions = useMemo(() => {
@@ -235,7 +248,7 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
             />
             {inputValue && (
               <button
-                onClick={() => { setInputValue(''); updateFilter('q', '') }}
+                onClick={() => { setInputValue(''); updateFilter({ q: '', page: '' }) }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -288,6 +301,10 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
             rowKey={i => i.acptNo}
             defaultSort={{ key: 'rcpnYmd', direction: 'desc' }}
             defaultPageSize={30}
+            controlledPage={urlPage}
+            controlledPageSize={urlPageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
             onRowClick={item => { if (item.groupNm) onOpenDetail(item.groupNm, item.entpPrdNm) }}
           />
         )}

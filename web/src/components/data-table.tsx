@@ -34,12 +34,30 @@ interface DataTableProps<T> {
   defaultSort?: { key: string; direction: SortDirection }
   defaultPageSize?: number
   onRowClick?: (item: T) => void
+  // 외부 제어 (URL 파라미터 연동용)
+  controlledPage?: number
+  controlledPageSize?: number
+  onPageChange?: (page: number) => void
+  onPageSizeChange?: (size: number) => void
 }
 
-export default function DataTable<T>({ columns, data, rowKey, defaultSort, defaultPageSize = 10, onRowClick }: DataTableProps<T>) {
+export default function DataTable<T>({ columns, data, rowKey, defaultSort, defaultPageSize = 10, onRowClick, controlledPage, controlledPageSize, onPageChange, onPageSizeChange }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortState | null>(defaultSort ?? null)
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(defaultPageSize)
+  const [internalPage, setInternalPage] = useState(0)
+  const [internalPageSize, setInternalPageSize] = useState(defaultPageSize)
+
+  // 외부 제어 모드 감지
+  const isControlled = controlledPage !== undefined
+  const page = isControlled ? controlledPage : internalPage
+  const pageSize = isControlled ? (controlledPageSize ?? defaultPageSize) : internalPageSize
+  const setPage = (v: number | ((prev: number) => number)) => {
+    const next = typeof v === 'function' ? v(page) : v
+    if (isControlled) { onPageChange?.(next) } else { setInternalPage(next) }
+  }
+  const handlePageSizeChange = (v: number) => {
+    if (isControlled) { onPageSizeChange?.(v); onPageChange?.(0) }
+    else { setInternalPageSize(v); setInternalPage(0) }
+  }
 
   // 컬럼 리사이즈 상태
   const [colWidths, setColWidths] = useState<Record<string, number>>({})
@@ -118,9 +136,10 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
   const safePage = Math.min(page, totalPages - 1)
   const paged = sorted.slice(safePage * pageSize, (safePage + 1) * pageSize)
 
-  // 데이터 변경 시 첫 페이지로
+  // 데이터 변경 시 첫 페이지로 (내부 모드만)
   const dataLen = data.length
-  useMemo(() => { setPage(0) }, [dataLen, pageSize])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useMemo(() => { if (!isControlled) setInternalPage(0) }, [dataLen, internalPageSize])
 
   const showPagination = sorted.length > PAGE_SIZES[0]
 
@@ -132,7 +151,7 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
           <span>전체 {sorted.length.toLocaleString()}건</span>
           <select
             value={pageSize}
-            onChange={e => { setPageSize(Number(e.target.value)); setPage(0) }}
+            onChange={e => handlePageSizeChange(Number(e.target.value))}
             className="border border-gray-200 rounded px-2 py-1 text-xs bg-white text-gray-600 cursor-pointer hover:border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
           >
             {PAGE_SIZES.map(s => (
