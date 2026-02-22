@@ -6,6 +6,7 @@ import {
   ReferenceLine, Area, ComposedChart,
 } from 'recharts'
 import DataTable, { type Column, fmtDate } from './data-table'
+import EquipmentHealthPanel from './equipment-health-panel'
 import type { CertResult, MeasurementPoint } from '@/lib/cert-cache'
 
 // === 타입 ===
@@ -993,7 +994,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           )}
 
           {/* 오차 추이 차트: X축=측정포인트, Y축=오차, 라인=연차별, 허용오차 밴드 */}
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer key={activeQ ?? '__all__'} width="100%" height={300}>
             <ComposedChart data={currentTrend.chartData} margin={{ left: 15, right: 15, top: 10, bottom: 5 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis
@@ -1144,49 +1145,28 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         )
       })()}
 
-      {/* ===== 2열: 교정주기 예측 + 적합성 분석 ===== */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 교정주기 예측 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <SectionHeader
-              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />}
-              title="교정주기 예측"
-              color="text-indigo-400"
-            />
-            <span className="px-2 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-500 rounded-full">AI 준비 중</span>
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <span className="text-sm text-slate-600">현재 교정주기</span>
-              <span className="text-lg font-bold text-slate-800">
-                {info.affcCyclCd ? `${info.affcCyclCd}개월` : '-'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-indigo-50/50 rounded-lg border border-dashed border-indigo-200">
-              <span className="text-sm text-indigo-600">AI 추천 주기</span>
-              <span className="text-lg font-bold text-indigo-400">- -</span>
-            </div>
-            <p className="text-xs text-slate-400">
-              교정 이력과 경년 데이터를 기반으로 최적 교정주기를 AI가 권고합니다.
-            </p>
-          </div>
-        </div>
-
-        {/* 적합성 분석 (placeholder) */}
-        <AiPlaceholder
-          icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />}
-          title="적합성 분석"
-          description="장비 매뉴얼을 AI가 분석하여 교정 기준 대비 적합성을 판단하고, 특이사항을 안내합니다."
+      {/* ===== 장비 건강검진 AI ===== */}
+      {conformityTrend ? (
+        <EquipmentHealthPanel
+          series={conformityTrend.series}
+          calDates={conformityTrend.calDates}
+          certCount={conformityTrend.certCount}
+          affcCyclCd={info.affcCyclCd}
         />
-      </div>
-
-      {/* ===== 특이사항/알림 (placeholder) ===== */}
-      <AiPlaceholder
-        icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />}
-        title="특이사항 / 알림"
-        description="매뉴얼 기반 주의사항, 이상 징후, 교정 시 특기 사항을 AI가 자동으로 정리하여 안내합니다."
-      />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AiPlaceholder
+            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />}
+            title="장비 건강 진단"
+            description="성적서를 불러오면 장비 건강점수, 교정주기 예측, 조치 권고를 AI가 분석합니다."
+          />
+          <AiPlaceholder
+            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}
+            title="교정주기 예측"
+            description="교정 이력과 경년 데이터를 기반으로 최적 교정주기를 AI가 권고합니다."
+          />
+        </div>
+      )}
 
       {/* ===== 교정 이력 상세 테이블 ===== */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
