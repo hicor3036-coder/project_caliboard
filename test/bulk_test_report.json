@@ -1,0 +1,66 @@
+{
+  "sample_size": 100,
+  "stats": {
+    "download_ok": 96,
+    "download_fail": 4,
+    "parse_ok": 96,
+    "parse_fail": 0,
+    "conformity_yes": 24,
+    "conformity_no": 72,
+    "cross_ok": 22,
+    "cross_mismatch": 2,
+    "all_pass": 21,
+    "has_fail": 1,
+    "no_measurements": 2
+  },
+  "speed": {
+    "total_seconds": 251.4,
+    "avg_download_sec": 2.1,
+    "avg_parse_sec": 0.12,
+    "items_per_hour": 1432
+  },
+  "sheet_distribution": {
+    "3": 72,
+    "7": 6,
+    "2": 6,
+    "4": 7,
+    "8": 1,
+    "5": 4
+  },
+  "mismatches": [
+    {
+      "acptNo": "25-018298-01-18",
+      "항목": "성적서번호",
+      "갑지": "25-018298-01-18",
+      "적합성검토": "25-01829"
+    },
+    {
+      "acptNo": "23-058203-01-11",
+      "항목": "관리번호",
+      "갑지": "B41666",
+      "적합성검토": "B41622"
+    }
+  ],
+  "failures": [
+    {
+      "acptNo": "23-083339-01-6",
+      "단계": "다운로드",
+      "원인": "Excel 변환/다운로드 실패"
+    },
+    {
+      "acptNo": "19-043472-01-24",
+      "단계": "다운로드",
+      "원인": "Excel 변환/다운로드 실패"
+    },
+    {
+      "acptNo": "25-005611-02-1",
+      "단계": "다운로드",
+      "원인": "Excel 변환/다운로드 실패"
+    },
+    {
+      "acptNo": "19-054426-01-1",
+      "단계": "다운로드",
+      "원인": "Excel 변환/다운로드 실패"
+    }
+  ]
+}
