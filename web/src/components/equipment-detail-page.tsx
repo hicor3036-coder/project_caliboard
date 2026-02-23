@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import DataTable, { type Column, fmtDate } from './data-table'
 import EquipmentHealthPanel from './equipment-health-panel'
+import CalibrationInstructionPanel from './calibration-instruction-panel'
 import type { CertResult, MeasurementPoint } from '@/lib/cert-cache'
 
 // === 타입 ===
@@ -80,8 +81,9 @@ function normalizeRef(val: string): string {
 }
 
 function mpKey(mp: MeasurementPoint, idx: number): string {
-  if (mp.기준값 != null) return `${normalizeRef(mp.기준값)}_${mp.기준단위 || ''}`
-  return `idx_${idx}`
+  const q = mp.물리량 ?? inferQuantityFromUnit(mp.기준단위 || mp.오차단위 || mp.지시단위 || null) ?? ''
+  if (mp.기준값 != null) return `${q}_${normalizeRef(mp.기준값)}_${mp.기준단위 || ''}`
+  return `${q}_idx_${idx}`
 }
 
 function parseNum(val: string | null | undefined): number | null {
@@ -1224,6 +1226,19 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         </div>
         )
       })()}
+
+      {/* ===== AI 교정 지시서 ===== */}
+      {conformityTrend && (
+        <CalibrationInstructionPanel
+          series={conformityTrend.series}
+          calDates={conformityTrend.calDates}
+          certCount={conformityTrend.certCount}
+          affcCyclCd={info.affcCyclCd}
+          equipmentName={equipmentName}
+          manufacturer={info.prdnCmpnNm || ''}
+          model={info.stszNm || ''}
+        />
+      )}
 
       {/* ===== 장비 건강검진 AI ===== */}
       {conformityTrend ? (

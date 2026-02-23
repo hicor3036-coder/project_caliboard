@@ -1,6 +1,6 @@
 // AI 건강검진 reasoning + 처방 생성 API
 // 규칙 기반 통계 분석 결과를 받아 LLM으로 자연어 진단 소견 생성
-// Mistral → Groq fallback, JSON 응답
+// Groq(3모델) → Mistral fallback, JSON 응답
 
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -14,21 +14,36 @@ interface LlmProvider {
   retries: number
 }
 
+// Groq-Mistral 교차 배치: 한쪽 호스팅이 전체 rate limit 걸려도 빠르게 다른 쪽으로 전환
 function getLlmProviders(): LlmProvider[] {
   return [
+    {
+      name: 'Groq-llama3.3-70b',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      key: process.env.GROQ_API_KEY ?? '',
+      model: 'llama-3.3-70b-versatile',
+      retries: 0,
+    },
     {
       name: 'Mistral',
       url: 'https://api.mistral.ai/v1/chat/completions',
       key: process.env.MISTRAL_API_KEY ?? '',
       model: 'mistral-small-latest',
-      retries: 2,
+      retries: 0,
     },
     {
-      name: 'Groq',
+      name: 'Groq-maverick',
       url: 'https://api.groq.com/openai/v1/chat/completions',
       key: process.env.GROQ_API_KEY ?? '',
-      model: 'llama-3.3-70b-versatile',
-      retries: 1,
+      model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+      retries: 0,
+    },
+    {
+      name: 'Groq-scout',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      key: process.env.GROQ_API_KEY ?? '',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      retries: 0,
     },
   ]
 }
@@ -109,9 +124,9 @@ yearsToLimit(한계 도달까지 남은 연수)은 반드시 currentCycle(현재
 - **details[].slope**: 오차의 연간 변화율. 양수=오차 증가(악화), 음수=오차 감소
 - **details[].pValue**: t-검정 p-value. 0.05 미만이면 통계적으로 유의미한 변화 (추세가 있다)
 - **details[].significant**: p < 0.05 여부
-- **details[].usageRatio**: 허용오차 대비 현재 오차 비율(%). 높을수록 한계에 가까움
+- **details[].usageRatio**: 허용오차 대비 현재 오차 비율(%). 이 숫자는 내부 계산용이며, **사용자에게 설명할 때는 반드시 "오차 여유도"로 뒤집어서** 표현하세요. 변환: 오차 여유도 = 100 - usageRatio. 예: usageRatio=8 → "오차 여유도 92%" (허용범위의 92%가 남아있음). usageRatio=70 → "오차 여유도 30%" (여유 적음). "사용률"이라는 표현은 사용하지 마세요!
 - **details[].yearsToLimit**: 현 기울기로 허용한계 도달까지 남은 연수. null이면 계산 불가. **반드시 currentCycle과 비교하여 남은 교정 횟수로 해석할 것**
-- **currentRatio**: 전체 포인트 중 최대 허용오차 비율(%)
+- **currentRatio**: 전체 포인트 중 최대 usageRatio(%). 이것도 "오차 여유도"로 변환하여 표현. 예: currentRatio=8 → "전체 오차 여유도 92%"
 - **components**: 세부 점수 — toleranceProximity(허용오차여유), longTermStability(장기안정도), shortTermStability(단기안정도), failHistory(적합이력), dataAvailability(데이터충분성)
 
 ## 출력 형식
@@ -130,8 +145,12 @@ yearsToLimit(한계 도달까지 남은 연수)은 반드시 currentCycle(현재
 
 ## reasoning 작성 규칙
 1줄: 종합 등급과 핵심 진단 요약 (예: "건강등급 A(96점), 전반적으로 매우 안정적인 상태입니다.")
-2~3줄: 핵심 통계 근거. 유의미 포인트가 있으면 어떤 포인트에서 어떤 변화가 감지되었는지, 없으면 왜 안정적인지. 수치를 구체적으로 인용.
+2~3줄: 핵심 통계 근거. 유의미 포인트가 있으면 어떤 포인트에서 어떤 변화가 감지되었는지, 없으면 왜 안정적인지. **오차 여유도(100-usageRatio)%로** 수치를 구체적으로 인용.
 4~5줄: 교정주기 권고 결론과 이유. "~이므로 ~를 권고합니다" 형식. 포인트 주시 필요 시 구체적으로 명시.
+
+GOOD 예시: "모든 포인트에서 오차 여유도 92% 이상으로 매우 안정적입니다."
+GOOD 예시: "300 N·m 포인트에서 오차 여유도가 30%로 줄어들고 있어 주의가 필요합니다."
+BAD 예시: "허용오차 사용률 8%" ← "사용률"이라는 표현은 이해하기 어려우므로 절대 사용 금지!
 
 ## prescriptions 작성 규칙
 - 최소 2개, 최대 5개
@@ -150,6 +169,9 @@ export async function POST(request: NextRequest) {
     if (!body.direction || body.totalPoints == null) {
       return NextResponse.json({ error: '필수 필드 누락' }, { status: 400 })
     }
+
+    // 디버그: LLM에 전달되는 데이터 확인
+    console.log(`[health-reasoning] input: currentRatio=${body.currentRatio}, details usageRatios=[${(body.details ?? []).map((d: { label: string; usageRatio: number | null }) => `${d.label}:${d.usageRatio}`).join(', ')}]`)
 
     const userPrompt = `아래는 교정장비의 건강검진 통계 분석 결과입니다. 진단 소견과 조치 권고사항을 작성해주세요.\n\n${JSON.stringify(body)}`
 
@@ -191,13 +213,16 @@ export async function POST(request: NextRequest) {
             description: String(p.description),
           }))
 
+        console.log(`[health-reasoning] ${provider.name} 응답: ${parsed.reasoning.slice(0, 200)}`)
+
         return NextResponse.json({
           reasoning: parsed.reasoning,
           prescriptions,
           provider: provider.name,
         })
-      } catch {
-        continue // 다음 프로바이더로 fallback
+      } catch (e) {
+        console.log(`[health-reasoning] ${provider.name} 실패: ${e instanceof Error ? e.message : e}`)
+        continue
       }
     }
 

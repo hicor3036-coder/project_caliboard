@@ -39,10 +39,16 @@ function getLlmWorkers(): LlmProvider[] {
       model: 'llama-3.3-70b-versatile',
     },
     {
-      name: 'Groq-8B',
+      name: 'Groq-Maverick',
       url: 'https://api.groq.com/openai/v1/chat/completions',
       key: process.env.GROQ_API_KEY ?? '',
-      model: 'llama-3.1-8b-instant',
+      model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+    },
+    {
+      name: 'Groq-Scout',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      key: process.env.GROQ_API_KEY ?? '',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     },
     {
       name: 'Mistral-S',
@@ -55,6 +61,12 @@ function getLlmWorkers(): LlmProvider[] {
       url: 'https://api.mistral.ai/v1/chat/completions',
       key: process.env.MISTRAL_API_KEY ?? '',
       model: 'mistral-medium-latest',
+    },
+    {
+      name: 'Mistral-L',
+      url: 'https://api.mistral.ai/v1/chat/completions',
+      key: process.env.MISTRAL_API_KEY ?? '',
+      model: 'mistral-large-latest',
     },
   ]
 }

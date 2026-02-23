@@ -797,3 +797,160 @@ export function buildHealthReasoningInput(result: HealthCheckResult): HealthReas
     components: score.components,
   }
 }
+
+// ─── AI 교정 지시서 ───
+
+export type InstructionLevel = 'precision' | 'standard' | 'observation'
+
+export interface PointInstruction {
+  label: string
+  level: InstructionLevel
+  levelLabel: string
+  priority: 'high' | 'medium' | 'low'
+  instruction: string
+  evidence: string[]
+}
+
+export interface CalibrationInstruction {
+  points: PointInstruction[]
+  schedule: { label: string; timing: string; reason: string }[]
+  environmentNotes: string[]
+}
+
+// 규칙 기반 교정 지시서 생성 (즉시 표시용)
+export function generateCalibrationInstruction(result: HealthCheckResult): CalibrationInstruction {
+  const { prediction } = result
+  const currentCycleYears = (prediction.currentCycleMonths ?? 12) / 12
+
+  const points: PointInstruction[] = prediction.details.map(d => {
+    // 분류
+    let level: InstructionLevel
+    let priority: 'high' | 'medium' | 'low'
+
+    if (d.significant && (d.usageRatio != null && d.usageRatio > 70 || d.yearsToLimit != null && d.yearsToLimit < 3)) {
+      level = 'precision'
+      priority = 'high'
+    } else if (d.significant || (d.usageRatio != null && d.usageRatio > 50)) {
+      level = 'standard'
+      priority = 'medium'
+    } else {
+      level = 'observation'
+      priority = 'low'
+    }
+
+    const levelLabels: Record<InstructionLevel, string> = {
+      precision: '정밀교정',
+      standard: '표준교정',
+      observation: '관찰',
+    }
+
+    // 규칙 기반 지시
+    let instruction: string
+    if (level === 'precision') {
+      instruction = `${d.label} 포인트 정밀 교정 실시. 반복 측정 3회, 상승·하강 양방향 측정 권장.`
+    } else if (level === 'standard') {
+      instruction = `${d.label} 포인트 표준 교정 절차 수행.`
+    } else {
+      instruction = `${d.label} 포인트 기본 확인. 특별 조치 불필요.`
+    }
+
+    // 규칙 기반 근거
+    const evidence: string[] = []
+    if (d.significant) {
+      const dir = d.slope > 0 ? '증가' : '감소'
+      evidence.push(`오차 ${dir} 추세 (기울기 ${d.slope > 0 ? '+' : ''}${d.slope.toFixed(3)}/년, p=${d.pValue.toFixed(3)})`)
+    } else {
+      evidence.push(`통계적으로 유의미한 변화 없음 (p=${d.pValue.toFixed(3)})`)
+    }
+    if (d.usageRatio != null) {
+      evidence.push(`허용오차 대비 ${d.usageRatio.toFixed(1)}% 사용`)
+    }
+    if (d.yearsToLimit != null) {
+      evidence.push(`현 추세로 약 ${d.yearsToLimit.toFixed(1)}년 후 한계 도달 예상`)
+    }
+
+    return { label: d.label, level, levelLabel: levelLabels[level], priority, instruction, evidence }
+  })
+
+  // 재점검 스케줄: yearsToLimit < currentCycle*2인 포인트
+  const schedule = prediction.details
+    .filter(d => d.yearsToLimit != null && d.yearsToLimit < currentCycleYears * 2)
+    .map(d => {
+      const halfCycle = Math.round((prediction.currentCycleMonths ?? 12) / 2)
+      return {
+        label: d.label,
+        timing: `${halfCycle}개월 후 중간점검`,
+        reason: `한계 도달 예상 ${d.yearsToLimit!.toFixed(1)}년 (교정주기 ${(d.yearsToLimit! / currentCycleYears).toFixed(1)}회분)`,
+      }
+    })
+
+  // 환경 주의사항 (규칙 기반 기본)
+  const environmentNotes: string[] = []
+  if (result.score.total < 55) {
+    environmentNotes.push('교정 환경(온도, 습도) 재확인 필요')
+  }
+  const hasFail = prediction.details.some(d => d.recentErrors.length > 0 && d.usageRatio != null && d.usageRatio > 90)
+  if (hasFail) {
+    environmentNotes.push('측정 불확도 재검증 권장')
+  }
+
+  // priority 순서로 정렬 (high → medium → low)
+  const priorityOrder = { high: 0, medium: 1, low: 2 }
+  points.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
+
+  return { points, schedule, environmentNotes }
+}
+
+// LLM 입력용 교정 지시서 데이터 빌더
+export interface CalibrationInstructionInput {
+  equipmentName: string
+  manufacturer: string
+  model: string
+  currentCycleMonths: number
+  direction: CyclePrediction['direction']
+  healthGrade: string
+  healthTotal: number
+  details: Array<{
+    label: string
+    recentYears: string[]
+    recentErrors: number[]
+    slope: number
+    pValue: number
+    significant: boolean
+    usageRatio: number | null
+    yearsToLimit: number | null
+  }>
+}
+
+export function buildCalibrationInstructionInput(
+  result: HealthCheckResult,
+  meta: { equipmentName: string; manufacturer: string; model: string },
+): CalibrationInstructionInput {
+  const { prediction, score } = result
+  // significant 우선 정렬, 최대 10개
+  const sorted = [...prediction.details].sort((a, b) => {
+    if (a.significant !== b.significant) return a.significant ? -1 : 1
+    return (b.usageRatio ?? 0) - (a.usageRatio ?? 0)
+  })
+  const details = sorted.slice(0, 10).map(d => ({
+    label: d.label,
+    recentYears: d.recentYears,
+    recentErrors: d.recentErrors,
+    slope: d.slope,
+    pValue: d.pValue,
+    significant: d.significant,
+    usageRatio: d.usageRatio,
+    yearsToLimit: d.yearsToLimit,
+  }))
+
+  return {
+    equipmentName: meta.equipmentName,
+    manufacturer: meta.manufacturer,
+    model: meta.model,
+    currentCycleMonths: prediction.currentCycleMonths ?? 12,
+    direction: prediction.direction,
+    healthGrade: score.grade,
+    healthTotal: score.total,
+    details,
+  }
+}

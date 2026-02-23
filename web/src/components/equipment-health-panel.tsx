@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 import type { HealthCheckResult, HealthScore, CyclePrediction, Prescription, TrendSeries } from '@/lib/equipment-health'
 import { analyzeEquipmentHealth, buildHealthReasoningInput } from '@/lib/equipment-health'
 
@@ -55,12 +56,12 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (score.total / 100) * circumference
 
-  const bars: { label: string; value: number; weight: string }[] = [
-    { label: '허용오차 여유', value: score.components.toleranceProximity, weight: '20%' },
-    { label: '장기 안정도', value: score.components.longTermStability, weight: '15%' },
-    { label: '단기 안정도', value: score.components.shortTermStability, weight: '20%' },
-    { label: '적합 이력', value: score.components.failHistory, weight: '30%' },
-    { label: '데이터 충분성', value: score.components.dataAvailability, weight: '15%' },
+  const radarData = [
+    { axis: '허용오차\n여유', value: score.components.toleranceProximity, fullMark: 100 },
+    { axis: '장기\n안정도', value: score.components.longTermStability, fullMark: 100 },
+    { axis: '단기\n안정도', value: score.components.shortTermStability, fullMark: 100 },
+    { axis: '적합\n이력', value: score.components.failHistory, fullMark: 100 },
+    { axis: '데이터\n충분성', value: score.components.dataAvailability, fullMark: 100 },
   ]
 
   return (
@@ -76,46 +77,69 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
         }
       />
 
-      {/* 원형 게이지 */}
-      <div className="flex justify-center my-2">
-        <div className="relative w-[140px] h-[140px]">
-          <svg width="140" height="140" className="-rotate-90">
-            <circle cx="70" cy="70" r={radius} fill="none" stroke="#f1f5f9" strokeWidth="10" />
-            <circle
-              cx="70" cy="70" r={radius} fill="none"
-              stroke={c.gauge} strokeWidth="10"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              strokeLinecap="round"
-              className="transition-all duration-1000 ease-out"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-bold text-slate-800">{score.total}</span>
-            <span className={`text-xs font-semibold ${c.text}`}>{score.gradeLabel}</span>
+      {/* 종합 점수 + 레이더 차트 */}
+      <div className="flex items-center gap-2 mt-2">
+        {/* 원형 게이지 (좌측) */}
+        <div className="shrink-0">
+          <div className="relative w-[120px] h-[120px]">
+            <svg width="120" height="120" className="-rotate-90">
+              <circle cx="60" cy="60" r={radius} fill="none" stroke="#f1f5f9" strokeWidth="9" />
+              <circle
+                cx="60" cy="60" r={radius} fill="none"
+                stroke={c.gauge} strokeWidth="9"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                className="transition-all duration-1000 ease-out"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-bold text-slate-800">{score.total}</span>
+              <span className={`text-[10px] font-semibold ${c.text}`}>{score.gradeLabel}</span>
+            </div>
           </div>
+        </div>
+
+        {/* 레이더 차트 (우측) */}
+        <div className="flex-1 min-w-0 h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="65%">
+              <PolarGrid stroke="#e2e8f0" />
+              <PolarAngleAxis
+                dataKey="axis"
+                tick={({ x, y, payload }) => {
+                  const lines = (payload.value as string).split('\n')
+                  return (
+                    <text x={x} y={y} textAnchor="middle" dominantBaseline="central" className="fill-slate-400" style={{ fontSize: 9 }}>
+                      {lines.map((line: string, i: number) => (
+                        <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
+                      ))}
+                    </text>
+                  )
+                }}
+              />
+              <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+              <Radar
+                dataKey="value"
+                stroke={c.gauge}
+                fill={c.gauge}
+                fillOpacity={0.2}
+                strokeWidth={2}
+                dot={{ r: 3, fill: c.gauge, stroke: '#fff', strokeWidth: 1.5 }}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* 세부 점수 바 */}
-      <div className="space-y-2.5 mt-3">
-        {bars.map(bar => {
-          const barColor = bar.value >= 75 ? 'bg-green-400' : bar.value >= 50 ? 'bg-amber-400' : 'bg-red-400'
-          return (
-            <div key={bar.label}>
-              <div className="flex justify-between text-[11px] mb-0.5">
-                <span className="text-slate-500">{bar.label}</span>
-                <span className="text-slate-400">{bar.value}점 <span className="text-slate-300">({bar.weight})</span></span>
-              </div>
-              <div className="w-full h-1.5 bg-gray-100 rounded-full">
-                <div
-                  className={`h-1.5 rounded-full ${barColor} transition-all duration-700 ease-out`}
-                  style={{ width: `${bar.value}%` }}
-                />
-              </div>
-            </div>
-          )
-        })}
+      {/* 세부 점수 (한 줄 요약) */}
+      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1 text-[10px] text-slate-400">
+        {radarData.map(d => (
+          <span key={d.axis}>
+            <span className="text-slate-500 font-medium">{d.axis.replace('\n', '')}</span>{' '}
+            <span className={d.value >= 75 ? 'text-green-500' : d.value >= 50 ? 'text-amber-500' : 'text-red-500'}>{d.value}점</span>
+          </span>
+        ))}
       </div>
     </div>
   )
@@ -139,11 +163,11 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
         icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
         title="교정주기 예측"
         color="text-indigo-500"
-        badge={
+        badge={llmStatus === 'done' ? (
           <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${style}`}>
             {prediction.directionLabel}
           </span>
-        }
+        ) : undefined}
       />
 
       {/* 주기 비교 */}
@@ -155,117 +179,72 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
             <span className="text-xs font-normal text-slate-400 ml-0.5">개월</span>
           </p>
         </div>
-        <div className={`p-3 rounded-lg text-center border border-dashed ${style}`}>
-          <span className="text-[10px] uppercase">AI 추천</span>
-          <p className="text-2xl font-bold mt-0.5">
-            {prediction.recommendedCycleMonths ?? '--'}
-            <span className="text-xs font-normal ml-0.5">개월</span>
-          </p>
+        {llmStatus === 'done' ? (
+          <div className={`p-3 rounded-lg text-center border border-dashed ${style}`}>
+            <span className="text-[10px] uppercase">AI 추천</span>
+            <p className="text-2xl font-bold mt-0.5">
+              {prediction.recommendedCycleMonths ?? '--'}
+              <span className="text-xs font-normal ml-0.5">개월</span>
+            </p>
+          </div>
+        ) : (
+          <div className="p-3 rounded-lg text-center border border-dashed border-slate-200 bg-slate-50/50">
+            <span className="text-[10px] text-slate-300 uppercase">AI 추천</span>
+            <p className="text-2xl font-bold text-slate-200 mt-0.5">
+              --
+              <span className="text-xs font-normal ml-0.5">개월</span>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* AI 인사이트 텍스트 (LLM 호출 후에만 표시) */}
+      {llmStatus === 'done' && (
+        <div className="text-xs text-slate-500 mt-3 space-y-1.5">
+          {prediction.reasoning.split('\n').filter(l => l.trim()).map((line, i) => (
+            <p key={i} className="leading-relaxed">{line}</p>
+          ))}
+          <div className="flex items-center gap-1 mt-2">
+            <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">AI 인사이트</span>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 근거 텍스트 */}
-      <div className={`text-xs text-slate-500 mt-3 space-y-1.5 transition-opacity duration-300 ${
-        llmStatus === 'loading' ? 'opacity-60' : 'opacity-100'
-      }`}>
-        {prediction.reasoning.split('\n').filter(l => l.trim()).map((line, i) => (
-          <p key={i} className="leading-relaxed">{line}</p>
-        ))}
-      </div>
-
-      {/* AI 분석 버튼/상태 */}
+      {/* AI 호출 전: 빈 안내 + 버튼 */}
       {llmStatus === 'idle' && onRequestAi && prediction.direction !== 'insufficient' && (
-        <button
-          onClick={onRequestAi}
-          className="mt-3 flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          AI 전문 소견 요청
-        </button>
+        <div className="mt-3 text-center py-4">
+          <p className="text-[11px] text-slate-300 mb-2">AI 인사이트를 요청하면 전문 분석이 표시됩니다</p>
+          <button
+            onClick={onRequestAi}
+            className="inline-flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            AI 인사이트 요청
+          </button>
+        </div>
       )}
       {llmStatus === 'loading' && (
-        <div className="flex items-center gap-1.5 mt-3 text-[10px] text-indigo-400">
+        <div className="flex items-center justify-center gap-1.5 mt-3 py-4 text-[10px] text-indigo-400">
           <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
             <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          AI 분석 중...
-        </div>
-      )}
-      {llmStatus === 'done' && (
-        <div className="flex items-center gap-1 mt-2">
-          <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">AI 소견</span>
+          AI 인사이트 생성 중...
         </div>
       )}
       {llmStatus === 'error' && onRequestAi && (
-        <button
-          onClick={onRequestAi}
-          className="mt-3 flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          재시도
-        </button>
-      )}
-
-      {/* 예측 상세 */}
-      {ex.regressionSlope != null && ex.currentRatio != null && (
-        <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
-          <div className="flex justify-between text-[11px]">
-            <span className="text-slate-400">현재 최대 비율</span>
-            <span className="font-medium text-slate-600">{ex.currentRatio.toFixed(1)}%</span>
-          </div>
-          <div className="flex justify-between text-[11px]">
-            <span className="text-slate-400">연간 변화량</span>
-            <span className={`font-medium ${ex.regressionSlope > 0 ? 'text-red-500' : 'text-green-500'}`}>
-              {ex.regressionSlope > 0 ? '+' : ''}{ex.regressionSlope}%p/년
-            </span>
-          </div>
-          {ex.predictedDate100 && (
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-400">허용오차 도달 예상</span>
-              <span className="font-medium text-red-500">{ex.predictedDate100}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 포인트별 분석 근거 */}
-      {prediction.details.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">측정포인트별 추세 분석</p>
-          <div className="space-y-2">
-            {prediction.details.map((d, i) => {
-              const sigColor = d.significant ? 'border-l-amber-400 bg-amber-50/40' : 'border-l-green-400 bg-green-50/30'
-              const dir = d.slope > 0 ? '증가' : '감소'
-              const pText = d.pValue < 0.01 ? '<0.01' : d.pValue.toFixed(3)
-              return (
-                <div key={i} className={`rounded border-l-[3px] ${sigColor} px-2.5 py-2`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-semibold text-slate-700 truncate mr-2">{d.label}</span>
-                    <span className={`text-[10px] font-bold shrink-0 px-1.5 py-0.5 rounded ${
-                      d.significant ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
-                    }`}>
-                      {d.significant ? '유의미' : '안정'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                    <span>기울기 <span className={`font-medium ${d.slope > 0 ? 'text-red-500' : 'text-blue-500'}`}>{d.slope > 0 ? '+' : ''}{d.slope}</span>/년 ({dir})</span>
-                    <span>p={pText}</span>
-                    <span>{d.recentYears[0]}~{d.recentYears[d.recentYears.length - 1]}</span>
-                  </div>
-                  {d.significant && (
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      {d.recentYears.length}회 측정에서 오차값 {dir} 추세 감지 (95% 신뢰수준)
-                    </p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+        <div className="mt-3 text-center py-4">
+          <button
+            onClick={onRequestAi}
+            className="inline-flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            재시도
+          </button>
         </div>
       )}
     </div>
@@ -297,7 +276,7 @@ function PrescriptionList({ prescriptions, llmStatus }: { prescriptions: Prescri
         icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
         title="처방 / 권고사항"
         color="text-purple-500"
-        badge={llmStatus === 'done' ? <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">AI 소견</span> : undefined}
+        badge={llmStatus === 'done' ? <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">AI 인사이트</span> : undefined}
       />
 
       <div className="space-y-2.5">
@@ -383,13 +362,13 @@ export default function EquipmentHealthPanel({ series, calDates, certCount, affc
     }
   }, [result])
 
-  // 4. 최종 렌더링 데이터
+  // 4. 최종 렌더링 데이터 (AI 인사이트만 표시, 규칙 기반 텍스트 숨김)
   const displayPrediction = useMemo(() => ({
     ...result.prediction,
-    reasoning: llmReasoning ?? result.prediction.reasoning,
+    reasoning: llmReasoning ?? '',
   }), [result.prediction, llmReasoning])
 
-  const displayPrescriptions = llmPrescriptions ?? result.prescriptions
+  const displayPrescriptions = llmPrescriptions ?? []
 
   return (
     <>
