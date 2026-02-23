@@ -32,6 +32,6 @@ def ktools_login(user_id, user_pwd, session=None):
 
 
 if __name__ == '__main__':
-    session = ktools_login('hicor', 'dlacodnr1!')
+    session = ktools_login('KL_KAI_master ', '1234')
     jsessionid = session.cookies.get('KTOOLS_JSESSIONID')
     print(f'KTOOLS_JSESSIONID: {jsessionid}')

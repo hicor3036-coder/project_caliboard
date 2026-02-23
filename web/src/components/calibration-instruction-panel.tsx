@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import type { TrendSeries } from '@/lib/equipment-health'
 import { analyzeEquipmentHealth, buildCalibrationInstructionInput } from '@/lib/equipment-health'
+import { useT, fmt, type Lang } from '@/lib/i18n'
 
 // ─── Props ───
 
@@ -49,30 +50,39 @@ const ROW_STYLES: Record<string, { dot: string; bg: string; text: string }> = {
   low:    { dot: 'bg-emerald-400', bg: '',              text: 'text-slate-500' },
 }
 
-const QUANTITY_LABELS: Record<string, string> = {
+const QUANTITY_LABELS_KO: Record<string, string> = {
   Temperature: '온도', Humidity: '습도', Pressure: '압력',
   Vibration: '진동', Frequency: '주파수', 'Sound Level': '소음',
   Voltage: '전압', Current: '전류', Resistance: '저항',
 }
 
-function quantityLabel(q: string): string {
-  return QUANTITY_LABELS[q] || q
+const QUANTITY_LABELS_EN: Record<string, string> = {
+  Temperature: 'Temperature', Humidity: 'Humidity', Pressure: 'Pressure',
+  Vibration: 'Vibration', Frequency: 'Frequency', 'Sound Level': 'Sound Level',
+  Voltage: 'Voltage', Current: 'Current', Resistance: 'Resistance',
+}
+
+function quantityLabel(q: string, lang: Lang = 'ko'): string {
+  const labels = lang === 'ko' ? QUANTITY_LABELS_KO : QUANTITY_LABELS_EN
+  return labels[q] || q
 }
 
 // ─── 그룹 설정 ───
 
-const GROUPS: { level: string; priority: string; label: string; dot: string; bg: string; text: string; headerBg: string }[] = [
-  { level: 'precision', priority: 'high',   label: '정밀교정', dot: 'bg-red-500',     bg: 'bg-red-50',    text: 'text-red-700',   headerBg: 'bg-red-100 text-red-800' },
-  { level: 'standard',  priority: 'medium', label: '표준교정', dot: 'bg-amber-400',   bg: 'bg-amber-50',  text: 'text-amber-700', headerBg: 'bg-amber-100 text-amber-800' },
-  { level: 'observation', priority: 'low',  label: '정상',     dot: 'bg-emerald-400', bg: '',              text: 'text-slate-500', headerBg: 'bg-emerald-100 text-emerald-800' },
+const GROUPS: { level: string; priority: string; labelKey: 'precision' | 'standard' | 'normal'; dot: string; bg: string; text: string; headerBg: string }[] = [
+  { level: 'precision', priority: 'high',   labelKey: 'precision', dot: 'bg-red-500',     bg: 'bg-red-50',    text: 'text-red-700',   headerBg: 'bg-red-100 text-red-800' },
+  { level: 'standard',  priority: 'medium', labelKey: 'standard',  dot: 'bg-amber-400',   bg: 'bg-amber-50',  text: 'text-amber-700', headerBg: 'bg-amber-100 text-amber-800' },
+  { level: 'observation', priority: 'low',  labelKey: 'normal',    dot: 'bg-emerald-400', bg: '',              text: 'text-slate-500', headerBg: 'bg-emerald-100 text-emerald-800' },
 ]
 
 // ─── 결과 렌더링 서브컴포넌트 ───
 
 function InstructionContent({ instruction }: { instruction: AiInstruction }) {
+  const { t } = useT()
   // 우선순위별 그룹핑 (precision → standard → observation)
   const grouped = GROUPS.map(g => ({
     ...g,
+    label: t.instruction[g.labelKey],
     points: instruction.points.filter(p => p.level === g.level || p.priority === g.priority),
   })).filter(g => g.points.length > 0)
 
@@ -90,9 +100,9 @@ function InstructionContent({ instruction }: { instruction: AiInstruction }) {
                 <span className={`w-2 h-2 rounded-full ${group.dot} shrink-0 mt-0.5`} />
                 <p className="text-slate-500">
                   <span className="font-medium text-slate-600">
-                    정상 ({group.points.map(p => p.label).join(', ')}):
+                    {t.instruction.normal} ({group.points.map(p => p.label).join(', ')}):
                   </span>
-                  {' '}여유 충분, 기본 절차 수행
+                  {' '}{t.instruction.normalSummary}
                 </p>
               </div>
             </div>
@@ -106,7 +116,7 @@ function InstructionContent({ instruction }: { instruction: AiInstruction }) {
             <div className="flex items-center gap-2 mb-2">
               <span className={`w-2 h-2 rounded-full ${group.dot} shrink-0`} />
               <span className={`text-[11px] font-bold ${group.headerBg} px-2 py-0.5 rounded`}>
-                {group.label} ({group.points.length}건)
+                {group.label} ({fmt(t.instruction.groupCount, group.points.length)})
               </span>
             </div>
             {/* 카드 그리드 */}
@@ -141,7 +151,7 @@ function InstructionContent({ instruction }: { instruction: AiInstruction }) {
 
       {/* 전 포인트 안정 메시지 */}
       {allStable && (
-        <p className="text-[11px] text-emerald-500 font-medium mt-1">전 포인트 안정 — 특별 주의 포인트 없음</p>
+        <p className="text-[11px] text-emerald-500 font-medium mt-1">{t.instruction.allStable}</p>
       )}
 
       {/* 재점검 + 주의사항 */}
@@ -168,6 +178,7 @@ export default function CalibrationInstructionPanel({
   equipmentName, manufacturer, model,
   byQuantity, quantityKeys,
 }: Props) {
+  const { t, lang } = useT()
   // 물리량 탭: '전체' 제외, 실제 물리량만
   const tabs = useMemo(() => {
     if (!quantityKeys || !byQuantity) return []
@@ -222,7 +233,7 @@ export default function CalibrationInstructionPanel({
       const input = buildCalibrationInstructionInput(result, { equipmentName, manufacturer, model })
       // 탭별 호출 시 물리량 정보 추가
       if (hasMultiQ && activeTab) {
-        input.quantityLabel = quantityLabel(activeTab)
+        input.quantityLabel = quantityLabel(activeTab, lang)
       }
       const res = await fetch('/api/ai/calibration-instruction', {
         method: 'POST',
@@ -244,7 +255,7 @@ export default function CalibrationInstructionPanel({
     } catch {
       setStatusMap(prev => new Map(prev).set(key, 'error'))
     }
-  }, [overallResult, currentKey, currentSeries, calDates, certCount, affcCyclCd, equipmentName, manufacturer, model, hasMultiQ, activeTab])
+  }, [overallResult, currentKey, currentSeries, calDates, certCount, affcCyclCd, equipmentName, manufacturer, model, hasMultiQ, activeTab, lang])
 
   if (overallResult.prediction.direction === 'insufficient') return null
 
@@ -256,11 +267,11 @@ export default function CalibrationInstructionPanel({
           <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">AI 교정 지시서</span>
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t.instruction.title}</span>
         </div>
 
         {llmStatus === 'done' && (
-          <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">AI 인사이트</span>
+          <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">{t.instruction.aiInsight}</span>
         )}
         {llmStatus === 'idle' && (
           <button
@@ -270,7 +281,7 @@ export default function CalibrationInstructionPanel({
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            AI 인사이트 요청
+            {t.instruction.requestAi}
           </button>
         )}
         {llmStatus === 'loading' && (
@@ -279,7 +290,7 @@ export default function CalibrationInstructionPanel({
               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
               <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            AI 인사이트 생성 중...
+            {t.instruction.aiLoading}
           </div>
         )}
         {llmStatus === 'error' && (
@@ -290,7 +301,7 @@ export default function CalibrationInstructionPanel({
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            재시도
+            {t.instruction.retry}
           </button>
         )}
       </div>
@@ -306,7 +317,7 @@ export default function CalibrationInstructionPanel({
                 activeTab === q ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {quantityLabel(q)}
+              {quantityLabel(q, lang)}
             </button>
           ))}
         </div>
@@ -315,7 +326,7 @@ export default function CalibrationInstructionPanel({
       {/* AI 호출 전: 빈 상태 */}
       {!instruction && llmStatus !== 'loading' && (
         <div className="text-center py-6 text-slate-300">
-          <p className="text-xs">AI 인사이트를 요청하면 포인트별 교정 지시서가 생성됩니다</p>
+          <p className="text-xs">{t.instruction.emptyState}</p>
         </div>
       )}
 
@@ -326,7 +337,7 @@ export default function CalibrationInstructionPanel({
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
             <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          <p className="text-xs">AI 인사이트 생성 중...</p>
+          <p className="text-xs">{t.instruction.aiLoading}</p>
         </div>
       )}
 

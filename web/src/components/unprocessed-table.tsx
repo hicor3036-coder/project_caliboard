@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts'
 import DataTable, { type Column } from './data-table'
+import { useT, fmt } from '@/lib/i18n'
 
 interface UnprocessedItem {
   acptNo: string
@@ -21,61 +22,65 @@ interface UnprocessedItem {
   groupCnt: number
 }
 
-const columns: Column<UnprocessedItem>[] = [
-  {
-    key: 'acptNo', header: '접수번호', sortValue: i => i.acptNo,
-    render: i => (
-      <span className="inline-flex items-center gap-1.5 font-mono text-gray-500">
-        {i.acptNo}
-        {i.groupCnt > 1 && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 rounded px-1 py-px font-sans font-medium">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            {i.groupCnt}
-          </span>
-        )}
-      </span>
-    ),
-  },
-  { key: 'entpPrdNm', header: '업체품명', sortValue: i => i.entpPrdNm, render: i => <span className="text-gray-800 font-medium max-w-[200px] truncate block" title={i.entpPrdNm}>{i.entpPrdNm}</span> },
-  { key: 'prdnCmpnNm', header: '제조사', sortValue: i => i.prdnCmpnNm, render: i => <span className="text-gray-600">{i.prdnCmpnNm}</span> },
-  { key: 'stszNm', header: '모델', sortValue: i => i.stszNm, render: i => <span className="text-gray-600 max-w-[120px] truncate block" title={i.stszNm}>{i.stszNm || '-'}</span> },
-  { key: 'mctlNo', header: '기기번호', sortValue: i => i.mctlNo, render: i => <span className="font-mono text-gray-500">{i.mctlNo || '-'}</span> },
-  { key: 'custEqpmSrno', header: '관리번호', sortValue: i => i.custEqpmSrno, render: i => <span className="font-mono text-gray-500">{i.custEqpmSrno || '-'}</span> },
-  { key: 'rcpnYmd', header: '접수일', sortValue: i => i.rcpnYmd, render: i => <span className="text-gray-600">{i.rcpnYmd}</span> },
-  {
-    key: '체류일수', header: '체류', align: 'center', sortValue: i => i.체류일수,
-    render: i => (
-      <span className={`inline-block min-w-[40px] px-1.5 py-0.5 rounded font-medium ${
-        i.체류일수 >= 100 ? 'bg-slate-200 text-slate-600' :
-        i.체류일수 > 30 ? 'bg-red-100 text-red-700' :
-        i.체류일수 > 14 ? 'bg-amber-100 text-amber-700' :
-        'bg-gray-100 text-gray-600'
-      }`}>
-        {i.체류일수}일
-      </span>
-    ),
-  },
-  { key: '예상완료일', header: '완료예정', sortValue: i => i.예상완료일, render: i => <span className="text-gray-600">{i.예상완료일 ?? '-'}</span> },
-  {
-    key: '남은일수', header: '잔여', align: 'center', sortValue: i => i.남은일수,
-    render: i => i.남은일수 !== null ? (
-      <span className={`font-medium ${i.남은일수 < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-        {i.남은일수 < 0 ? `${Math.abs(i.남은일수)}일 초과` : `${i.남은일수}일`}
-      </span>
-    ) : <span className="text-gray-400">-</span>,
-  },
-  { key: 'mngmRsprNm', header: '담당', sortValue: i => i.mngmRsprNm, render: i => <span className="text-gray-600">{i.mngmRsprNm}</span> },
-]
+function useColumns() {
+  const { t } = useT()
+  const dUnit = t.unprocessed.daysUnit
+  return useMemo<Column<UnprocessedItem>[]>(() => [
+    {
+      key: 'acptNo', header: t.table.acptNo, sortValue: i => i.acptNo,
+      render: i => (
+        <span className="inline-flex items-center gap-1.5 font-mono text-gray-500">
+          {i.acptNo}
+          {i.groupCnt > 1 && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 rounded px-1 py-px font-sans font-medium">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              {i.groupCnt}
+            </span>
+          )}
+        </span>
+      ),
+    },
+    { key: 'entpPrdNm', header: t.table.entpPrdNm, sortValue: i => i.entpPrdNm, render: i => <span className="text-gray-800 font-medium max-w-[200px] truncate block" title={i.entpPrdNm}>{i.entpPrdNm}</span> },
+    { key: 'prdnCmpnNm', header: t.table.prdnCmpnNm, sortValue: i => i.prdnCmpnNm, render: i => <span className="text-gray-600">{i.prdnCmpnNm}</span> },
+    { key: 'stszNm', header: t.table.stszNm, sortValue: i => i.stszNm, render: i => <span className="text-gray-600 max-w-[120px] truncate block" title={i.stszNm}>{i.stszNm || '-'}</span> },
+    { key: 'mctlNo', header: t.table.mctlNo, sortValue: i => i.mctlNo, render: i => <span className="font-mono text-gray-500">{i.mctlNo || '-'}</span> },
+    { key: 'custEqpmSrno', header: t.table.custEqpmSrno, sortValue: i => i.custEqpmSrno, render: i => <span className="font-mono text-gray-500">{i.custEqpmSrno || '-'}</span> },
+    { key: 'rcpnYmd', header: t.table.rcpnYmd, sortValue: i => i.rcpnYmd, render: i => <span className="text-gray-600">{i.rcpnYmd}</span> },
+    {
+      key: '체류일수', header: t.table.stayDays, align: 'center', sortValue: i => i.체류일수,
+      render: i => (
+        <span className={`inline-block min-w-[40px] px-1.5 py-0.5 rounded font-medium ${
+          i.체류일수 >= 100 ? 'bg-slate-200 text-slate-600' :
+          i.체류일수 > 30 ? 'bg-red-100 text-red-700' :
+          i.체류일수 > 14 ? 'bg-amber-100 text-amber-700' :
+          'bg-gray-100 text-gray-600'
+        }`}>
+          {i.체류일수}{dUnit}
+        </span>
+      ),
+    },
+    { key: '예상완료일', header: t.table.estComplete, sortValue: i => i.예상완료일, render: i => <span className="text-gray-600">{i.예상완료일 ?? '-'}</span> },
+    {
+      key: '남은일수', header: t.table.remaining, align: 'center', sortValue: i => i.남은일수,
+      render: i => i.남은일수 !== null ? (
+        <span className={`font-medium ${i.남은일수 < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+          {i.남은일수 < 0 ? fmt(t.unprocessed.daysOver, Math.abs(i.남은일수)) : `${i.남은일수}${dUnit}`}
+        </span>
+      ) : <span className="text-gray-400">-</span>,
+    },
+    { key: 'mngmRsprNm', header: t.table.manager, sortValue: i => i.mngmRsprNm, render: i => <span className="text-gray-600">{i.mngmRsprNm}</span> },
+  ], [t, dUnit])
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function MiniTooltip({ active, payload, label }: any) {
+function MiniTooltip({ active, payload, label, unit }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl border border-slate-700">
       {label && <p className="text-slate-300 mb-1">{label}</p>}
       {payload.map((p: any, i: number) => (
         <p key={i} className="font-medium">
-          {p.name ?? p.dataKey}: <span className="text-blue-300">{Number(p.value).toLocaleString()}건</span>
+          {p.name ?? p.dataKey}: <span className="text-blue-300">{Number(p.value).toLocaleString()}{unit}</span>
         </p>
       ))}
     </div>
@@ -85,6 +90,9 @@ function MiniTooltip({ active, payload, label }: any) {
 type DaysFilter = 'before' | 'after' | null
 
 export default function UnprocessedTable({ items, onOpenDetail }: { items: UnprocessedItem[]; onOpenDetail?: (groupNm: string, equipmentName: string) => void }) {
+  const { t } = useT()
+  const columns = useColumns()
+  const unit = t.common.unit
   const [excludeLongTerm, setExcludeLongTerm] = useState(true)
   const [chartsOpen, setChartsOpen] = useState(false)
   const [selectedManager, setSelectedManager] = useState<string | null>(null)
@@ -122,22 +130,25 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
   // 3. 체류분포 bin 정의 (장기 토글 기준)
   const 체류bins = useMemo(() => {
     const maxDays = Math.max(...baseItems.map(i => i.체류일수), 0)
+    const bu = t.unprocessed.binUpTo
+    const br = t.unprocessed.binRange
+    const bo = t.unprocessed.binOver
     return maxDays >= 100
       ? [
-          { label: '~30일', min: 0, max: 30 },
-          { label: '30~60일', min: 31, max: 60 },
-          { label: '60~100일', min: 61, max: 100 },
-          { label: '100~200일', min: 101, max: 200 },
-          { label: '200일+', min: 201, max: Infinity },
+          { label: fmt(bu, 30), min: 0, max: 30 },
+          { label: fmt(br, 30, 60), min: 31, max: 60 },
+          { label: fmt(br, 60, 100), min: 61, max: 100 },
+          { label: fmt(br, 100, 200), min: 101, max: 200 },
+          { label: fmt(bo, 200), min: 201, max: Infinity },
         ]
       : [
-          { label: '~7일', min: 0, max: 7 },
-          { label: '7~14일', min: 8, max: 14 },
-          { label: '14~30일', min: 15, max: 30 },
-          { label: '30~60일', min: 31, max: 60 },
-          { label: '60~100일', min: 61, max: 99 },
+          { label: fmt(bu, 7), min: 0, max: 7 },
+          { label: fmt(br, 7, 14), min: 8, max: 14 },
+          { label: fmt(br, 14, 30), min: 15, max: 30 },
+          { label: fmt(br, 30, 60), min: 31, max: 60 },
+          { label: fmt(br, 60, 100), min: 61, max: 99 },
         ]
-  }, [baseItems])
+  }, [baseItems, t])
 
   // bin 매칭 함수
   const matchBin = (체류일수: number, binLabel: string) => {
@@ -194,17 +205,17 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
   if (items.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-bold mb-2">미처리 현황</h2>
+        <h2 className="text-lg font-bold mb-2">{t.unprocessed.title}</h2>
         <div className="text-green-600 bg-green-50 rounded-lg p-4 text-center">
-          미처리 건이 없습니다
+          {t.unprocessed.noItems}
         </div>
       </div>
     )
   }
 
   const filterCards: { key: DaysFilter; label: string; count: number; color: string; activeColor: string }[] = [
-    { key: 'before', label: '완료예정일 전', count: stats.before, color: 'text-green-600', activeColor: 'border-green-400 bg-green-50' },
-    { key: 'after', label: '완료예정일 후', count: stats.after, color: 'text-red-600', activeColor: 'border-red-400 bg-red-50' },
+    { key: 'before', label: t.unprocessed.beforeDue, count: stats.before, color: 'text-green-600', activeColor: 'border-green-400 bg-green-50' },
+    { key: 'after', label: t.unprocessed.afterDue, count: stats.after, color: 'text-red-600', activeColor: 'border-red-400 bg-red-50' },
   ]
 
   return (
@@ -213,15 +224,15 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-4">
           <h2 className="text-lg font-bold">
-            미처리 현황 <span className="text-red-500 text-base font-normal ml-1">{filtered.length}건</span>
+            {t.unprocessed.title} <span className="text-red-500 text-base font-normal ml-1">{fmt(t.unprocessed.count, filtered.length)}</span>
           </h2>
           <span className="text-sm text-slate-500">
-            평균 체류 <span className="font-semibold text-slate-700">{stats.평균.toFixed(1)}일</span>
+            {t.unprocessed.avgStay} <span className="font-semibold text-slate-700">{stats.평균.toFixed(1)}{t.unprocessed.daysUnit}</span>
           </span>
         </div>
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <span className="text-xs text-gray-500">
-            장기 미처리 제외 {장기건수 > 0 && <span className="text-slate-400">({장기건수}건)</span>}
+            {t.unprocessed.excludeLong} {장기건수 > 0 && <span className="text-slate-400">({fmt(t.unprocessed.count, 장기건수)})</span>}
           </span>
           <button
             onClick={() => setExcludeLongTerm(!excludeLongTerm)}
@@ -238,7 +249,7 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
 
       {!excludeLongTerm && 장기건수 > 0 && (
         <div className="px-3 py-2 bg-slate-50 rounded-lg text-xs text-slate-500">
-          100일 이상 장기 체류 {장기건수}건이 포함되어 있습니다. 폐기 또는 처리 완료된 장비일 수 있습니다.
+          {fmt(t.unprocessed.longTermNote, 장기건수)}
         </div>
       )}
 
@@ -255,7 +266,7 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
               }`}
             >
               <p className="text-xs text-gray-400 mb-0.5">{c.label}</p>
-              <p className={`text-lg font-bold ${c.count > 0 ? c.color : 'text-gray-400'}`}>{c.count}건</p>
+              <p className={`text-lg font-bold ${c.count > 0 ? c.color : 'text-gray-400'}`}>{fmt(t.unprocessed.count, c.count)}</p>
             </button>
           )
         })}
@@ -267,7 +278,7 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
           onClick={() => setChartsOpen(!chartsOpen)}
           className="w-full flex items-center justify-between px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
         >
-          <span>상세 분석</span>
+          <span>{t.unprocessed.detail}</span>
           <svg
             className={`w-4 h-4 text-gray-400 transition-transform ${chartsOpen ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -279,8 +290,8 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
           <div className="px-6 pb-5 grid grid-cols-1 lg:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
             <div>
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                체류일수 분포
-                <span className="text-[10px] font-normal text-slate-400 ml-2">클릭하여 필터</span>
+                {t.unprocessed.stayDist}
+                <span className="text-[10px] font-normal text-slate-400 ml-2">{t.unprocessed.clickFilter}</span>
               </h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart
@@ -296,20 +307,20 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
                   <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<MiniTooltip />} cursor={{ fill: '#f8fafc' }} />
+                  <Tooltip content={<MiniTooltip unit={unit} />} cursor={{ fill: '#f8fafc' }} />
                   <Bar dataKey="건수" radius={[6, 6, 0, 0]}>
                     {체류분포.map((entry, i) => (
                       <Cell key={i} fill={selectedBin ? (selectedBin === entry.name ? entry.fill : '#cbd5e1') : entry.fill} />
                     ))}
-                    <LabelList dataKey="건수" position="top" fontSize={11} fill="#64748b" formatter={(v) => Number(v) > 0 ? `${v}건` : ''} />
+                    <LabelList dataKey="건수" position="top" fontSize={11} fill="#64748b" formatter={(v: unknown) => Number(v) > 0 ? `${v}${unit}` : ''} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
             <div>
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                담당자별 미처리
-                <span className="text-[10px] font-normal text-slate-400 ml-2">클릭하여 필터</span>
+                {t.unprocessed.managerDist}
+                <span className="text-[10px] font-normal text-slate-400 ml-2">{t.unprocessed.clickFilter}</span>
               </h3>
               <div className="max-h-[200px] overflow-y-auto">
               <ResponsiveContainer width="100%" height={Math.max(200, 담당자별.length * 25 + 30)}>
@@ -349,15 +360,15 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
                     axisLine={false}
                     tickLine={false}
                   />
-                  <Tooltip content={<MiniTooltip />} cursor={{ fill: '#f8fafc' }} />
-                  <Bar dataKey="value" name="건수" radius={[0, 6, 6, 0]}>
+                  <Tooltip content={<MiniTooltip unit={unit} />} cursor={{ fill: '#f8fafc' }} />
+                  <Bar dataKey="value" name={unit || 'count'} radius={[0, 6, 6, 0]}>
                     {담당자별.map((entry) => (
                       <Cell
                         key={entry.label}
                         fill={selectedManager ? (selectedManager === entry.label ? '#1e3a5f' : '#cbd5e1') : '#1e3a5f'}
                       />
                     ))}
-                    <LabelList dataKey="value" position="right" fontSize={11} fill="#64748b" formatter={(v) => Number(v) > 0 ? `${v}건` : ''} />
+                    <LabelList dataKey="value" position="right" fontSize={11} fill="#64748b" formatter={(v: unknown) => Number(v) > 0 ? `${v}${unit}` : ''} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -385,7 +396,7 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
           )}
           {selectedBin && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-sm font-medium rounded-lg border border-green-200">
-              체류 {selectedBin}
+              {fmt(t.unprocessed.stayLabel, selectedBin)}
               <button
                 onClick={() => setSelectedBin(null)}
                 className="ml-0.5 text-green-400 hover:text-green-600"
@@ -409,16 +420,16 @@ export default function UnprocessedTable({ items, onOpenDetail }: { items: Unpro
               </button>
             </span>
           )}
-          <span className="text-xs text-gray-400">{filtered.length}건</span>
+          <span className="text-xs text-gray-400">{fmt(t.unprocessed.count, filtered.length)}</span>
           <button
             onClick={() => { setDaysFilter(null); setSelectedBin(null); setSelectedManager(null) }}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-            title="필터 초기화"
+            title={t.unprocessed.reset}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            초기화
+            {t.unprocessed.reset}
           </button>
         </div>
       )}

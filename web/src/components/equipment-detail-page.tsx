@@ -9,6 +9,7 @@ import DataTable, { type Column, fmtDate } from './data-table'
 import EquipmentHealthPanel from './equipment-health-panel'
 import CalibrationInstructionPanel from './calibration-instruction-panel'
 import type { CertResult, MeasurementPoint } from '@/lib/cert-cache'
+import { useT, fmt, type Dict, type Lang } from '@/lib/i18n'
 
 // === 타입 ===
 
@@ -94,33 +95,33 @@ function parseNum(val: string | null | undefined): number | null {
 }
 
 interface TrendEvaluation {
-  stability: '양호' | '주의' | '위험'
+  stability: 'safe' | 'warning' | 'danger'
   riskPoints: string[]
 }
 
-function evaluateTrends(series: { key: string; label: string; points: { 오차: number | null; 허용오차: number | null; 비율: number | null; 판정: string }[] }[]): TrendEvaluation {
+function evaluateTrends(series: { key: string; label: string; points: { 오차: number | null; 허용오차: number | null; 비율: number | null; 판정: string }[] }[], t: Dict): TrendEvaluation {
   const riskPoints: string[] = []
-  let worstLevel: '양호' | '주의' | '위험' = '양호'
+  let worstLevel: 'safe' | 'warning' | 'danger' = 'safe'
 
   for (const s of series) {
     const pts = s.points
     // FAIL 이력 확인
     if (pts.some(p => p.판정 === 'FAIL')) {
-      riskPoints.push(`${s.label}: FAIL 이력`)
-      worstLevel = '위험'
+      riskPoints.push(`${s.label}: ${t.health.failRecord}`)
+      worstLevel = 'danger'
       continue
     }
 
     // 최근 비율 확인 (PASS이면서 비율 > 100%만 위험, > 80%는 주의)
     const lastRatio = [...pts].reverse().find(p => p.비율 != null)?.비율
     if (lastRatio != null && lastRatio > 100) {
-      riskPoints.push(`${s.label}: 허용오차 초과 ${lastRatio.toFixed(1)}%`)
-      worstLevel = '위험'
+      riskPoints.push(`${s.label}: ${fmt(t.health.tolExceed, lastRatio.toFixed(1))}`)
+      worstLevel = 'danger'
       continue
     }
     if (lastRatio != null && lastRatio > 80) {
-      riskPoints.push(`${s.label}: 허용오차 대비 ${lastRatio.toFixed(1)}%`)
-      if (worstLevel !== '위험') worstLevel = '주의'
+      riskPoints.push(`${s.label}: ${fmt(t.health.tolRatio, lastRatio.toFixed(1))}`)
+      if (worstLevel !== 'danger') worstLevel = 'warning'
       continue
     }
 
@@ -130,14 +131,14 @@ function evaluateTrends(series: { key: string; label: string; points: { 오차: 
       const absErrors = errors.map(Math.abs)
       const increasing = absErrors.every((v, i) => i === 0 || v >= absErrors[i - 1])
       if (increasing && absErrors[absErrors.length - 1] > absErrors[0] * 1.2) {
-        riskPoints.push(`${s.label}: 오차 연속 증가`)
-        if (worstLevel === '양호') worstLevel = '주의'
+        riskPoints.push(`${s.label}: ${t.health.errorIncrease}`)
+        if (worstLevel === 'safe') worstLevel = 'warning'
         continue
       }
     }
 
-    if (lastRatio != null && lastRatio > 50 && worstLevel === '양호') {
-      worstLevel = '주의'
+    if (lastRatio != null && lastRatio > 50 && worstLevel === 'safe') {
+      worstLevel = 'warning'
     }
   }
 
@@ -170,71 +171,76 @@ function groupByQuantity(measurements: MeasurementPoint[]): Map<string, Measurem
   return groups
 }
 
-const QUANTITY_LABELS: Record<string, string> = {
+const QUANTITY_LABELS_KO: Record<string, string> = {
   Temperature: '온도', Humidity: '습도', Pressure: '압력',
   Vibration: '진동', Frequency: '주파수', 'Sound Level': '소음',
-  Voltage: '전압', Current: '전류', Resistance: '저항', '전체': '전체',
+  Voltage: '전압', Current: '전류', Resistance: '저항',
 }
 
-function quantityLabel(q: string): string {
-  return QUANTITY_LABELS[q] || q
+function quantityLabel(q: string, lang: Lang, allLabel: string): string {
+  if (q === '전체') return allLabel
+  if (lang === 'ko') return QUANTITY_LABELS_KO[q] || q
+  return q
 }
 
-// === 테이블 컬럼 ===
+// === 테이블 컬럼 (hook) ===
 
-const historyColumns: Column<TableRow>[] = [
-  {
-    key: 'no', header: 'No', align: 'center',
-    sortValue: i => i.no,
-    render: i => <span className="text-gray-400">{i.no}</span>,
-  },
-  {
-    key: 'prjcCd', header: '과제',
-    sortValue: i => i.prjcCd,
-    render: i => <span className="font-mono text-gray-500">{i.prjcCd}</span>,
-  },
-  {
-    key: 'acptNo', header: '접수번호',
-    sortValue: i => i.acptNo,
-    render: i => <span className="font-mono text-gray-500">{i.acptNo}</span>,
-  },
-  {
-    key: 'rcpnYmd', header: '접수일',
-    sortValue: i => i.rcpnYmd,
-    render: i => <span className="text-gray-600">{fmtDate(i.rcpnYmd)}</span>,
-  },
-  {
-    key: 'exrsWrtnYmd', header: '교정완료일',
-    sortValue: i => i.exrsWrtnYmd,
-    render: i => <span className="text-gray-600">{fmtDate(i.exrsWrtnYmd)}</span>,
-  },
-  {
-    key: 'nxtrExrsYmd', header: '차기교정일',
-    sortValue: i => i.nxtrExrsYmd,
-    render: i => <span className="text-gray-600">{fmtDate(i.nxtrExrsYmd)}</span>,
-  },
-  {
-    key: 'totalSum', header: '비용',
-    sortValue: i => i.totalSum,
-    render: i => <span className="text-gray-600">{i.totalSum ? `${i.totalSum.toLocaleString()}원` : '-'}</span>,
-  },
-  {
-    key: 'pgstNm', header: '상태',
-    sortValue: i => i.pgstNm,
-    render: i => {
-      const s = i.pgstNm
-      const color = s.includes('미처리') ? 'bg-amber-100 text-amber-700'
-        : s.includes('완료') ? 'bg-green-100 text-green-700'
-        : 'bg-gray-100 text-gray-600'
-      return <span className={`inline-block px-1.5 py-0.5 rounded font-medium ${color}`}>{s || '-'}</span>
+function useColumns(): Column<TableRow>[] {
+  const { t } = useT()
+  return useMemo(() => [
+    {
+      key: 'no', header: 'No', align: 'center' as const,
+      sortValue: (i: TableRow) => i.no,
+      render: (i: TableRow) => <span className="text-gray-400">{i.no}</span>,
     },
-  },
-  {
-    key: 'mngmRsprNm', header: '교정담당자',
-    sortValue: i => i.mngmRsprNm,
-    render: i => <span className="text-gray-600">{i.mngmRsprNm || '-'}</span>,
-  },
-]
+    {
+      key: 'prjcCd', header: t.detail.project,
+      sortValue: (i: TableRow) => i.prjcCd,
+      render: (i: TableRow) => <span className="font-mono text-gray-500">{i.prjcCd}</span>,
+    },
+    {
+      key: 'acptNo', header: t.detail.acptNo,
+      sortValue: (i: TableRow) => i.acptNo,
+      render: (i: TableRow) => <span className="font-mono text-gray-500">{i.acptNo}</span>,
+    },
+    {
+      key: 'rcpnYmd', header: t.detail.rcpnDate,
+      sortValue: (i: TableRow) => i.rcpnYmd,
+      render: (i: TableRow) => <span className="text-gray-600">{fmtDate(i.rcpnYmd)}</span>,
+    },
+    {
+      key: 'exrsWrtnYmd', header: t.detail.calComplete,
+      sortValue: (i: TableRow) => i.exrsWrtnYmd,
+      render: (i: TableRow) => <span className="text-gray-600">{fmtDate(i.exrsWrtnYmd)}</span>,
+    },
+    {
+      key: 'nxtrExrsYmd', header: t.detail.nextCalDate,
+      sortValue: (i: TableRow) => i.nxtrExrsYmd,
+      render: (i: TableRow) => <span className="text-gray-600">{fmtDate(i.nxtrExrsYmd)}</span>,
+    },
+    {
+      key: 'totalSum', header: t.detail.cost,
+      sortValue: (i: TableRow) => i.totalSum,
+      render: (i: TableRow) => <span className="text-gray-600">{i.totalSum ? fmt(t.detail.costUnit, i.totalSum.toLocaleString()) : '-'}</span>,
+    },
+    {
+      key: 'pgstNm', header: t.detail.status,
+      sortValue: (i: TableRow) => i.pgstNm,
+      render: (i: TableRow) => {
+        const s = i.pgstNm
+        const color = s.includes('미처리') ? 'bg-amber-100 text-amber-700'
+          : s.includes('완료') ? 'bg-green-100 text-green-700'
+          : 'bg-gray-100 text-gray-600'
+        return <span className={`inline-block px-1.5 py-0.5 rounded font-medium ${color}`}>{s || '-'}</span>
+      },
+    },
+    {
+      key: 'mngmRsprNm', header: t.detail.calManager,
+      sortValue: (i: TableRow) => i.mngmRsprNm,
+      render: (i: TableRow) => <span className="text-gray-600">{i.mngmRsprNm || '-'}</span>,
+    },
+  ], [t])
+}
 
 // === 성적서 localStorage 캐싱 ===
 
@@ -345,6 +351,8 @@ function useCertData(groupNm: string) {
 // === 메인 컴포넌트 ===
 
 export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: Props) {
+  const { t, lang } = useT()
+  const columns = useColumns()
   const [items, setItems] = useState<DetailItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -380,7 +388,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
       if (json.error) throw new Error(json.error)
       setItems(json.items ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : '조회 실패')
+      setError(e instanceof Error ? e.message : t.detail.queryFail)
     } finally {
       setLoading(false)
     }
@@ -550,7 +558,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         return { key: mp.key, label: mp.label, unit: mp.unit, points }
       })
 
-      const evaluation = evaluateTrends(series)
+      const evaluation = evaluateTrends(series, t)
 
       return { series, chartData, mpOrder: mpOrderLocal, evaluation }
     }
@@ -585,7 +593,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
       byQuantity,
       quantityKeys,
     }
-  }, [certs])
+  }, [certs, t])
 
   // D-day 계산
   const dday = useMemo(() => {
@@ -627,12 +635,12 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          뒤로
+          {t.detail.back}
         </button>
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-red-700 font-medium">{error}</p>
           <button onClick={fetchDetail} className="mt-3 px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200">
-            재시도
+            {t.detail.retry}
           </button>
         </div>
       </div>
@@ -654,7 +662,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           </svg>
         </button>
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-slate-800 truncate">{equipmentName || '장비 상세'}</h1>
+          <h1 className="text-xl font-bold text-slate-800 truncate">{equipmentName || t.detail.equipmentDetail}</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             {info.prdNm && <span className="text-slate-600 font-medium">{info.prdNm}</span>}
             {info.prdNm && (info.prdnCmpnNm || info.stszNm) && <span> · </span>}
@@ -693,7 +701,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               <svg className="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <span className="text-xs">장비 이미지 없음</span>
+              <span className="text-xs">{t.detail.noImage}</span>
             </div>
           )}
         </div>
@@ -704,15 +712,15 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-3">
             <SectionHeader
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />}
-              title="장비 정보"
+              title={t.detail.equipmentInfo}
               color="text-slate-400"
             />
             <div className="space-y-2.5">
-              <InfoRow label="제조사" value={info.prdnCmpnNm} />
-              <InfoRow label="모델" value={info.stszNm} />
-              <InfoRow label="기기번호" value={info.mctlNo} />
-              <InfoRow label="관리번호" value={info.custEqpmSrno} />
-              <InfoRow label="제품명" value={info.prdNm} />
+              <InfoRow label={t.detail.manufacturer} value={info.prdnCmpnNm} />
+              <InfoRow label={t.detail.model} value={info.stszNm} />
+              <InfoRow label={t.detail.deviceNo} value={info.mctlNo} />
+              <InfoRow label={t.detail.mgmtNo} value={info.custEqpmSrno} />
+              <InfoRow label={t.detail.productName} value={info.prdNm} />
             </div>
           </div>
 
@@ -720,15 +728,15 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-3">
             <SectionHeader
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />}
-              title="교정 관리"
+              title={t.detail.calMgmt}
               color="text-blue-400"
             />
             <div className="space-y-2.5">
-              <InfoRow label="교정주기" value={info.affcCyclCd ? `${info.affcCyclCd}개월` : '-'} />
-              <InfoRow label="차기교정" value={fmtDate(info.nxtrExrsYmd)} />
-              <InfoRow label="최근교정" value={fmtDate(info.exrsWrtnYmd)} />
-              <InfoRow label="교정이력" value={`${items.length}건`} />
-              <InfoRow label="담당자" value={info.mngmRsprNm} />
+              <InfoRow label={t.detail.calCycle} value={info.affcCyclCd ? `${info.affcCyclCd}${t.detail.months}` : '-'} />
+              <InfoRow label={t.detail.nextCal} value={fmtDate(info.nxtrExrsYmd)} />
+              <InfoRow label={t.detail.latestCal} value={fmtDate(info.exrsWrtnYmd)} />
+              <InfoRow label={t.detail.calHistory} value={fmt(t.detail.historyUnit, items.length)} />
+              <InfoRow label={t.detail.manager} value={info.mngmRsprNm} />
             </div>
           </div>
         </div>
@@ -737,7 +745,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
       {/* ===== 교정 이력 타임라인 ===== */}
       {timelineData.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-5">교정 이력 타임라인</h3>
+          <h3 className="text-sm font-semibold text-slate-700 mb-5">{t.detail.calTimeline}</h3>
           <div className="overflow-x-auto">
             <div className="flex items-start gap-0 min-w-max px-4 pb-2">
               {timelineData.map((item, idx) => {
@@ -762,7 +770,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                         <p className="text-xs font-medium text-slate-700">{fmtDate(item.rcpnYmd)}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">{item.prjcCd}</p>
                         {item.소요일 !== null && (
-                          <p className="text-[10px] text-blue-500 mt-0.5">소요 {item.소요일}일</p>
+                          <p className="text-[10px] text-blue-500 mt-0.5">{fmt(t.detail.elapsed, item.소요일)}</p>
                         )}
                         <span className={`mt-1 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
                           item.pgstNm.includes('완료') ? 'bg-green-50 text-green-600' :
@@ -776,7 +784,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                         <div className="w-20 h-0.5 bg-gray-200" />
                         {gapDays !== null && (
                           <span className="text-[10px] text-slate-400 mt-1 whitespace-nowrap">
-                            {gapDays}일
+                            {fmt(t.detail.gapDays, gapDays)}
                           </span>
                         )}
                       </div>
@@ -797,18 +805,18 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <h3 className="text-sm font-semibold text-slate-700">교정성적서 분석</h3>
+          <h3 className="text-sm font-semibold text-slate-700">{t.detail.certAnalysis}</h3>
 
           {/* 상태 배지 + 버튼 */}
           <div className="ml-auto flex items-center gap-2">
             {certDone && certs.size > 0 && (
               <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-600 rounded-full">
-                {certs.size}건 완료
+                {fmt(t.detail.certDone, certs.size)}
               </span>
             )}
             {certErrors.size > 0 && (
               <span className="px-2 py-0.5 text-[10px] font-medium bg-red-50 text-red-500 rounded-full">
-                {certErrors.size}건 실패
+                {fmt(t.detail.certFail, certErrors.size)}
               </span>
             )}
             {!certLoading && !certDone && (
@@ -816,7 +824,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                 onClick={() => fetchCerts()}
                 className="px-3 py-1.5 text-xs font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
               >
-                성적서 불러오기
+                {t.detail.loadCerts}
               </button>
             )}
             {certDone && (
@@ -824,7 +832,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                 onClick={() => fetchCerts(true)}
                 className="px-2 py-1 text-[10px] text-slate-400 hover:text-slate-600 transition-colors"
               >
-                새로고침
+                {t.detail.refresh}
               </button>
             )}
           </div>
@@ -837,7 +845,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             <div className="mb-4">
               <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
                 <span>
-                  {certProgress.status === 'cached' ? '캐시' : certProgress.status === 'downloading' ? '다운로드 + 분석' : '분석 중'}
+                  {certProgress.status === 'cached' ? t.detail.certCached : certProgress.status === 'downloading' ? t.detail.certDownloading : t.detail.certAnalyzing}
                   {certProgress.acptNo && <span className="text-slate-400 ml-1">({certProgress.acptNo})</span>}
                 </span>
                 <span className="font-medium">{completed} / {certProgress.total}</span>
@@ -859,7 +867,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            성적서 목록 조회 중...
+            {t.detail.certLoading}
           </div>
         )}
 
@@ -867,8 +875,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         {!certLoading && !certDone && certs.size === 0 && (
           <div className="bg-slate-50 rounded-lg p-4 border border-dashed border-slate-200">
             <p className="text-xs text-slate-400 leading-relaxed">
-              이 장비의 모든 완료된 교정 이력에서 성적서를 다운로드하고 AI가 파싱합니다.
-              제조사, 모델, 시리얼, 교정일, 적합성 판정 등을 자동 추출합니다.
+              {t.detail.certDesc}
             </p>
           </div>
         )}
@@ -879,15 +886,15 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="text-left py-2 px-2 text-slate-400 font-medium">접수번호</th>
-                  <th className="text-left py-2 px-2 text-slate-400 font-medium">제조사</th>
-                  <th className="text-left py-2 px-2 text-slate-400 font-medium">모델</th>
-                  <th className="text-left py-2 px-2 text-slate-400 font-medium">기기번호</th>
-                  <th className="text-left py-2 px-2 text-slate-400 font-medium">관리번호</th>
-                  <th className="text-left py-2 px-2 text-slate-400 font-medium">교정일</th>
-                  <th className="text-left py-2 px-2 text-slate-400 font-medium">차기교정</th>
-                  <th className="text-center py-2 px-2 text-slate-400 font-medium">판정</th>
-                  <th className="text-center py-2 px-2 text-slate-400 font-medium">측정점</th>
+                  <th className="text-left py-2 px-2 text-slate-400 font-medium">{t.detail.acptNo}</th>
+                  <th className="text-left py-2 px-2 text-slate-400 font-medium">{t.detail.manufacturer}</th>
+                  <th className="text-left py-2 px-2 text-slate-400 font-medium">{t.detail.model}</th>
+                  <th className="text-left py-2 px-2 text-slate-400 font-medium">{t.detail.deviceNo}</th>
+                  <th className="text-left py-2 px-2 text-slate-400 font-medium">{t.detail.mgmtNo}</th>
+                  <th className="text-left py-2 px-2 text-slate-400 font-medium">{t.detail.calDate}</th>
+                  <th className="text-left py-2 px-2 text-slate-400 font-medium">{t.detail.nextCalDateLabel}</th>
+                  <th className="text-center py-2 px-2 text-slate-400 font-medium">{t.detail.verdict}</th>
+                  <th className="text-center py-2 px-2 text-slate-400 font-medium">{t.detail.mpCount}</th>
                 </tr>
               </thead>
               <tbody>
@@ -940,7 +947,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         {/* 완료 + 결과 0건 */}
         {certDone && certs.size === 0 && certErrors.size === 0 && (
           <div className="text-center py-6 text-sm text-slate-400">
-            완료된 교정 건이 없습니다.
+            {t.detail.noCertResult}
           </div>
         )}
       </div>
@@ -964,11 +971,11 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               </svg>
             </div>
             <div className="flex flex-col">
-              <h3 className="text-sm font-semibold text-slate-800">연차별 적합성검토 트렌드</h3>
-              <span className="text-[10px] text-slate-400 tracking-wide">AI Calibration Trend Analysis</span>
+              <h3 className="text-sm font-semibold text-slate-800">{t.detail.trendTitle}</h3>
+              <span className="text-[10px] text-slate-400 tracking-wide">{t.detail.trendSub}</span>
             </div>
             <span className="px-2.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200">
-              {conformityTrend.certCount}건 분석
+              {fmt(t.detail.trendCount, conformityTrend.certCount)}
             </span>
             <div className="ml-auto">
               <StabilityBadge level={currentTrend.evaluation.stability} />
@@ -984,7 +991,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                   !activeQ ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                전체
+                {t.detail.allQuantities}
               </button>
               {conformityTrend.quantityKeys.filter(q => q !== '전체').map(q => (
                 <button
@@ -994,7 +1001,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                     activeQ === q ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  {quantityLabel(q)}
+                  {quantityLabel(q, lang, t.detail.allQuantities)}
                 </button>
               ))}
             </div>
@@ -1022,7 +1029,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                     axisLine={false}
                     tickLine={false}
                     label={currentTrend.mpOrder[0]?.unit ? {
-                      value: `오차 (${currentTrend.mpOrder[0].unit})`,
+                      value: fmt(t.detail.errorAxis, currentTrend.mpOrder[0].unit),
                       angle: -90, position: 'insideLeft',
                       style: { fontSize: 11, fill: '#64748b' },
                       offset: -5,
@@ -1066,7 +1073,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             {currentTrend.chartData.some(d => d['허용상한'] != null) && (
               <div className="flex items-center gap-1.5 text-slate-400">
                 <svg width="20" height="10"><rect x="0" y="2" width="20" height="6" rx="1" fill="#dbeafe" opacity="0.7" /><line x1="0" y1="5" x2="20" y2="5" stroke="#93c5fd" strokeWidth="1" strokeDasharray="2 2" /></svg>
-                <span>허용오차</span>
+                <span>{t.detail.tolerance}</span>
               </div>
             )}
             {conformityTrend.yearLabels.map((label, i) => {
@@ -1098,12 +1105,12 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             <table className="w-full text-[11px] border-collapse">
               <thead>
                 <tr className="bg-slate-800">
-                  <th className="text-left py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap text-[11px]">측정포인트</th>
+                  <th className="text-left py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap text-[11px]">{t.detail.mpHeader}</th>
                   {conformityTrend.yearLabels.map(y => (
                     !hiddenYears.has(y) && <th key={y} className="text-center py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap text-[11px]">{y}</th>
                   ))}
-                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold text-[11px]">추세</th>
-                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold text-[11px]">상태</th>
+                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold text-[11px]">{t.detail.trendCol}</th>
+                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold text-[11px]">{t.detail.statusCol}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1179,7 +1186,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                           : level === 'warning' ? 'bg-amber-50 text-amber-700 border border-amber-200'
                           : 'bg-red-50 text-red-700 border border-red-200'
                         }`}>
-                          {level === 'safe' ? '양호' : level === 'warning' ? '주의' : '위험'}
+                          {level === 'safe' ? t.detail.safe : level === 'warning' ? t.detail.warning : t.detail.danger}
                         </span>
                       </td>
                     </tr>
@@ -1196,7 +1203,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                 <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">경년 안정성 평가</span>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">{t.detail.stabilityEval}</span>
                 <StabilityBadge level={currentTrend.evaluation.stability} />
               </div>
               <div className="space-y-2">
@@ -1254,25 +1261,25 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <AiPlaceholder
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />}
-            title="장비 건강 진단"
-            description="성적서를 불러오면 장비 건강점수, 교정주기 예측, 조치 권고를 AI가 분석합니다."
+            title={t.detail.aiHealthTitle}
+            description={t.detail.aiHealthDesc}
           />
           <AiPlaceholder
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}
-            title="교정주기 예측"
-            description="교정 이력과 경년 데이터를 기반으로 최적 교정주기를 AI가 권고합니다."
+            title={t.detail.aiCycleTitle}
+            description={t.detail.aiCycleDesc}
           />
         </div>
       )}
 
       {/* ===== 교정 이력 상세 테이블 ===== */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">교정 이력 상세</h3>
+        <h3 className="text-sm font-semibold text-slate-700 mb-4">{t.detail.historyDetail}</h3>
         {tableData.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">상세 이력이 없습니다</div>
+          <div className="text-center py-12 text-gray-400">{t.detail.noHistory}</div>
         ) : (
           <DataTable
-            columns={historyColumns}
+            columns={columns}
             data={tableData}
             rowKey={i => `${i.acptNo}-${i.no}`}
             defaultSort={{ key: 'no', direction: 'asc' }}
@@ -1315,6 +1322,7 @@ function SectionHeader({ icon, title, color }: { icon: ReactNode; title: string;
 }
 
 function DdayBadge({ dday }: { dday: number }) {
+  const { t } = useT()
   let label: string
   let color: string
 
@@ -1323,15 +1331,15 @@ function DdayBadge({ dday }: { dday: number }) {
     if (abs >= 365) {
       const y = Math.floor(abs / 365)
       const m = Math.floor((abs % 365) / 30)
-      label = m > 0 ? `${y}년 ${m}개월 초과` : `${y}년 초과`
+      label = m > 0 ? fmt(t.time.yearMonthOver, y, m) : fmt(t.time.yearOver, y)
     } else if (abs >= 30) {
-      label = `${Math.floor(abs / 30)}개월 초과`
+      label = fmt(t.time.monthOver, Math.floor(abs / 30))
     } else {
-      label = `${abs}일 초과`
+      label = fmt(t.time.dayOver, abs)
     }
     color = 'text-red-600 bg-red-50 border-red-200'
   } else if (dday === 0) {
-    label = '오늘 만료'
+    label = t.detail.todayExpired
     color = 'text-red-600 bg-red-50 border-red-200'
   } else if (dday <= 30) {
     label = `D-${dday}`
@@ -1355,6 +1363,7 @@ function DdayBadge({ dday }: { dday: number }) {
 }
 
 function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: CertResult; onClose: () => void }) {
+  const { t, lang } = useT()
   const quantityGroups = useMemo(() => groupByQuantity(cert.측정결과), [cert.측정결과])
   const quantityKeys = useMemo(() => Array.from(quantityGroups.keys()), [quantityGroups])
   const hasMultiQuantity = quantityKeys.length > 1
@@ -1363,16 +1372,17 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
     ? (quantityGroups.get(activeQuantity) ?? cert.측정결과)
     : cert.측정결과
 
-  const fields: [string, string | null][] = [
-    ['성적서번호', cert.성적서번호],
-    ['고객명', cert.고객명],
-    ['장비명', cert.장비명],
-    ['제조사', cert.제조사],
-    ['모델', cert.모델],
-    ['기기번호', cert.시리얼],
-    ['관리번호', cert.관리번호],
-    ['교정일', cert.교정일],
-    ['차기교정일', cert.차기교정일],
+  // [i18nLabel, value, originalKoKey(for _llm_보강 matching)]
+  const fields: [string, string | null, string][] = [
+    [t.detail.certNo, cert.성적서번호, '성적서번호'],
+    [t.detail.customer, cert.고객명, '고객명'],
+    [t.detail.equipName, cert.장비명, '장비명'],
+    [t.detail.manufacturer, cert.제조사, '제조사'],
+    [t.detail.model, cert.모델, '모델'],
+    [t.detail.deviceNo, cert.시리얼, '기기번호'],
+    [t.detail.mgmtNo, cert.관리번호, '관리번호'],
+    [t.detail.calDate, cert.교정일, '교정일'],
+    [t.detail.nextCalDateLabel, cert.차기교정일, '차기교정일'],
   ]
 
   return (
@@ -1387,7 +1397,7 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
         {/* 헤더 */}
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <div>
-            <h2 className="text-sm font-bold text-slate-800">파싱 결과 상세</h2>
+            <h2 className="text-sm font-bold text-slate-800">{t.detail.parseResult}</h2>
             <p className="text-xs text-slate-400 font-mono mt-0.5">{acptNo}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
@@ -1400,16 +1410,16 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
         <div className="px-6 py-5 space-y-5">
           {/* 기본정보 */}
           <section>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">기본정보</h3>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t.detail.basicInfo}</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-              {fields.map(([label, value]) => (
-                <div key={label} className="flex items-baseline gap-2">
+              {fields.map(([label, value, koKey]) => (
+                <div key={koKey} className="flex items-baseline gap-2">
                   <span className="text-[11px] text-gray-400 min-w-[60px] shrink-0">{label}</span>
                   <span className={`text-xs font-medium truncate ${
-                    cert._llm_보강.includes(label) ? 'text-indigo-600' : 'text-slate-700'
+                    cert._llm_보강.includes(koKey) ? 'text-indigo-600' : 'text-slate-700'
                   }`} title={value || '-'}>
                     {value || '-'}
-                    {cert._llm_보강.includes(label) && (
+                    {cert._llm_보강.includes(koKey) && (
                       <span className="ml-1 text-[9px] text-indigo-400">(AI)</span>
                     )}
                   </span>
@@ -1420,16 +1430,16 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
 
           {/* 적합성검토 */}
           <section>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">적합성검토</h3>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t.detail.conformity}</h3>
             <div className="flex items-center gap-4 mb-3">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-400">적합성검토서</span>
+                <span className="text-[11px] text-gray-400">{t.detail.conformityDoc}</span>
                 <span className={`text-xs font-medium ${cert.적합성검토 ? 'text-green-600' : 'text-slate-400'}`}>
-                  {cert.적합성검토 ? '있음' : '없음'}
+                  {cert.적합성검토 ? t.detail.exists : t.detail.notExists}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-400">전체판정</span>
+                <span className="text-[11px] text-gray-400">{t.detail.overallVerdict}</span>
                 {cert.전체판정 === 'PASS' ? (
                   <span className="px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-bold">PASS</span>
                 ) : cert.전체판정 === 'FAIL' ? (
@@ -1439,8 +1449,8 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-400">측정포인트</span>
-                <span className="text-xs font-medium text-slate-700">{cert.측정포인트수}개</span>
+                <span className="text-[11px] text-gray-400">{t.detail.mpCount}</span>
+                <span className="text-xs font-medium text-slate-700">{fmt(t.detail.mpCountUnit, cert.측정포인트수)}</span>
               </div>
             </div>
 
@@ -1457,7 +1467,7 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    {quantityLabel(q)}
+                    {quantityLabel(q, lang, t.detail.allQuantities)}
                     <span className="ml-1 text-[10px] text-gray-400">({quantityGroups.get(q)?.length ?? 0})</span>
                   </button>
                 ))}
@@ -1473,10 +1483,10 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                 // 구조화된 테이블 (LLM 파싱 결과)
                 // 사용 가능한 컬럼만 표시
                 const cols: { key: string; label: string; unitKey: string }[] = [
-                  { key: '기준값', label: '기준값', unitKey: '기준단위' },
-                  { key: '지시값', label: '지시값', unitKey: '지시단위' },
-                  { key: '오차', label: '오차', unitKey: '오차단위' },
-                  { key: '허용오차', label: '허용오차', unitKey: '허용오차단위' },
+                  { key: '기준값', label: t.detail.refValue, unitKey: '기준단위' },
+                  { key: '지시값', label: t.detail.indication, unitKey: '지시단위' },
+                  { key: '오차', label: t.detail.error, unitKey: '오차단위' },
+                  { key: '허용오차', label: t.detail.toleranceVal, unitKey: '허용오차단위' },
                 ]
                 const usedCols = cols.filter(c =>
                   currentMeasurements.some(mp => (mp as unknown as Record<string, unknown>)[c.key] != null)
@@ -1493,7 +1503,7 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                               {c.label}
                             </th>
                           ))}
-                          <th className="text-center py-1.5 px-2 text-gray-400 font-medium">판정</th>
+                          <th className="text-center py-1.5 px-2 text-gray-400 font-medium">{t.detail.verdict}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1530,8 +1540,8 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-100">
                         <th className="text-left py-1.5 px-2 text-gray-400 font-medium">#</th>
-                        <th className="text-left py-1.5 px-2 text-gray-400 font-medium">데이터</th>
-                        <th className="text-center py-1.5 px-2 text-gray-400 font-medium">판정</th>
+                        <th className="text-left py-1.5 px-2 text-gray-400 font-medium">{t.detail.dataCol}</th>
+                        <th className="text-center py-1.5 px-2 text-gray-400 font-medium">{t.detail.verdict}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1556,7 +1566,7 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
           {/* 불일치 항목 */}
           {cert.불일치.length > 0 && (
             <section>
-              <h3 className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">불일치 항목</h3>
+              <h3 className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">{t.detail.discrepancy}</h3>
               <div className="space-y-1.5">
                 {cert.불일치.map((item, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs bg-amber-50 rounded-lg px-3 py-2 border border-amber-100">
@@ -1567,10 +1577,10 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                       <span className="font-medium text-amber-700">{item.항목}</span>
                       <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
                         <span className="px-1.5 py-0.5 bg-white rounded text-amber-700 font-mono">{item.갑지}</span>
-                        <span className="text-amber-400 text-[10px]">갑지</span>
+                        <span className="text-amber-400 text-[10px]">{t.detail.coverSheet}</span>
                         <span className="text-amber-300 mx-0.5">vs</span>
                         <span className="px-1.5 py-0.5 bg-white rounded text-amber-700 font-mono">{item.적합성검토}</span>
-                        <span className="text-amber-400 text-[10px]">적합성검토서</span>
+                        <span className="text-amber-400 text-[10px]">{t.detail.conformDoc}</span>
                       </div>
                     </div>
                   </div>
@@ -1582,15 +1592,15 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
           {/* AI 보강 정보 */}
           {cert._llm_provider && (
             <section>
-              <h3 className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-2">AI 보강 정보</h3>
+              <h3 className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-2">{t.detail.aiEnhance}</h3>
               <div className="bg-indigo-50/50 rounded-lg p-3 border border-indigo-100">
                 <div className="flex items-center gap-3 text-xs">
-                  <span className="text-indigo-400">분석</span>
+                  <span className="text-indigo-400">{t.detail.aiAnalysis}</span>
                   <span className="font-medium text-indigo-600">KTL AI</span>
                   {cert._llm_보강.length > 0 && (
                     <>
                       <span className="text-indigo-300">|</span>
-                      <span className="text-indigo-400">보강 필드</span>
+                      <span className="text-indigo-400">{t.detail.aiEnhancedFields}</span>
                       <span className="text-indigo-600">{cert._llm_보강.join(', ')}</span>
                     </>
                   )}
@@ -1601,9 +1611,9 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
 
           {/* 메타 정보 */}
           <section>
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">메타</h3>
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">{t.detail.meta}</h3>
             <div className="flex items-center gap-4 text-xs text-slate-500">
-              <span>시트 {cert.시트수}개</span>
+              <span>{fmt(t.detail.sheetCount, cert.시트수)}</span>
               <span className="text-slate-300">|</span>
               <span className="truncate" title={cert.시트목록.join(', ')}>{cert.시트목록.join(', ')}</span>
             </div>
@@ -1614,11 +1624,13 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
   )
 }
 
-function StabilityBadge({ level }: { level: '양호' | '주의' | '위험' }) {
-  const style = level === '양호' ? 'bg-green-100 text-green-700'
-    : level === '주의' ? 'bg-amber-100 text-amber-700'
+function StabilityBadge({ level }: { level: 'safe' | 'warning' | 'danger' }) {
+  const { t } = useT()
+  const style = level === 'safe' ? 'bg-green-100 text-green-700'
+    : level === 'warning' ? 'bg-amber-100 text-amber-700'
     : 'bg-red-100 text-red-700'
-  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${style}`}>{level}</span>
+  const label = level === 'safe' ? t.detail.safe : level === 'warning' ? t.detail.warning : t.detail.danger
+  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${style}`}>{label}</span>
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -1647,6 +1659,7 @@ function TrendChartTooltip({ active, payload, label, yearLabels, unit }: any) {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 function AiPlaceholder({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
+  const { t } = useT()
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div className="flex items-center gap-3 mb-3">
@@ -1657,7 +1670,7 @@ function AiPlaceholder({ icon, title, description }: { icon: ReactNode; title: s
         </div>
         <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
         <span className="ml-auto px-2 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-500 rounded-full">
-          AI 준비 중
+          {t.detail.aiReady}
         </span>
       </div>
       <div className="bg-slate-50 rounded-lg p-4 border border-dashed border-slate-200">

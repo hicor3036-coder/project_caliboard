@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts'
 import DataTable, { type Column } from './data-table'
+import { useT, fmt } from '@/lib/i18n'
 
 // ─── 타입 ───
 
@@ -37,17 +38,22 @@ interface UpcomingData {
 
 // ─── 유틸 ───
 
-function formatDDay(d: number): string {
+function formatDDay(d: number, time?: { yearOver: string; yearMonthOver: string; monthOver: string; dayOver: string }): string {
   if (d >= 0) return `D-${d}`
   const abs = Math.abs(d)
+  const t = time
   if (abs >= 365) {
     let y = Math.floor(abs / 365)
     let m = Math.floor((abs % 365) / 30)
-    if (m >= 12) { y += 1; m = 0 }  // 12개월 → 연도 올림
+    if (m >= 12) { y += 1; m = 0 }
+    if (t) return m > 0 ? fmt(t.yearMonthOver, y, m) : fmt(t.yearOver, y)
     return m > 0 ? `${y}년 ${m}개월 초과` : `${y}년 초과`
   }
-  if (abs >= 30) return `${Math.floor(abs / 30)}개월 초과`
-  return `${abs}일 초과`
+  if (abs >= 30) {
+    const months = Math.floor(abs / 30)
+    return t ? fmt(t.monthOver, months) : `${months}개월 초과`
+  }
+  return t ? fmt(t.dayOver, abs) : `${abs}일 초과`
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,51 +73,54 @@ function MiniTooltip({ active, payload, label }: any) {
 
 // ─── 테이블 컬럼 ───
 
-const columns: Column<UpcomingItem>[] = [
-  {
-    key: 'acptNo', header: '접수번호', sortValue: i => i.acptNo,
-    render: i => (
-      <span className="inline-flex items-center gap-1.5 font-mono text-xs text-gray-500">
-        {i.acptNo}
-        {i.groupCnt > 1 && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 rounded px-1 py-px font-sans font-medium">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            {i.groupCnt}
-          </span>
-        )}
-      </span>
-    ),
-  },
-  {
-    key: '상태', header: '상태', align: 'center',
-    sortValue: i => i.접수시급 ? 0 : i.구간 === '장기경과' ? 2 : 1,
-    render: i => i.구간 === '장기경과'
-      ? <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">장기</span>
-      : i.접수시급
-      ? <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">시급</span>
-      : <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">예정</span>,
-  },
-  { key: 'entpPrdNm', header: '업체품명', sortValue: i => i.entpPrdNm, render: i => <span className="text-gray-800 font-medium max-w-[200px] truncate block" title={i.entpPrdNm}>{i.entpPrdNm}</span> },
-  { key: 'prdnCmpnNm', header: '제조사', sortValue: i => i.prdnCmpnNm, render: i => <span className="text-gray-600">{i.prdnCmpnNm}</span> },
-  { key: 'stszNm', header: '모델', sortValue: i => i.stszNm, render: i => <span className="text-gray-600 max-w-[120px] truncate block" title={i.stszNm}>{i.stszNm || '-'}</span> },
-  { key: 'mctlNo', header: '기기번호', sortValue: i => i.mctlNo, render: i => <span className="font-mono text-xs text-gray-500">{i.mctlNo || '-'}</span> },
-  { key: 'custEqpmSrno', header: '관리번호', sortValue: i => i.custEqpmSrno, render: i => <span className="font-mono text-xs text-gray-500">{i.custEqpmSrno || '-'}</span> },
-  { key: 'nxtrExrsYmd', header: '교정만료', sortValue: i => i.nxtrExrsYmd, render: i => <span className="text-gray-600">{i.nxtrExrsYmd}</span> },
-  {
-    key: 'dDay', header: '경과', sortValue: i => i.dDay,
-    render: i => (
-      <span className={`text-xs font-medium ${
-        i.dDay < -730 ? 'text-slate-400' :
-        i.dDay <= 0 ? 'text-red-600' :
-        i.dDay <= 30 ? 'text-orange-600' :
-        'text-gray-600'
-      }`}>
-        {formatDDay(i.dDay)}
-      </span>
-    ),
-  },
-  { key: '접수권장일', header: '접수권장', sortValue: i => i.접수권장일, render: i => <span className="text-gray-600">{i.접수권장일}</span> },
-]
+function useColumns() {
+  const { t } = useT()
+  return useMemo<Column<UpcomingItem>[]>(() => [
+    {
+      key: 'acptNo', header: t.table.acptNo, sortValue: i => i.acptNo,
+      render: i => (
+        <span className="inline-flex items-center gap-1.5 font-mono text-xs text-gray-500">
+          {i.acptNo}
+          {i.groupCnt > 1 && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 rounded px-1 py-px font-sans font-medium">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              {i.groupCnt}
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: '상태', header: t.table.status, align: 'center',
+      sortValue: i => i.접수시급 ? 0 : i.구간 === '장기경과' ? 2 : 1,
+      render: i => i.구간 === '장기경과'
+        ? <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">{t.upcoming.longTerm}</span>
+        : i.접수시급
+        ? <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">{t.upcoming.urgent}</span>
+        : <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">{t.upcoming.scheduled}</span>,
+    },
+    { key: 'entpPrdNm', header: t.table.entpPrdNm, sortValue: i => i.entpPrdNm, render: i => <span className="text-gray-800 font-medium max-w-[200px] truncate block" title={i.entpPrdNm}>{i.entpPrdNm}</span> },
+    { key: 'prdnCmpnNm', header: t.table.prdnCmpnNm, sortValue: i => i.prdnCmpnNm, render: i => <span className="text-gray-600">{i.prdnCmpnNm}</span> },
+    { key: 'stszNm', header: t.table.stszNm, sortValue: i => i.stszNm, render: i => <span className="text-gray-600 max-w-[120px] truncate block" title={i.stszNm}>{i.stszNm || '-'}</span> },
+    { key: 'mctlNo', header: t.table.mctlNo, sortValue: i => i.mctlNo, render: i => <span className="font-mono text-xs text-gray-500">{i.mctlNo || '-'}</span> },
+    { key: 'custEqpmSrno', header: t.table.custEqpmSrno, sortValue: i => i.custEqpmSrno, render: i => <span className="font-mono text-xs text-gray-500">{i.custEqpmSrno || '-'}</span> },
+    { key: 'nxtrExrsYmd', header: t.table.calExpiry, sortValue: i => i.nxtrExrsYmd, render: i => <span className="text-gray-600">{i.nxtrExrsYmd}</span> },
+    {
+      key: 'dDay', header: t.table.elapsed, sortValue: i => i.dDay,
+      render: i => (
+        <span className={`text-xs font-medium ${
+          i.dDay < -730 ? 'text-slate-400' :
+          i.dDay <= 0 ? 'text-red-600' :
+          i.dDay <= 30 ? 'text-orange-600' :
+          'text-gray-600'
+        }`}>
+          {formatDDay(i.dDay, t.time)}
+        </span>
+      ),
+    },
+    { key: '접수권장일', header: t.table.recDate, sortValue: i => i.접수권장일, render: i => <span className="text-gray-600">{i.접수권장일}</span> },
+  ], [t])
+}
 
 // ─── 필터 칩 ───
 
@@ -131,6 +140,8 @@ function FilterChip({ label, color, onRemove }: { label: string; color: string; 
 // ─── 메인 컴포넌트 ───
 
 export default function UpcomingCalibration({ data, onOpenDetail }: { data: UpcomingData; onOpenDetail?: (groupNm: string, equipmentName: string) => void }) {
+  const { t } = useT()
+  const columns = useColumns()
   const [excludeLongTerm, setExcludeLongTerm] = useState(true)
   const [chartsOpen, setChartsOpen] = useState(false)
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
@@ -264,12 +275,13 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
     return entry?.filterKey ?? null
   }
 
+  const unit = t.common.unit
   const filterCards = [
-    { key: '임박', label: '임박', count: cardCounts.임박, color: 'text-red-600', activeColor: 'border-red-400 bg-red-50', dotColor: 'bg-red-500', desc: '만료까지 0~14일' },
-    { key: '예비', label: '예비', count: cardCounts.예비, color: 'text-orange-600', activeColor: 'border-orange-400 bg-orange-50', dotColor: 'bg-orange-500', desc: '만료까지 15~30일' },
-    { key: '안전', label: '안전', count: cardCounts.안전, color: 'text-emerald-600', activeColor: 'border-emerald-400 bg-emerald-50', dotColor: 'bg-emerald-500', desc: '만료까지 31일 이상' },
-    { key: '최근만료', label: '최근 만료', count: cardCounts.최근만료, color: 'text-rose-600', activeColor: 'border-rose-400 bg-rose-50', dotColor: 'bg-rose-500', desc: '만료 3개월 이내' },
-    { key: '방치', label: '방치', count: cardCounts.방치, color: 'text-slate-500', activeColor: 'border-slate-400 bg-slate-50', dotColor: 'bg-slate-400', desc: '만료 3개월 초과' },
+    { key: '임박', label: t.upcoming.imminent, count: cardCounts.임박, color: 'text-red-600', activeColor: 'border-red-400 bg-red-50', dotColor: 'bg-red-500', desc: t.upcoming.imminentDesc },
+    { key: '예비', label: t.upcoming.reserve, count: cardCounts.예비, color: 'text-orange-600', activeColor: 'border-orange-400 bg-orange-50', dotColor: 'bg-orange-500', desc: t.upcoming.reserveDesc },
+    { key: '안전', label: t.upcoming.safe, count: cardCounts.안전, color: 'text-emerald-600', activeColor: 'border-emerald-400 bg-emerald-50', dotColor: 'bg-emerald-500', desc: t.upcoming.safeDesc },
+    { key: '최근만료', label: t.upcoming.recentExpired, count: cardCounts.최근만료, color: 'text-rose-600', activeColor: 'border-rose-400 bg-rose-50', dotColor: 'bg-rose-500', desc: t.upcoming.recentExpiredDesc },
+    { key: '방치', label: t.upcoming.neglected, count: cardCounts.방치, color: 'text-slate-500', activeColor: 'border-slate-400 bg-slate-50', dotColor: 'bg-slate-400', desc: t.upcoming.neglectedDesc },
   ]
 
   const hasFilter = selectedSection || selectedManufacturer || selectedBatch
@@ -280,18 +292,18 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-4">
           <h2 className="text-lg font-bold">
-            차기교정 임박 <span className="text-red-500 text-base font-normal ml-1">{filtered.length}건</span>
+            {t.upcoming.title} <span className="text-red-500 text-base font-normal ml-1">{filtered.length}{unit}</span>
           </h2>
           <span className="text-sm text-slate-500">
-            평균 소요 <span className="font-semibold text-slate-700">{data.평균소요일}일</span>
+            {t.upcoming.avgDays} <span className="font-semibold text-slate-700">{data.평균소요일}{t.common.days}</span>
             <span className="text-slate-300 mx-1">+</span>
-            여유 <span className="font-semibold text-slate-700">{data.여유일}일</span> 기준
+            {t.upcoming.margin} <span className="font-semibold text-slate-700">{data.여유일}{t.common.days}</span> {t.upcoming.basis}
           </span>
         </div>
         {장기건수 > 0 && (
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <span className="text-xs text-gray-500">
-              장기경과 제외 <span className="text-slate-400">({장기건수}건, 만료 2년 초과)</span>
+              {t.upcoming.excludeLong} <span className="text-slate-400">({장기건수}{unit}, {t.upcoming.longTermTag})</span>
             </span>
             <button
               onClick={() => setExcludeLongTerm(!excludeLongTerm)}
@@ -309,7 +321,7 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
 
       {!excludeLongTerm && 장기건수 > 0 && (
         <div className="px-3 py-2 bg-slate-50 rounded-lg text-xs text-slate-500">
-          교정만료일로부터 2년 이상 경과된 장비 {장기건수}건이 포함되어 있습니다. 폐기·미사용 또는 교정 비대상 장비일 수 있습니다.
+          {fmt(t.upcoming.longTermNote, 장기건수)}
         </div>
       )}
 
@@ -329,7 +341,7 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
                 <span className={`w-1.5 h-1.5 rounded-full ${c.dotColor}`} />
                 <span className="text-xs text-gray-400">{c.label}</span>
               </div>
-              <p className={`text-lg font-bold ${c.count > 0 ? c.color : 'text-gray-400'}`}>{c.count.toLocaleString()}건</p>
+              <p className={`text-lg font-bold ${c.count > 0 ? c.color : 'text-gray-400'}`}>{c.count.toLocaleString()}{unit}</p>
               <p className="text-[10px] text-gray-400 mt-0.5">{c.desc}</p>
             </button>
           )
@@ -339,12 +351,12 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
       {/* [B-2] 일괄 신청 배너 */}
       <div className="px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-lg">
         <div className="flex items-center justify-between mb-1.5">
-          <p className="text-xs font-medium text-blue-700">일괄 신청 가능 — 묶어서 신청하면 효율적입니다</p>
+          <p className="text-xs font-medium text-blue-700">{t.upcoming.batchTitle}</p>
           <div className="flex gap-0.5 bg-blue-100 rounded p-0.5">
             {([
-              { mode: 'product' as const, label: '업체품명' },
-              { mode: 'manufacturer' as const, label: '제조사' },
-              { mode: 'mfr_model' as const, label: '제조사+모델' },
+              { mode: 'product' as const, label: t.upcoming.batchProduct },
+              { mode: 'manufacturer' as const, label: t.upcoming.batchMfr },
+              { mode: 'mfr_model' as const, label: t.upcoming.batchMfrModel },
             ]).map(t => (
               <button
                 key={t.mode}
@@ -374,13 +386,13 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
                       : 'text-blue-600 bg-white border border-blue-200 hover:bg-blue-50'
                   }`}
                 >
-                  {g.label} <span className="font-bold">{g.count}대</span>
+                  {g.label} <span className="font-bold">{fmt(t.upcoming.batchUnit, g.count)}</span>
                 </button>
               )
             })}
           </div>
         ) : (
-          <p className="text-[11px] text-blue-400">3대 이상 묶이는 그룹이 없습니다</p>
+          <p className="text-[11px] text-blue-400">{t.upcoming.batchEmpty}</p>
         )}
       </div>
 
@@ -390,7 +402,7 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
           onClick={() => setChartsOpen(!chartsOpen)}
           className="w-full flex items-center justify-between px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
         >
-          <span>상세 분석</span>
+          <span>{t.upcoming.detail}</span>
           <svg
             className={`w-4 h-4 text-gray-400 transition-transform ${chartsOpen ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -403,8 +415,8 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
             {/* 구간 분포 */}
             <div>
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                D-Day 구간 분포
-                <span className="text-[10px] font-normal text-slate-400 ml-2">클릭하여 필터</span>
+                {t.upcoming.ddayDist}
+                <span className="text-[10px] font-normal text-slate-400 ml-2">{t.upcoming.clickFilter}</span>
               </h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart
@@ -430,7 +442,7 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
                       const dimmed = selectedSection && selectedSection !== filterVal
                       return <Cell key={i} fill={dimmed ? '#cbd5e1' : entry.fill} />
                     })}
-                    <LabelList dataKey="건수" position="top" fontSize={11} fill="#64748b" formatter={(v) => Number(v) > 0 ? `${v}건` : ''} />
+                    <LabelList dataKey="건수" position="top" fontSize={11} fill="#64748b" formatter={(v) => Number(v) > 0 ? `${v}${unit}` : ''} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -439,8 +451,8 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
             {/* 제조사별 분포 */}
             <div>
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                제조사별 임박
-                <span className="text-[10px] font-normal text-slate-400 ml-2">클릭하여 필터</span>
+                {t.upcoming.mfrDist}
+                <span className="text-[10px] font-normal text-slate-400 ml-2">{t.upcoming.clickFilter}</span>
               </h3>
               <div className="max-h-[200px] overflow-y-auto">
                 <ResponsiveContainer width="100%" height={Math.max(200, 제조사별.length * 25 + 30)}>
@@ -481,14 +493,14 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
                       tickLine={false}
                     />
                     <Tooltip content={<MiniTooltip />} cursor={{ fill: '#f8fafc' }} />
-                    <Bar dataKey="value" name="건수" radius={[0, 6, 6, 0]}>
+                    <Bar dataKey="value" name={unit || 'count'} radius={[0, 6, 6, 0]}>
                       {제조사별.map((entry) => (
                         <Cell
                           key={entry.label}
                           fill={selectedManufacturer ? (selectedManufacturer === entry.label ? '#1e3a5f' : '#cbd5e1') : '#1e3a5f'}
                         />
                       ))}
-                      <LabelList dataKey="value" position="right" fontSize={11} fill="#64748b" formatter={(v) => Number(v) > 0 ? `${v}건` : ''} />
+                      <LabelList dataKey="value" position="right" fontSize={11} fill="#64748b" formatter={(v) => Number(v) > 0 ? `${v}${unit}` : ''} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -517,21 +529,21 @@ export default function UpcomingCalibration({ data, onOpenDetail }: { data: Upco
           )}
           {selectedBatch && (
             <FilterChip
-              label={`일괄: ${selectedBatch.split('|||').slice(1).join(' / ')}`}
+              label={fmt(t.upcoming.batchLabel, selectedBatch.split('|||').slice(1).join(' / '))}
               color="bg-indigo-50 text-indigo-700 border-indigo-200"
               onRemove={() => setSelectedBatch(null)}
             />
           )}
-          <span className="text-xs text-gray-400">{filtered.length}건</span>
+          <span className="text-xs text-gray-400">{filtered.length}{unit}</span>
           <button
             onClick={() => { setSelectedSection(null); setSelectedManufacturer(null); setSelectedBatch(null) }}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-            title="필터 초기화"
+            title={t.upcoming.reset}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            초기화
+            {t.upcoming.reset}
           </button>
         </div>
       )}

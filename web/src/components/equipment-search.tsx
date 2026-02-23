@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import DataTable, { type Column } from './data-table'
+import { useT } from '@/lib/i18n'
 
 // === 타입 ===
 
@@ -31,86 +32,89 @@ const SEARCH_FIELDS: (keyof EquipmentItem)[] = [
 
 // === 테이블 컬럼 정의 ===
 
-const columns: Column<EquipmentItem>[] = [
-  {
-    key: 'acptNo', header: '접수번호',
-    sortValue: i => i.acptNo,
-    render: i => (
-      <span className="inline-flex items-center gap-1.5 font-mono text-xs text-gray-500">
-        {i.acptNo}
-        {i.groupCnt > 1 && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 rounded px-1 py-px font-sans font-medium">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            {i.groupCnt}
-          </span>
-        )}
-      </span>
-    ),
-  },
-  {
-    key: 'entpPrdNm', header: '업체품명',
-    sortValue: i => i.entpPrdNm,
-    render: i => (
-      <span className="text-gray-800 font-medium max-w-[200px] truncate block" title={i.entpPrdNm}>
-        {i.entpPrdNm || '-'}
-      </span>
-    ),
-  },
-  {
-    key: 'prdnCmpnNm', header: '제조사',
-    sortValue: i => i.prdnCmpnNm,
-    render: i => <span className="text-gray-600">{i.prdnCmpnNm || '-'}</span>,
-  },
-  {
-    key: 'stszNm', header: '모델',
-    sortValue: i => i.stszNm,
-    render: i => (
-      <span className="text-gray-600 max-w-[120px] truncate block" title={i.stszNm}>
-        {i.stszNm || '-'}
-      </span>
-    ),
-  },
-  {
-    key: 'mctlNo', header: '기기번호',
-    sortValue: i => i.mctlNo,
-    render: i => <span className="font-mono text-xs text-gray-500">{i.mctlNo || '-'}</span>,
-  },
-  {
-    key: 'custEqpmSrno', header: '관리번호',
-    sortValue: i => i.custEqpmSrno,
-    render: i => <span className="font-mono text-xs text-gray-500">{i.custEqpmSrno || '-'}</span>,
-  },
-  {
-    key: 'rcpnYmd', header: '접수일',
-    sortValue: i => i.rcpnYmd,
-    render: i => <span className="text-gray-600">{i.rcpnYmd || '-'}</span>,
-  },
-  {
-    key: 'pgstNm', header: '진행상태',
-    sortValue: i => i.pgstNm,
-    render: i => {
-      const s = i.pgstNm
-      const color = s.includes('미처리') ? 'bg-amber-100 text-amber-700'
-        : s.includes('완료') ? 'bg-green-100 text-green-700'
-        : 'bg-gray-100 text-gray-600'
-      return (
-        <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${color}`}>
-          {s || '-'}
+function useColumns() {
+  const { t } = useT()
+  return useMemo<Column<EquipmentItem>[]>(() => [
+    {
+      key: 'acptNo', header: t.table.acptNo,
+      sortValue: i => i.acptNo,
+      render: i => (
+        <span className="inline-flex items-center gap-1.5 font-mono text-xs text-gray-500">
+          {i.acptNo}
+          {i.groupCnt > 1 && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 rounded px-1 py-px font-sans font-medium">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              {i.groupCnt}
+            </span>
+          )}
         </span>
-      )
+      ),
     },
-  },
-  {
-    key: 'mngmRsprNm', header: '담당자',
-    sortValue: i => i.mngmRsprNm,
-    render: i => <span className="text-gray-600">{i.mngmRsprNm || '-'}</span>,
-  },
-  {
-    key: 'nxtrExrsYmd', header: '차기교정',
-    sortValue: i => i.nxtrExrsYmd,
-    render: i => <span className="text-gray-600">{i.nxtrExrsYmd || '-'}</span>,
-  },
-]
+    {
+      key: 'entpPrdNm', header: t.table.entpPrdNm,
+      sortValue: i => i.entpPrdNm,
+      render: i => (
+        <span className="text-gray-800 font-medium max-w-[200px] truncate block" title={i.entpPrdNm}>
+          {i.entpPrdNm || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'prdnCmpnNm', header: t.table.prdnCmpnNm,
+      sortValue: i => i.prdnCmpnNm,
+      render: i => <span className="text-gray-600">{i.prdnCmpnNm || '-'}</span>,
+    },
+    {
+      key: 'stszNm', header: t.table.stszNm,
+      sortValue: i => i.stszNm,
+      render: i => (
+        <span className="text-gray-600 max-w-[120px] truncate block" title={i.stszNm}>
+          {i.stszNm || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'mctlNo', header: t.table.mctlNo,
+      sortValue: i => i.mctlNo,
+      render: i => <span className="font-mono text-xs text-gray-500">{i.mctlNo || '-'}</span>,
+    },
+    {
+      key: 'custEqpmSrno', header: t.table.custEqpmSrno,
+      sortValue: i => i.custEqpmSrno,
+      render: i => <span className="font-mono text-xs text-gray-500">{i.custEqpmSrno || '-'}</span>,
+    },
+    {
+      key: 'rcpnYmd', header: t.table.rcpnYmd,
+      sortValue: i => i.rcpnYmd,
+      render: i => <span className="text-gray-600">{i.rcpnYmd || '-'}</span>,
+    },
+    {
+      key: 'pgstNm', header: t.table.pgstNm,
+      sortValue: i => i.pgstNm,
+      render: i => {
+        const s = i.pgstNm
+        const color = s.includes('미처리') ? 'bg-amber-100 text-amber-700'
+          : s.includes('완료') ? 'bg-green-100 text-green-700'
+          : 'bg-gray-100 text-gray-600'
+        return (
+          <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${color}`}>
+            {s || '-'}
+          </span>
+        )
+      },
+    },
+    {
+      key: 'mngmRsprNm', header: t.table.mngmRsprNm,
+      sortValue: i => i.mngmRsprNm,
+      render: i => <span className="text-gray-600">{i.mngmRsprNm || '-'}</span>,
+    },
+    {
+      key: 'nxtrExrsYmd', header: t.table.nxtrExrsYmd,
+      sortValue: i => i.nxtrExrsYmd,
+      render: i => <span className="text-gray-600">{i.nxtrExrsYmd || '-'}</span>,
+    },
+  ], [t])
+}
 
 // === 필터 드롭다운 컴포넌트 ===
 
@@ -131,7 +135,7 @@ function FilterSelect({
       onChange={e => onChange(e.target.value)}
       className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 cursor-pointer hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-200 min-w-[140px]"
     >
-      <option value="">{label} 전체</option>
+      <option value="">{label}</option>
       {options.map(o => (
         <option key={o} value={o}>{o}</option>
       ))}
@@ -142,6 +146,8 @@ function FilterSelect({
 // === 메인 컴포넌트 (부모에서 items를 props로 전달받음) ===
 
 export default function EquipmentSearch({ items, onOpenDetail, searchParams }: { items: EquipmentItem[]; onOpenDetail: (groupNm: string, equipmentName: string) => void; searchParams: URLSearchParams }) {
+  const { t } = useT()
+  const columns = useColumns()
   const router = useRouter()
 
   // URL 파라미터에서 필터 상태 읽기 (드롭다운은 URL 직접 연동)
@@ -226,7 +232,7 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">
-          전체 장비 <span className="text-slate-500 text-base font-normal ml-2">{items.length.toLocaleString()}건</span>
+          {t.search.title} <span className="text-slate-500 text-base font-normal ml-2">{items.length.toLocaleString()}{t.common.unit}</span>
         </h2>
       </div>
 
@@ -243,7 +249,7 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
               value={inputValue}
               onChange={e => setInputValue(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') submitQuery() }}
-              placeholder="접수번호, 품명, 제조사, 모델, 기기번호, 관리번호, 담당자 검색"
+              placeholder={t.search.placeholder}
               className="w-full pl-10 pr-9 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 placeholder:text-gray-400"
             />
             {inputValue && (
@@ -261,28 +267,28 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
             onClick={submitQuery}
             className="px-4 py-2.5 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors shrink-0"
           >
-            검색
+            {t.search.search}
           </button>
         </div>
 
         {/* 필터 드롭다운 + 초기화 */}
         <div className="flex items-center gap-2 flex-wrap">
-          <FilterSelect label="진행상태" value={status} options={filterOptions.진행상태} onChange={setStatus} />
-          <FilterSelect label="제조사" value={manufacturer} options={filterOptions.제조사} onChange={setManufacturer} />
-          <FilterSelect label="담당자" value={manager} options={filterOptions.담당자} onChange={setManager} />
+          <FilterSelect label={t.search.statusAll} value={status} options={filterOptions.진행상태} onChange={setStatus} />
+          <FilterSelect label={t.search.mfrAll} value={manufacturer} options={filterOptions.제조사} onChange={setManufacturer} />
+          <FilterSelect label={t.search.managerAll} value={manager} options={filterOptions.담당자} onChange={setManager} />
 
           {hasActiveFilter && (
             <button
               onClick={resetFilters}
               className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              초기화
+              {t.search.reset}
             </button>
           )}
 
           {hasActiveFilter && (
             <span className="ml-auto text-xs text-gray-400">
-              검색 결과 <span className="font-medium text-gray-600">{filtered.length.toLocaleString()}</span>건
+              {t.search.result} <span className="font-medium text-gray-600">{filtered.length.toLocaleString()}</span>{t.common.unit}
             </span>
           )}
         </div>
@@ -292,7 +298,7 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
-            {hasActiveFilter ? '검색 결과가 없습니다' : '장비 데이터가 없습니다'}
+            {hasActiveFilter ? t.search.noResult : t.search.noData}
           </div>
         ) : (
           <DataTable

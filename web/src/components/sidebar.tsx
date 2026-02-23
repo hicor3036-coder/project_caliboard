@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+import { useT } from '@/lib/i18n'
 
-export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'ai-chat' | 'equipment-detail'
+export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'profiles' | 'equipment-detail'
 
 interface SidebarProps {
   activeView: ViewType
@@ -14,54 +15,6 @@ interface SidebarProps {
   교정임박건수?: number
 }
 
-const menuItems: { id: ViewType; label: string; icon: ReactNode }[] = [
-  {
-    id: 'home',
-    label: '홈',
-    icon: (
-      <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
-      </svg>
-    ),
-  },
-  {
-    id: 'search',
-    label: '장비 검색',
-    icon: (
-      <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'unprocessed',
-    label: '미처리 현황',
-    icon: (
-      <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-      </svg>
-    ),
-  },
-  {
-    id: 'upcoming',
-    label: '교정 임박',
-    icon: (
-      <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'ai-chat',
-    label: '질문하기',
-    icon: (
-      <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-      </svg>
-    ),
-  },
-]
-
 export default function Sidebar({
   activeView,
   onViewChange,
@@ -71,7 +24,57 @@ export default function Sidebar({
   미처리건수,
   교정임박건수,
 }: SidebarProps) {
+  const { t, lang, setLang } = useT()
   const [collapsed, setCollapsed] = useState(false)
+
+  const menuItems: { id: ViewType; label: string; icon: ReactNode }[] = [
+    {
+      id: 'home',
+      label: t.nav.home,
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+        </svg>
+      ),
+    },
+    {
+      id: 'search',
+      label: t.nav.search,
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'unprocessed',
+      label: t.nav.unprocessed,
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
+    },
+    {
+      id: 'upcoming',
+      label: t.nav.upcoming,
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'profiles',
+      label: t.nav.profiles,
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 4v16M4 9h5M4 13h5" />
+        </svg>
+      ),
+    },
+  ]
 
   function getBadge(id: ViewType): number | undefined {
     if (id === 'unprocessed' && 미처리건수 && 미처리건수 > 0) return 미처리건수
@@ -153,38 +156,70 @@ export default function Sidebar({
 
       {/* 하단 액션 */}
       <div className="border-t border-slate-700 p-2 space-y-1">
+        {/* 언어 토글 */}
+        <div className={`flex items-center ${collapsed ? 'justify-center' : 'px-3'} gap-1 py-1.5`}>
+          {collapsed ? (
+            <button
+              onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
+              title={lang === 'ko' ? 'English' : '한국어'}
+              className="text-[10px] font-bold text-slate-400 hover:text-white transition-colors"
+            >
+              {lang === 'ko' ? 'EN' : 'KO'}
+            </button>
+          ) : (
+            <div className="flex gap-0.5 bg-slate-700 rounded p-0.5 w-full">
+              <button
+                onClick={() => setLang('ko')}
+                className={`flex-1 text-xs py-1 rounded transition-colors ${
+                  lang === 'ko' ? 'bg-slate-500 text-white font-semibold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                KO
+              </button>
+              <button
+                onClick={() => setLang('en')}
+                className={`flex-1 text-xs py-1 rounded transition-colors ${
+                  lang === 'en' ? 'bg-slate-500 text-white font-semibold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                EN
+              </button>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={onRefresh}
           disabled={loading}
-          title={collapsed ? (loading ? '수집 중...' : '새로고침') : undefined}
+          title={collapsed ? (loading ? t.nav.refreshing : t.nav.refresh) : undefined}
           className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'px-3'} gap-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50`}
         >
           <svg className={`w-4 h-4 shrink-0 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          {!collapsed && (loading ? '수집 중...' : '새로고침')}
+          {!collapsed && (loading ? t.nav.refreshing : t.nav.refresh)}
         </button>
         <button
           onClick={onLogout}
-          title={collapsed ? '로그아웃' : undefined}
+          title={collapsed ? t.nav.logout : undefined}
           className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'px-3'} gap-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors`}
         >
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          {!collapsed && '로그아웃'}
+          {!collapsed && t.nav.logout}
         </button>
 
         {/* 접기/펼치기 토글 */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          title={collapsed ? '펼치기' : '접기'}
+          title={collapsed ? t.nav.expand : t.nav.collapse}
           className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'px-3'} gap-3 py-2 text-sm text-slate-500 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors`}
         >
           <svg className={`w-4 h-4 shrink-0 transition-transform ${collapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           </svg>
-          {!collapsed && '접기'}
+          {!collapsed && t.nav.collapse}
         </button>
       </div>
     </aside>

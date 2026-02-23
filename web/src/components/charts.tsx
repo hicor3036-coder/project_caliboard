@@ -3,19 +3,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useCallback } from 'react'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { useT } from '@/lib/i18n'
 
 // 모던 컬러 팔레트
 const COLORS = ['#3b82f6', '#0ea5e9', '#6366f1', '#8b5cf6', '#14b8a6', '#f59e0b', '#ef4444', '#64748b']
 
 // 커스텀 툴팁
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label, unit }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl border border-slate-700">
       {label && <p className="text-slate-300 mb-1">{label}</p>}
       {payload.map((p: any, i: number) => (
         <p key={i} className="font-medium">
-          {p.name ?? p.dataKey}: <span className="text-blue-300">{Number(p.value).toLocaleString()}건</span>
+          {p.name ?? p.dataKey}: <span className="text-blue-300">{Number(p.value).toLocaleString()}{unit}</span>
         </p>
       ))}
     </div>
@@ -26,9 +27,11 @@ const RADIAN = Math.PI / 180
 
 // 진행상태 분포 도넛차트 (폴리라인 라벨 + 겹침 방지)
 export function StatusPieChart({ data }: { data: { label: string; value: number }[] }) {
+  const { t } = useT()
+  const unit = t.chart.unit
   const top = data.slice(0, 5)
   const rest = data.slice(5).reduce((sum, d) => sum + d.value, 0)
-  const chartData = (rest > 0 ? [...top, { label: '기타', value: rest }] : top).filter(d => d.value > 0)
+  const chartData = (rest > 0 ? [...top, { label: t.chart.etc, value: rest }] : top).filter(d => d.value > 0)
   const total = chartData.reduce((s, d) => s + d.value, 0)
 
   // 충돌 회피용 y좌표 사전 계산
@@ -111,15 +114,15 @@ export function StatusPieChart({ data }: { data: { label: string; value: number 
           fontWeight={500}
           fill="#475569"
         >
-          {item.name} {item.value.toLocaleString()}건
+          {item.name} {item.value.toLocaleString()}{unit}
         </text>
       </g>
     )
-  }, [labelLayout])
+  }, [labelLayout, unit])
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 className="text-sm font-semibold text-slate-700 mb-4">진행상태 분포</h2>
+      <h2 className="text-sm font-semibold text-slate-700 mb-4">{t.chart.statusDist}</h2>
       <ResponsiveContainer width="100%" height={320}>
         <PieChart margin={{ left: 100, right: 100 }}>
           <Pie
@@ -139,9 +142,9 @@ export function StatusPieChart({ data }: { data: { label: string; value: number 
               <Cell key={i} fill={COLORS[i % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip content={<ChartTooltip />} />
+          <Tooltip content={<ChartTooltip unit={unit} />} />
           <text x="50%" y="47%" textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={11}>
-            전체
+            {t.chart.total}
           </text>
           <text x="50%" y="55%" textAnchor="middle" dominantBaseline="central" fill="#1e293b" fontSize={18} fontWeight={700}>
             {total.toLocaleString()}
@@ -154,11 +157,13 @@ export function StatusPieChart({ data }: { data: { label: string; value: number 
 
 // 월별 접수 추이 바차트
 export function MonthlyBarChart({ data }: { data: { month: string; 건수: number }[] }) {
+  const { t } = useT()
   const recent = data.slice(-12)
+  const unit = t.chart.unit
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 className="text-sm font-semibold text-slate-700 mb-4">월별 접수 추이</h2>
+      <h2 className="text-sm font-semibold text-slate-700 mb-4">{t.chart.monthlyTrend}</h2>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={recent} barCategoryGap="20%">
           <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -174,7 +179,7 @@ export function MonthlyBarChart({ data }: { data: { month: string; 건수: numbe
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f8fafc' }} />
+          <Tooltip content={<ChartTooltip unit={unit} />} cursor={{ fill: '#f8fafc' }} />
           <Bar dataKey="건수" fill="#3b82f6" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -184,7 +189,9 @@ export function MonthlyBarChart({ data }: { data: { month: string; 건수: numbe
 
 // 제조사별 / 담당자별 수평 바차트
 export function HorizontalBarChart({ data, title }: { data: { label: string; value: number }[]; title: string }) {
+  const { t } = useT()
   const display = data.slice(0, 10)
+  const unit = t.chart.unit
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -206,8 +213,8 @@ export function HorizontalBarChart({ data, title }: { data: { label: string; val
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f8fafc' }} />
-          <Bar dataKey="value" name="건수" fill="#1e3a5f" radius={[0, 6, 6, 0]} />
+          <Tooltip content={<ChartTooltip unit={unit} />} cursor={{ fill: '#f8fafc' }} />
+          <Bar dataKey="value" name={unit || 'count'} fill="#1e3a5f" radius={[0, 6, 6, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

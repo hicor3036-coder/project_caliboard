@@ -9,7 +9,8 @@ import UpcomingCalibration from '@/components/upcoming-calibration'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import EquipmentSearch from '@/components/equipment-search'
 import EquipmentDetailPage from '@/components/equipment-detail-page'
-import AiChat from '@/components/ai-chat'
+import EquipmentProfiles from '@/components/equipment-profiles'
+import { useT, fmt } from '@/lib/i18n'
 
 interface EquipmentItem {
   acptNo: string; entpPrdNm: string; prdnCmpnNm: string;
@@ -60,7 +61,7 @@ interface Progress {
 }
 
 // URL ↔ 상태 동기화 헬퍼
-const VALID_VIEWS: ViewType[] = ['home', 'search', 'unprocessed', 'upcoming', 'ai-chat']
+const VALID_VIEWS: ViewType[] = ['home', 'search', 'unprocessed', 'upcoming', 'profiles']
 
 function viewFromParams(params: URLSearchParams): { view: ViewType; equipment: { groupNm: string; equipmentName: string } | null } {
   const v = params.get('view')
@@ -93,6 +94,7 @@ export default function Page() {
 }
 
 function Dashboard() {
+  const { t } = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [data, setData] = useState<AnalysisData | null>(null)
@@ -127,7 +129,7 @@ function Dashboard() {
       if (json.error) throw new Error(json.error)
       setData(json)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '데이터 로드 실패')
+      setError(e instanceof Error ? e.message : t.collect.loadFail)
     } finally {
       setLoading(false)
     }
@@ -137,7 +139,7 @@ function Dashboard() {
   const fetchWithProgress = useCallback(async () => {
     setLoading(true)
     setError(null)
-    setProgress({ stage: 'login', current: 0, total: 0, message: '연결 중...' })
+    setProgress({ stage: 'login', current: 0, total: 0, message: t.collect.connecting })
 
     try {
       const res = await fetch('/api/ktools/stream')
@@ -145,7 +147,7 @@ function Dashboard() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
       const reader = res.body?.getReader()
-      if (!reader) throw new Error('스트림 읽기 실패')
+      if (!reader) throw new Error(t.collect.streamFail)
 
       const decoder = new TextDecoder()
       let buffer = ''
@@ -177,7 +179,7 @@ function Dashboard() {
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : '데이터 수집 실패')
+      setError(e instanceof Error ? e.message : t.collect.collectFail)
       setProgress(null)
     } finally {
       setLoading(false)
@@ -207,6 +209,11 @@ function Dashboard() {
 
   // 뷰별 콘텐츠 렌더링
   function renderContent() {
+    // 장비사전정보: k-tools 데이터 없이도 접근 가능
+    if (activeView === 'profiles') {
+      return <EquipmentProfiles equipmentItems={data?.전체장비 ?? null} />
+    }
+
     // 초기 화면: 데이터 수집 전
     if (initialized && !data && !loading && !error) {
       return (
@@ -217,16 +224,16 @@ function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">데이터 수집</h2>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">{t.collect.title}</h2>
             <p className="text-slate-500 text-sm mb-6">
-              k-tools에서 교정 장비 데이터를 수집합니다.<br />
-              약 9,000건 수집에 수 초 소요됩니다.
+              {t.collect.desc}<br />
+              {t.collect.subDesc}
             </p>
             <button
               onClick={() => fetchWithProgress()}
               className="px-6 py-3 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors"
             >
-              수집 시작
+              {t.collect.start}
             </button>
           </div>
         </div>
@@ -240,7 +247,7 @@ function Dashboard() {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center max-w-md w-full">
             <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-5" />
             <p className="text-slate-700 font-medium mb-1">
-              {progress?.message ?? 'k-tools에서 데이터 수집 중...'}
+              {progress?.message ?? t.collect.loading}
             </p>
             {progress?.stage === 'fetch' && progress.total > 0 ? (
               <>
@@ -255,7 +262,7 @@ function Dashboard() {
                 </p>
               </>
             ) : (
-              <p className="text-xs text-slate-400 mt-2">잠시만 기다려주세요</p>
+              <p className="text-xs text-slate-400 mt-2">{t.collect.wait}</p>
             )}
           </div>
         </div>
@@ -271,7 +278,7 @@ function Dashboard() {
             onClick={() => fetchWithProgress()}
             className="mt-3 px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
           >
-            재시도
+            {t.collect.retry}
           </button>
         </div>
       )
@@ -293,8 +300,8 @@ function Dashboard() {
               <MonthlyBarChart data={data.월별접수추이} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <HorizontalBarChart data={data.제조사별분포} title="제조사별 분포 (Top 10)" />
-              <HorizontalBarChart data={data.담당자별처리량} title="담당자별 처리량" />
+              <HorizontalBarChart data={data.제조사별분포} title={t.chart.mfrDist} />
+              <HorizontalBarChart data={data.담당자별처리량} title={t.chart.managerDist} />
             </div>
           </div>
         )
@@ -304,8 +311,6 @@ function Dashboard() {
         return <UpcomingCalibration data={data.차기교정임박} onOpenDetail={openEquipmentDetail} />
       case 'search':
         return <EquipmentSearch items={data.전체장비} onOpenDetail={openEquipmentDetail} searchParams={searchParams} />
-      case 'ai-chat':
-        return <AiChat dataLoaded={!!data} />
       case 'equipment-detail':
         if (selectedEquipment) {
           return (
@@ -359,7 +364,7 @@ function Dashboard() {
                 </p>
               </>
             ) : (
-              <p className="text-xs text-slate-400 mt-2">잠시만 기다려주세요</p>
+              <p className="text-xs text-slate-400 mt-2">{t.collect.wait}</p>
             )}
           </div>
         </div>

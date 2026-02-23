@@ -2,7 +2,15 @@
 
 import { ktoolsLogin } from './ktools-login'
 
-const API_URL = 'https://k-tools.ktl.re.kr/spm/api/spm0907_getConsignPrjcDtlEquipList.ajax'
+const BASE_URL = 'https://k-tools.ktl.re.kr'
+const API_URL = `${BASE_URL}/spm/api/spm0907_getConsignPrjcDtlEquipList.ajax`
+
+// spm0907.do 페이지 접근 (API 호출 전제조건 — 세션에 cnsnClsIdx 설정)
+async function ensureSpmAccess(sessionId: string): Promise<void> {
+  await fetch(`${BASE_URL}/spm/contents/spm0907.do?cnsnClsIdx=32`, {
+    headers: { 'Cookie': `KTOOLS_JSESSIONID=${sessionId}` },
+  })
+}
 
 // KAI 과제코드 목록
 const PRJC_CD_LIST = '[KL151000, KL161020, KL171020, KL171140, KL180940, KL181200, KL211420, KL221490, KL231360, KL241520, KL251650]'
@@ -78,16 +86,31 @@ async function fetchPage(
     body: body.toString(),
   })
 
-  const json = await res.json()
+  const text = await res.text()
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(text)
+  } catch {
+    // JSON 파싱 실패 → HTML 리다이렉트(로그인 페이지) 등
+    console.error('[fetchPage] JSON 파싱 실패, 응답:', text.slice(0, 300))
+    throw new Error('SESSION_EXPIRED')
+  }
 
   // 세션 만료 체크
   if (json.code === 401) {
     throw new Error('SESSION_EXPIRED')
   }
 
+  // 응답 구조 체크
+  const data = json.data as { list?: KtoolsItem[]; totalCount?: number } | undefined
+  if (!data || !Array.isArray(data.list)) {
+    console.error('[fetchPage] 예상치 못한 응답 구조:', JSON.stringify(json).slice(0, 500))
+    throw new Error('SESSION_EXPIRED')
+  }
+
   return {
-    list: json.data.list as KtoolsItem[],
-    totalCount: json.data.totalCount as number,
+    list: data.list,
+    totalCount: data.totalCount ?? 0,
   }
 }
 
@@ -107,6 +130,7 @@ export async function fetchAll(
   existingSessionId?: string | null,
 ): Promise<{ items: KtoolsItem[]; fetchedAt: Date; sessionId: string }> {
 
+  // 로그인 or 세션 재사용
   let sessionId: string
   if (existingSessionId) {
     console.log('기존 세션 재사용')
@@ -115,6 +139,9 @@ export async function fetchAll(
     onProgress?.({ stage: 'login', current: 0, total: 0, message: 'k-tools 로그인 중...' })
     sessionId = await ktoolsLogin(userId, userPwd)
   }
+
+  // spm0907.do 페이지 접근 (API 호출 전제조건)
+  await ensureSpmAccess(sessionId)
 
   const allItems: KtoolsItem[] = []
   const pageCount = 3000
@@ -130,10 +157,20 @@ export async function fetchAll(
         console.log('세션 만료 - 재로그인')
         onProgress?.({ stage: 'login', current: 0, total: 0, message: '세션 만료 - 재로그인 중...' })
         sessionId = await ktoolsLogin(userId, userPwd)
+        await ensureSpmAccess(sessionId)
         result = await fetchPage(sessionId, page, pageCount)
       } else {
         throw e
       }
+    }
+
+    // 첫 페이지에서 0건 → 세션 만료로 간주, 재로그인 시도
+    if (page === 0 && result.totalCount === 0 && existingSessionId) {
+      console.log('첫 페이지 0건 — 세션 만료로 판단, 재로그인')
+      onProgress?.({ stage: 'login', current: 0, total: 0, message: '세션 만료 - 재로그인 중...' })
+      sessionId = await ktoolsLogin(userId, userPwd)
+      await ensureSpmAccess(sessionId)
+      result = await fetchPage(sessionId, page, pageCount)
     }
 
     allItems.push(...result.list)

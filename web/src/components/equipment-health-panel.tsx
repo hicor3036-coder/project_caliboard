@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 import type { HealthCheckResult, HealthScore, CyclePrediction, Prescription, TrendSeries } from '@/lib/equipment-health'
 import { analyzeEquipmentHealth, buildHealthReasoningInput } from '@/lib/equipment-health'
+import { useT, fmt } from '@/lib/i18n'
 
 // ─── Props ───
 
@@ -51,24 +52,25 @@ function Header({ icon, title, color, badge }: { icon: string; title: string; co
 // ─── 건강 진단 카드 ───
 
 function HealthScoreCard({ score }: { score: HealthScore }) {
+  const { t } = useT()
   const c = GRADE_COLORS[score.grade]
   const radius = 54
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (score.total / 100) * circumference
 
   const radarData = [
-    { axis: '허용오차\n여유', value: score.components.toleranceProximity, fullMark: 100 },
-    { axis: '장기\n안정도', value: score.components.longTermStability, fullMark: 100 },
-    { axis: '단기\n안정도', value: score.components.shortTermStability, fullMark: 100 },
-    { axis: '적합\n이력', value: score.components.failHistory, fullMark: 100 },
-    { axis: '데이터\n충분성', value: score.components.dataAvailability, fullMark: 100 },
+    { axis: t.health.tolProximity, value: score.components.toleranceProximity, fullMark: 100 },
+    { axis: t.health.longStability, value: score.components.longTermStability, fullMark: 100 },
+    { axis: t.health.shortStability, value: score.components.shortTermStability, fullMark: 100 },
+    { axis: t.health.failHistory, value: score.components.failHistory, fullMark: 100 },
+    { axis: t.health.dataAvail, value: score.components.dataAvailability, fullMark: 100 },
   ]
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <Header
         icon="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-        title="장비 건강 진단"
+        title={t.health.healthDiag}
         color="text-emerald-500"
         badge={
           <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${c.bg} ${c.text} border ${c.border}`}>
@@ -159,14 +161,21 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
 
 // ─── 교정주기 예측 카드 ───
 
-const VERDICT_ICONS: Record<string, { icon: string; color: string; label: string; bg: string }> = {
-  safe:    { icon: '✓', color: 'text-emerald-500', bg: 'bg-emerald-50', label: '안전' },
-  caution: { icon: '⚠', color: 'text-amber-500', bg: 'bg-amber-50', label: '주의' },
-  danger:  { icon: '✕', color: 'text-red-500', bg: 'bg-red-50', label: '위험' },
+const VERDICT_ICONS: Record<string, { icon: string; color: string; bg: string }> = {
+  safe:    { icon: '✓', color: 'text-emerald-500', bg: 'bg-emerald-50' },
+  caution: { icon: '⚠', color: 'text-amber-500', bg: 'bg-amber-50' },
+  danger:  { icon: '✕', color: 'text-red-500', bg: 'bg-red-50' },
 }
 
 function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { prediction: CyclePrediction; llmStatus: 'idle' | 'loading' | 'done' | 'error'; onRequestAi?: () => void }) {
+  const { t } = useT()
   const [expandedCycle, setExpandedCycle] = useState<number | null>(null)
+
+  const verdictLabels: Record<string, string> = {
+    safe: t.health.safe,
+    caution: t.health.caution,
+    danger: t.health.dangerLabel,
+  }
 
   const dirStyles: Record<string, string> = {
     shorten: 'text-red-600 bg-red-50 border-red-200',
@@ -187,7 +196,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
       {/* 헤더 + 방향 배지 */}
       <Header
         icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-        title="교정주기 예측"
+        title={t.health.cyclePred}
         color="text-indigo-500"
         badge={prediction.direction !== 'insufficient' ? (
           <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${style}`}>
@@ -199,25 +208,25 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
       {/* 주기 비교 */}
       <div className="grid grid-cols-2 gap-3 mt-2">
         <div className="p-3 bg-slate-50 rounded-lg text-center">
-          <span className="text-[10px] text-slate-400 uppercase">현재 주기</span>
+          <span className="text-[10px] text-slate-400 uppercase">{t.health.currentCycle}</span>
           <p className="text-2xl font-bold text-slate-800 mt-0.5">
             {prediction.currentCycleMonths ?? '-'}
-            <span className="text-xs font-normal text-slate-400 ml-0.5">개월</span>
+            <span className="text-xs font-normal text-slate-400 ml-0.5">{t.detail.months}</span>
           </p>
         </div>
         {prediction.recommendedCycleMonths != null ? (
           <div className={`p-3 rounded-lg text-center border border-dashed ${style}`}>
-            <span className="text-[10px] uppercase">추천 주기</span>
+            <span className="text-[10px] uppercase">{t.health.recCycle}</span>
             <p className="text-2xl font-bold mt-0.5">
               {prediction.recommendedCycleMonths}
-              <span className="text-xs font-normal ml-0.5">개월</span>
+              <span className="text-xs font-normal ml-0.5">{t.detail.months}</span>
             </p>
           </div>
         ) : (
           <div className="p-3 rounded-lg text-center border border-dashed border-slate-200 bg-slate-50/50">
-            <span className="text-[10px] text-slate-300 uppercase">추천 주기</span>
+            <span className="text-[10px] text-slate-300 uppercase">{t.health.recCycle}</span>
             <p className="text-2xl font-bold text-slate-200 mt-0.5">
-              --<span className="text-xs font-normal ml-0.5">개월</span>
+              --<span className="text-xs font-normal ml-0.5">{t.detail.months}</span>
             </p>
           </div>
         )}
@@ -228,32 +237,32 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
         <div className="mt-4 space-y-3">
           {/* 판단 근거 */}
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold text-slate-600">판단 근거</p>
+            <p className="text-[11px] font-semibold text-slate-600">{t.health.reasoning}</p>
             <div className="text-[11px] text-slate-500 space-y-0.5">
               {prediction.direction === 'shorten' ? (
                 <>
                   {sim.shortestPoint && (
-                    <p>· 최단 한계도달: <span className="font-semibold text-slate-700">{sim.shortestPoint.label}</span>, {sim.shortestPoint.yearsToLimit}년 후 ({Math.round(sim.shortestPoint.yearsToLimit * 12)}개월)</p>
+                    <p>· {t.health.shortestLimit}: <span className="font-semibold text-slate-700">{sim.shortestPoint.label}</span>, {fmt(t.health.yearsAfter, sim.shortestPoint.yearsToLimit)} ({fmt(t.health.monthsAfter, Math.round(sim.shortestPoint.yearsToLimit * 12))})</p>
                   )}
-                  <p>· 유의미 추세 {sigCount}건/{prediction.details.length}건 (p&lt;0.05)</p>
+                  <p>· {t.health.sigTrend} {fmt(t.health.sigOf, sigCount, prediction.details.length)} (p&lt;0.05)</p>
                   {urgentCount > 0 && (
-                    <p>· 위험 포인트: {urgentCount}건 (소진율 80% 초과 또는 3년 내 한계)</p>
+                    <p>· {t.health.riskPoints}: {fmt(t.health.riskCount, urgentCount)}</p>
                   )}
                 </>
               ) : prediction.direction === 'extend' ? (
                 <>
-                  <p>· 전 포인트 소진율 30% 이하</p>
-                  <p>· 유의미 추세 0건/{prediction.details.length}건</p>
+                  <p>· {t.health.rateBelow}</p>
+                  <p>· {t.health.sigTrend} {fmt(t.health.sigOf, 0, prediction.details.length)}</p>
                 </>
               ) : sigCount > 0 ? (
                 <>
                   {sim.shortestPoint && (
-                    <p>· 최단 한계도달: <span className="font-semibold text-slate-700">{sim.shortestPoint.label}</span>, {sim.shortestPoint.yearsToLimit}년 후</p>
+                    <p>· {t.health.shortestLimit}: <span className="font-semibold text-slate-700">{sim.shortestPoint.label}</span>, {fmt(t.health.yearsAfter, sim.shortestPoint.yearsToLimit)}</p>
                   )}
-                  <p>· 변화 감지 {sigCount}건, 여유 충분하여 현행 유지</p>
+                  <p>· {t.health.changeDetected} {fmt(t.health.sigOf, sigCount, prediction.details.length)}, {t.health.marginSufficient}</p>
                 </>
               ) : (
-                <p>· 전 포인트 안정 — 현행 주기 유지 적절</p>
+                <p>· {t.health.allPointsStable}</p>
               )}
             </div>
           </div>
@@ -277,12 +286,12 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
                       </span>
                       {/* 라벨 */}
                       <span className={`text-[10px] mt-1 ${isRecommended ? 'font-bold text-indigo-600' : 'text-slate-400'}`}>
-                        {row.cycleMonths}개월
+                        {row.cycleMonths}{t.detail.months}
                       </span>
                       <span className={`text-[9px] ${
                         isRecommended ? 'text-indigo-400' : isCurrent ? 'text-slate-400' : 'text-slate-300'
                       }`}>
-                        {isRecommended ? '추천' : isCurrent ? '현재' : vi.label}
+                        {isRecommended ? t.health.recommend : isCurrent ? t.health.current : verdictLabels[row.verdict]}
                       </span>
                     </div>
                   )
@@ -296,13 +305,13 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
           {/* 시뮬레이션 테이블 (건강점수 + 위험 포인트) */}
           {sim.rows.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-slate-600 mb-1.5">주기별 시뮬레이션</p>
+              <p className="text-[11px] font-semibold text-slate-600 mb-1.5">{t.health.simTitle}</p>
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-100">
-                    <th className="text-left py-1 font-medium">주기</th>
-                    <th className="text-center py-1 font-medium">건강점수</th>
-                    <th className="text-right py-1 font-medium">위험 포인트</th>
+                    <th className="text-left py-1 font-medium">{t.health.simCycle}</th>
+                    <th className="text-center py-1 font-medium">{t.health.simHealth}</th>
+                    <th className="text-right py-1 font-medium">{t.health.simRisk}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -316,21 +325,21 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
                           {/* 메인 행 */}
                           <div className={`flex items-center py-1.5 px-1 border-b border-slate-50 ${isRecommended ? 'bg-indigo-50/50' : ''}`}>
                             <span className={`flex-1 ${isRecommended ? 'font-semibold' : ''}`}>
-                              {row.cycleMonths}개월
-                              {isRecommended && <span className="text-[9px] text-indigo-400 ml-1">추천</span>}
+                              {row.cycleMonths}{t.detail.months}
+                              {isRecommended && <span className="text-[9px] text-indigo-400 ml-1">{t.health.recommend}</span>}
                             </span>
                             <span className={`w-[80px] text-center font-semibold ${gc.text}`}>
-                              {row.healthScore % 1 === 0 ? row.healthScore : row.healthScore.toFixed(1)}점 ({row.grade})
+                              {fmt(t.health.scorePoint, row.healthScore % 1 === 0 ? row.healthScore : row.healthScore.toFixed(1), row.grade)}
                             </span>
                             {row.dangerCount > 0 ? (
                               <button
                                 onClick={() => setExpandedCycle(isExpanded ? null : row.cycleMonths)}
                                 className="w-[80px] text-right text-red-500 hover:text-red-700 cursor-pointer font-medium"
                               >
-                                {row.dangerCount}건 {isExpanded ? '▼' : '▶'}
+                                {fmt(t.health.dangerCount, row.dangerCount)} {isExpanded ? '▼' : '▶'}
                               </button>
                             ) : (
-                              <span className="w-[80px] text-right text-emerald-500">0건</span>
+                              <span className="w-[80px] text-right text-emerald-500">{fmt(t.health.dangerCount, 0)}</span>
                             )}
                           </div>
                           {/* 펼침: 위험 포인트 상세 */}
@@ -340,7 +349,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
                                 <div key={`${dp.label}-${i}`} className="flex items-center gap-2 py-0.5 text-[11px]">
                                   <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
                                   <span className="text-slate-600">{dp.label}</span>
-                                  <span className="text-red-500 font-medium ml-auto">예상 소진율 {dp.usageRatio}%</span>
+                                  <span className="text-red-500 font-medium ml-auto">{fmt(t.health.simUsageRatio, dp.usageRatio)}</span>
                                 </div>
                               ))}
                             </div>
@@ -357,14 +366,11 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
           {/* 결론 텍스트 (규칙 기반, 항상 표시) */}
           <div className="text-[11px] text-slate-500 leading-relaxed">
             {prediction.direction === 'shorten' ? (
-              <>
-                {prediction.currentCycleMonths}개월 유지 시 {sim.shortestPoint?.label ?? '일부'} 포인트가 허용한계에 근접합니다.{' '}
-                {prediction.recommendedCycleMonths}개월로 단축하여 사전 점검 기회를 확보할 것을 권고합니다.
-              </>
+              <>{fmt(t.health.shortenNote, prediction.currentCycleMonths ?? '-', sim.shortestPoint?.label ?? '-', prediction.recommendedCycleMonths ?? '-')}</>
             ) : prediction.direction === 'extend' ? (
-              <>전 포인트 안정적이며 교정주기 연장이 가능합니다.</>
+              <>{t.health.extendNote}</>
             ) : (
-              <>일부 변화가 감지되나 현행 주기로 관리 가능합니다.</>
+              <>{t.health.maintainNote}</>
             )}
           </div>
         </div>
@@ -377,7 +383,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
             <p key={i} className="leading-relaxed">{line}</p>
           ))}
           <div className="flex items-center gap-1 mt-2">
-            <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">AI 인사이트</span>
+            <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">{t.health.aiInsight}</span>
           </div>
         </div>
       )}
@@ -389,7 +395,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            AI 인사이트 요청
+            {t.health.requestAi}
           </button>
         </div>
       )}
@@ -399,7 +405,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
             <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          AI 인사이트 생성 중...
+          {t.health.aiLoading}
         </div>
       )}
       {llmStatus === 'error' && onRequestAi && (
@@ -408,7 +414,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            재시도
+            {t.detail.retry}
           </button>
         </div>
       )}
@@ -416,7 +422,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
       {/* ISO 참조 */}
       {prediction.direction !== 'insufficient' && (
         <p className="text-[10px] text-slate-300 mt-3 pt-2 border-t border-slate-50">
-          교정주기 조정은 ISO 17025 / ILAC-G24 기반 통계적 분석에 따른 권고입니다
+          {t.health.isoRef}
         </p>
       )}
     </div>
@@ -425,10 +431,10 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
 
 // ─── 처방 / 권고사항 ───
 
-const PRIORITY_STYLES: Record<string, { border: string; badge: string; label: string }> = {
-  high: { border: 'border-l-red-500', badge: 'bg-red-100 text-red-700', label: '긴급' },
-  medium: { border: 'border-l-amber-500', badge: 'bg-amber-100 text-amber-700', label: '권고' },
-  low: { border: 'border-l-emerald-500', badge: 'bg-emerald-100 text-emerald-700', label: '참고' },
+const PRIORITY_STYLES: Record<string, { border: string; badge: string }> = {
+  high: { border: 'border-l-red-500', badge: 'bg-red-100 text-red-700' },
+  medium: { border: 'border-l-amber-500', badge: 'bg-amber-100 text-amber-700' },
+  low: { border: 'border-l-emerald-500', badge: 'bg-emerald-100 text-emerald-700' },
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -440,15 +446,22 @@ const CATEGORY_ICONS: Record<string, string> = {
 }
 
 function PrescriptionList({ prescriptions, llmStatus }: { prescriptions: Prescription[]; llmStatus: 'idle' | 'loading' | 'done' | 'error' }) {
+  const { t } = useT()
   if (prescriptions.length === 0) return null
+
+  const priorityLabels: Record<string, string> = {
+    high: t.health.priHigh,
+    medium: t.health.priMed,
+    low: t.health.priLow,
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <Header
         icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-        title="처방 / 권고사항"
+        title={t.health.prescription}
         color="text-purple-500"
-        badge={llmStatus === 'done' ? <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">AI 인사이트</span> : undefined}
+        badge={llmStatus === 'done' ? <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">{t.health.aiInsight}</span> : undefined}
       />
 
       <div className="space-y-2.5">
@@ -461,7 +474,7 @@ function PrescriptionList({ prescriptions, llmStatus }: { prescriptions: Prescri
                 <Icon d={iconD} className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ps.badge}`}>{ps.label}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ps.badge}`}>{priorityLabels[rx.priority]}</span>
                     <span className="text-[10px] text-slate-400">{rx.categoryLabel}</span>
                   </div>
                   <p className="text-sm font-medium text-slate-700 leading-snug">{rx.title}</p>
@@ -478,17 +491,21 @@ function PrescriptionList({ prescriptions, llmStatus }: { prescriptions: Prescri
 
 // ─── 카테고리 라벨 매핑 ───
 
-const CATEGORY_LABELS: Record<string, string> = {
-  cycle: '교정주기',
-  replacement: '장비 교체',
-  focus: '집중 관리',
-  data: '데이터 관리',
-  general: '종합 관리',
+function useCategoryLabels() {
+  const { t } = useT()
+  return useMemo(() => ({
+    cycle: t.health.catCycle,
+    replacement: t.health.catReplace,
+    focus: t.health.catFocus,
+    data: t.health.catData,
+    general: t.health.catGeneral,
+  }), [t])
 }
 
 // ─── 메인 패널 ───
 
 export default function EquipmentHealthPanel({ series, calDates, certCount, affcCyclCd }: Props) {
+  const categoryLabels = useCategoryLabels()
   // 1. 규칙 기반 결과 즉시 계산
   const result = useMemo(
     () => analyzeEquipmentHealth(series, calDates, certCount, affcCyclCd),
@@ -525,14 +542,14 @@ export default function EquipmentHealthPanel({ series, calDates, certCount, affc
       if (Array.isArray(data.prescriptions)) {
         setLlmPrescriptions(data.prescriptions.map((p: { priority: string; category: string; title: string; description: string }) => ({
           ...p,
-          categoryLabel: CATEGORY_LABELS[p.category] || p.category,
+          categoryLabel: categoryLabels[p.category as keyof typeof categoryLabels] || p.category,
         })))
       }
       setLlmStatus('done')
     } catch {
       setLlmStatus('error')
     }
-  }, [result])
+  }, [result, categoryLabels])
 
   // 4. 최종 렌더링 데이터 (AI 인사이트만 표시, 규칙 기반 텍스트 숨김)
   const displayPrediction = useMemo(() => ({
