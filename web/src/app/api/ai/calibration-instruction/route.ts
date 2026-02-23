@@ -52,7 +52,7 @@ async function callLlm(
   provider: LlmProvider,
   prompt: string,
   systemPrompt: string,
-  maxTokens = 1600,
+  maxTokens = 2400,
 ): Promise<string> {
   if (!provider.key) throw new Error(`${provider.name} API 키 없음`)
 
@@ -101,15 +101,21 @@ const SYSTEM_PROMPT = `당신은 교정 현장 20년 경력의 기술자이며, 
 교정 이력 통계 분석 결과를 받아, **현장 엔지니어가 바로 행동할 수 있는** 교정 지시서를 작성합니다.
 
 ## 핵심 원칙
+- **결론 먼저**: headline 한 줄만 읽어도 뭘 해야 하는지 알 수 있게
 - 추상적 표현("주의 필요", "모니터링 권장") 대신 **구체적 수치와 행동**을 지시
 - 마치 현장에서 직접 설명해주듯 **자연스러운 구어체**로 작성
 - 숫자를 인용할 때는 반드시 입력 데이터의 실제 값 사용 (절대 변경 금지)
+- **시급도순 정렬**: points 배열을 시급한 순서(yearsToLimit 작은 순)로 정렬할 것
 
 ## 입력 데이터 해석
-- **usageRatio**: 허용오차 대비 현재 오차 비율(%). **사용자에게는 "오차 여유도"(= 100 - usageRatio)로** 뒤집어 표현. 예: usageRatio=8 → "오차 여유도 92%". "사용률"이라는 표현 사용 금지!
+- **usageRatio**: 허용오차 대비 현재 오차 비율(%). **사용자에게는 "여유"(= 100 - usageRatio)%로** 뒤집어 표현. 예: usageRatio=74 → "여유 26%". "사용률"이라는 표현 사용 금지!
 - **significant**: true면 오차에 통계적 추세 있음 (p < 0.05)
 - **slope**: 오차의 연간 변화율. 양수=악화, 음수=개선
-- **pValue**: t-검정 p-value
+- **pValue**: 통계적 신뢰도. 직접 p값을 쓰지 말고 아래처럼 자연어로 번역할 것:
+  - p < 0.01 → "확실한 추세"
+  - p < 0.05 → "추세가 보임"
+  - p < 0.1  → "추세 가능성 있음"
+  - p ≥ 0.1  → "뚜렷한 추세 아님"
 - **yearsToLimit**: 현 추세로 허용한계 도달까지 남은 연수. null이면 한계 도달 불가
 - **recentErrors**: 최근 교정 시 실측 오차 값들
 - **currentCycle**: 현재 교정주기(개월)
@@ -122,8 +128,9 @@ const SYSTEM_PROMPT = `당신은 교정 현장 20년 경력의 기술자이며, 
       "level": "precision | standard | observation",
       "levelLabel": "정밀교정 | 표준교정 | 관찰",
       "priority": "high | medium | low",
-      "reason": "2~3문장. 왜 이런 판단인지 데이터 근거를 자연스럽게 설명",
-      "action": "1~2문장. 구체적으로 무엇을 해야 하는지"
+      "headline": "핵심 결론 1줄. 10~25자. 가장 중요한 판단을 짧게",
+      "reason": "수치 근거 1~2문장. headline의 배경 설명",
+      "action": "구체적으로 무엇을 해야 하는지. 1~2문장"
     }
   ],
   "schedule": [
@@ -133,37 +140,43 @@ const SYSTEM_PROMPT = `당신은 교정 현장 20년 경력의 기술자이며, 
 }
 
 ## 분류 기준
-- **정밀교정(precision, high)**: significant=true + (usageRatio>70[여유도<30%] 또는 yearsToLimit<3)
-- **표준교정(standard, medium)**: significant=true이나 여유 있음, 또는 usageRatio>50[여유도<50%]
-- **관찰(observation, low)**: significant=false + usageRatio≤50[여유도≥50%]. 안정적
+- **정밀교정(precision, high)**: significant=true + (usageRatio>70[여유<30%] 또는 yearsToLimit<3)
+- **표준교정(standard, medium)**: significant=true이나 여유 있음, 또는 usageRatio>50[여유<50%]
+- **관찰(observation, low)**: significant=false + usageRatio≤50[여유≥50%]. 안정적
 
 ## 작성 예시 (이 톤과 구체성을 따라할 것!)
 
 ### 정밀교정 (precision, high)
-reason: "최근 4년간 오차가 꾸준히 올라가고 있습니다(연 +0.47%, p=0.02). 지금 속도면 다음 교정 때 오차 여유도가 7%까지 떨어집니다."
-action: "이 구간을 세분화해서 200/250/300/350 4포인트로 나눠서 어디서 틀어지는지 확인하세요. 3회 반복, 상승·하강 양방향 측정 필요합니다."
+headline: "1.3년 후 허용한계 초과 예상"
+reason: "여유 26%, 매년 -0.184%p씩 커지는 확실한 추세. 최근 오차 0.37%로 변동 증가."
+action: "0.05/0.1/0.15 N·m 3포인트 세분화 측정. 상승/하강 양방향, 반복 3회."
 
 ### 표준교정 (standard, medium)
-reason: "오차 변화 추세가 있긴 하지만(연 +0.12%, p=0.04), 오차 여유도가 아직 62%로 당장 문제는 아닙니다."
-action: "표준 절차대로 교정하되, 결과가 이전보다 나빠졌는지 꼭 비교해보세요."
+headline: "추세는 있으나 여유 충분"
+reason: "매년 +0.12%p 변화 중, 추세가 보임. 여유 62%로 당장 문제 없음."
+action: "표준 절차 교정 후 이전 결과와 비교 확인."
 
 ### 관찰 (observation, low)
-reason: "4년간 편차 변동이 ±0.5% 이내로 안정적입니다. 오차 여유도 92%로 여유 충분합니다."
-action: "기본 절차대로 교정하시면 됩니다."
+headline: "안정"
+reason: "4년간 ±0.5% 이내, 여유 92%."
+action: "기본 절차 수행."
 
 ### schedule (중간점검 필요 시)
-label: "300 N·m", timing: "6개월 후", reason: "현재 추세가 꺾이지 않으면 정기교정 전에 오차 여유도가 10% 이하로 떨어질 수 있습니다. 점검 시 오차 여유도 20% 이상 유지되면 괜찮고, 아니면 조정이 필요합니다."
+label: "300 N·m", timing: "6개월 후", reason: "추세 지속 시 여유 10% 이하 가능. 점검 시 여유 20% 이상이면 OK."
 
 ### environmentNotes (해당될 때만)
-- "이 장비는 워밍업을 꼭 지켜주세요. 고토크 영역에서 편차가 올라가는 원인 중 하나가 워밍업 미실시입니다."
-- "교정 시 실내온도 20±2℃ 유지하세요. 온도 변화에 민감한 장비입니다."
+- "워밍업 필수. 고토크 편차 원인 중 하나."
+- "실내 20±2℃ 유지. 온도 민감 장비."
 
 ## 중요 규칙
-- reason은 **2~3문장**으로 쓰되, 첫 문장에 핵심 판단, 나머지에 수치 근거
+- **headline이 가장 중요**: 엔지니어가 이것만 읽어도 시급도를 판단할 수 있어야 함
+- reason은 headline의 수치 근거. 간결하게
 - action은 **구체적 행동** 포함 (측정 포인트 수, 반복 횟수, 비교 대상 등)
-- "사용률", "모니터링", "주시" 같은 추상적 표현 대신 구체적으로 무엇을 확인하라고 지시
+- p값(0.005 등)을 직접 쓰지 말고 "확실한 추세" 등 자연어로 번역
+- "사용률", "모니터링", "주시" 같은 추상적 표현 금지
+- **정렬**: precision → standard → observation 순서, 같은 레벨 내에서는 yearsToLimit 작은(시급한) 순
 - schedule은 yearsToLimit < currentCycle×2인 포인트만 포함
-- observation(low) 포인트는 간결하게 — reason 1~2문장, action 1문장으로 충분`
+- observation(low) 포인트는 최대한 간결하게`
 
 // ─── POST 핸들러 ───
 
@@ -176,12 +189,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 디버그: 입력 데이터 요약
+    const qLabel = body.quantityLabel ? ` [${body.quantityLabel}]` : ''
     const detailLabels = (body.details ?? []).map((d: { label: string; usageRatio: number | null; significant: boolean }) =>
       `${d.label}(여유도${d.usageRatio != null ? 100 - d.usageRatio : '?'}%${d.significant ? ',추세有' : ''})`
     ).join(', ')
-    console.log(`[cal-instruction] 입력: ${body.equipmentName ?? '?'} | 포인트=${body.details.length}개 | ${detailLabels}`)
+    console.log(`[cal-instruction] 입력: ${body.equipmentName ?? '?'}${qLabel} | 포인트=${body.details.length}개 | ${detailLabels}`)
 
-    const userPrompt = `아래는 교정장비의 통계 분석 결과입니다. 포인트별 교정 지시서를 작성해주세요.\n\n${JSON.stringify(body)}`
+    const quantityContext = body.quantityLabel ? `\n측정 물리량: ${body.quantityLabel}\n` : ''
+    const userPrompt = `아래는 교정장비의 통계 분석 결과입니다. 포인트별 교정 지시서를 작성해주세요.${quantityContext}\n${JSON.stringify(body)}`
     const startTime = Date.now()
 
     // LLM fallback 호출
@@ -190,15 +205,38 @@ export async function POST(request: NextRequest) {
       try {
         const content = await callLlm(provider, userPrompt, SYSTEM_PROMPT)
 
-        // JSON 파싱
+        // JSON 파싱 (토큰 초과로 잘린 JSON 복구 포함)
         let parsed: { points?: unknown[]; schedule?: unknown[]; environmentNotes?: unknown[] }
         try {
           parsed = JSON.parse(content)
         } catch {
-          const start = content.indexOf('{')
-          const end = content.lastIndexOf('}') + 1
-          if (start >= 0 && end > start) {
-            parsed = JSON.parse(content.slice(start, end))
+          const firstBrace = content.indexOf('{')
+          if (firstBrace < 0) throw new Error('JSON 파싱 실패')
+          let json = content.slice(firstBrace)
+
+          // 방법 1: 마지막 완전한 }까지만 잘라서 brackets 닫기 시도
+          const lastBrace = json.lastIndexOf('}')
+          if (lastBrace > 0) {
+            const trimmed = json.slice(0, lastBrace + 1)
+            // 닫히지 않은 [ ] 보완
+            let openBrackets = 0
+            for (const ch of trimmed) {
+              if (ch === '[') openBrackets++
+              else if (ch === ']') openBrackets--
+            }
+            const repaired = trimmed + ']'.repeat(Math.max(0, openBrackets))
+            try {
+              parsed = JSON.parse(repaired)
+            } catch {
+              // 방법 2: 불완전한 마지막 항목 제거 후 재시도
+              const lastComma = json.lastIndexOf('},')
+              if (lastComma > 0) {
+                const cutJson = json.slice(0, lastComma + 1) + ']}'.repeat(3)
+                try { parsed = JSON.parse(cutJson) } catch { throw new Error('JSON 파싱 실패 (복구 불가)') }
+              } else {
+                throw new Error('JSON 파싱 실패')
+              }
+            }
           } else {
             throw new Error('JSON 파싱 실패')
           }
@@ -224,6 +262,7 @@ export async function POST(request: NextRequest) {
               level,
               levelLabel: levelLabels[level] || '표준교정',
               priority: validPriorities.has(p.priority as string) ? p.priority as string : 'medium',
+              headline: String(p.headline || ''),
               reason: String(p.reason || ''),
               action: String(p.action || ''),
             }

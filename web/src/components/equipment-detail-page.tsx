@@ -1237,6 +1237,8 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           equipmentName={equipmentName}
           manufacturer={info.prdnCmpnNm || ''}
           model={info.stszNm || ''}
+          byQuantity={conformityTrend.byQuantity}
+          quantityKeys={conformityTrend.quantityKeys}
         />
       )}
 

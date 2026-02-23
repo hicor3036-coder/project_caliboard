@@ -43,6 +43,27 @@ export interface CyclePredictionDetail {
   yearsToLimit: number | null  // 현 추세로 허용한계 도달까지 남은 연수
 }
 
+export interface CycleSimulationRow {
+  cycleMonths: number
+  healthScore: number           // 예상 건강점수
+  grade: HealthScore['grade']
+  dangerCount: number           // 위험 포인트 건수
+  dangerPoints: { label: string; usageRatio: number }[]  // 위험 포인트 상세
+  verdict: 'safe' | 'caution' | 'danger'
+}
+
+export interface CycleSimulation {
+  rows: CycleSimulationRow[]
+  shortestPoint: { label: string; yearsToLimit: number } | null
+  criticalDetails: {
+    label: string
+    usageRatio: number | null
+    slope: number
+    yearsToLimit: number | null
+    significant: boolean
+  }[]
+}
+
 export interface CyclePrediction {
   recommendedCycleMonths: number | null
   currentCycleMonths: number | null
@@ -50,6 +71,7 @@ export interface CyclePrediction {
   directionLabel: string
   reasoning: string
   details: CyclePredictionDetail[]  // 포인트별 분석 근거
+  simulation: CycleSimulation | null  // 주기별 시뮬레이션 (insufficient일 때 null)
   extrapolation: {
     currentRatio: number | null
     regressionSlope: number | null
@@ -336,6 +358,165 @@ export function calculateHealthScore(series: TrendSeries[], certCount: number): 
   }
 }
 
+// ─── 주기별 시뮬레이션 ───
+
+// toleranceProximity 점수 계산 (calcToleranceProximity와 동일 로직)
+function ratioToTpScore(composite: number): number {
+  if (composite <= 0) return 100
+  if (composite <= 80) return 100 - (composite / 80) * 50
+  if (composite <= 100) return 50 - ((composite - 80) / 20) * 30
+  if (composite <= 120) return 20 - ((composite - 100) / 20) * 20
+  return 0
+}
+
+// 특정 주기에서의 건강점수 시뮬레이션
+function simulateHealthForCycle(
+  baseScore: HealthScore,
+  details: CyclePredictionDetail[],
+  series: TrendSeries[],
+  cycleMonths: number,
+): CycleSimulationRow {
+  const yearsAhead = cycleMonths / 12
+
+  // 포인트별 연간 비율 변화율 계산
+  const pointRates: { label: string; currentRatio: number; annualRate: number }[] = []
+  for (const d of details) {
+    if (d.usageRatio == null || d.slope <= 0) continue
+    if (d.yearsToLimit != null && d.yearsToLimit > 0) {
+      const annualRate = (100 - d.usageRatio) / d.yearsToLimit
+      pointRates.push({ label: d.label, currentRatio: d.usageRatio, annualRate })
+    }
+  }
+
+  // 각 series의 주기 도래 시점 예상 비율 계산
+  const predictedRatios: number[] = []
+  const dangerPoints: { label: string; usageRatio: number }[] = []
+
+  for (const s of series) {
+    // 현재 비율 (최신 측정값)
+    let currentRatio: number | null = null
+    for (let i = s.points.length - 1; i >= 0; i--) {
+      if (s.points[i].비율 != null) {
+        currentRatio = s.points[i].비율!
+        break
+      }
+    }
+    if (currentRatio == null) continue
+
+    // 이 series에 해당하는 detail 찾기 (label 매칭)
+    const rate = pointRates.find(pr => pr.label === s.label)
+    const predicted = rate
+      ? rate.currentRatio + rate.annualRate * yearsAhead
+      : currentRatio  // 추세 없으면 현재값 유지
+
+    predictedRatios.push(predicted)
+
+    if (predicted > 80) {
+      dangerPoints.push({ label: s.label, usageRatio: Math.round(predicted * 10) / 10 })
+    }
+  }
+
+  // 예상 toleranceProximity 재계산
+  let simulatedTp: number
+  if (predictedRatios.length === 0) {
+    simulatedTp = baseScore.components.toleranceProximity
+  } else {
+    const worst = Math.max(...predictedRatios)
+    const avg = predictedRatios.reduce((a, b) => a + b, 0) / predictedRatios.length
+    const composite = worst * 0.7 + avg * 0.3
+    simulatedTp = ratioToTpScore(composite)
+  }
+
+  // 건강점수 재계산 (tp만 변경, 나머지 고정)
+  const { longTermStability, shortTermStability, failHistory, dataAvailability } = baseScore.components
+  const healthScore = Math.round(
+    simulatedTp * 0.20 +
+    longTermStability * 0.15 +
+    shortTermStability * 0.20 +
+    failHistory * 0.30 +
+    dataAvailability * 0.15
+  )
+  const grade = toGrade(healthScore)
+
+  // 위험 포인트: yearsToLimit < 주기(년)인 포인트도 추가
+  for (const d of details) {
+    if (d.yearsToLimit != null && d.yearsToLimit < yearsAhead && d.usageRatio != null) {
+      if (!dangerPoints.some(dp => dp.label === d.label)) {
+        const rate = pointRates.find(pr => pr.label === d.label)
+        const predicted = rate
+          ? rate.currentRatio + rate.annualRate * yearsAhead
+          : d.usageRatio
+        dangerPoints.push({ label: d.label, usageRatio: Math.round(predicted * 10) / 10 })
+      }
+    }
+  }
+
+  // 위험도순 정렬
+  dangerPoints.sort((a, b) => b.usageRatio - a.usageRatio)
+
+  const verdict: CycleSimulationRow['verdict'] =
+    grade === 'A' || grade === 'B' ? 'safe' : grade === 'C' ? 'caution' : 'danger'
+
+  return { cycleMonths, healthScore, grade, dangerCount: dangerPoints.length, dangerPoints, verdict }
+}
+
+function buildCycleSimulation(
+  details: CyclePredictionDetail[],
+  series: TrendSeries[],
+  baseScore: HealthScore,
+  recommended: number,
+  currentCycle: number,
+  direction: CyclePrediction['direction'],
+): CycleSimulation {
+  // 비교 주기 목록 생성 (direction별 최적화)
+  const cycleSet = new Set<number>()
+  if (direction === 'shorten') {
+    cycleSet.add(recommended)
+    cycleSet.add(currentCycle)
+    cycleSet.add(currentCycle + 2)
+  } else if (direction === 'extend') {
+    cycleSet.add(currentCycle)
+    cycleSet.add(recommended)
+    cycleSet.add(recommended + 3)
+  } else {
+    cycleSet.add(Math.max(6, currentCycle - 2))
+    cycleSet.add(currentCycle)
+    cycleSet.add(currentCycle + 2)
+  }
+  const cycles = [...cycleSet].filter(c => c >= 6).sort((a, b) => a - b)
+
+  // 시뮬레이션 행 생성
+  const rows = cycles.map(c => simulateHealthForCycle(baseScore, details, series, c))
+
+  // 최단 한계도달 포인트
+  let shortestPoint: CycleSimulation['shortestPoint'] = null
+  for (const d of details) {
+    if (d.yearsToLimit != null && d.yearsToLimit > 0) {
+      if (!shortestPoint || d.yearsToLimit < shortestPoint.yearsToLimit) {
+        shortestPoint = { label: d.label, yearsToLimit: d.yearsToLimit }
+      }
+    }
+  }
+
+  // 상위 3개 위험 포인트
+  const criticalDetails = [...details]
+    .filter(d => d.usageRatio != null)
+    .sort((a, b) => {
+      if (a.significant !== b.significant) return a.significant ? -1 : 1
+      return (b.usageRatio ?? 0) - (a.usageRatio ?? 0)
+    })
+    .slice(0, 3)
+    .map(d => ({
+      label: d.label,
+      usageRatio: d.usageRatio,
+      slope: d.slope,
+      yearsToLimit: d.yearsToLimit,
+      significant: d.significant,
+    }))
+
+  return { rows, shortestPoint, criticalDetails }
+}
+
 // ─── 교정주기 예측 ───
 
 function parseYmd(s: string): Date | null {
@@ -359,6 +540,7 @@ export function predictCalibrationCycle(
   series: TrendSeries[],
   calDates: string[],
   currentCycleMonths: number | null,
+  certCount: number = 0,
 ): CyclePrediction {
   const currentCycle = currentCycleMonths ?? 12
   const emptyExtra = { currentRatio: null, regressionSlope: null, yearsTo80: null, yearsTo100: null, predictedDate100: null }
@@ -368,7 +550,7 @@ export function predictCalibrationCycle(
       recommendedCycleMonths: null, currentCycleMonths: currentCycle,
       direction: 'insufficient', directionLabel: '데이터 부족',
       reasoning: `교정 이력이 ${calDates.length}건으로 추세 분석이 어렵습니다. 2건 이상의 이력이 필요합니다.`,
-      details: [], extrapolation: emptyExtra,
+      details: [], simulation: null, extrapolation: emptyExtra,
     }
   }
 
@@ -378,7 +560,7 @@ export function predictCalibrationCycle(
       recommendedCycleMonths: null, currentCycleMonths: currentCycle,
       direction: 'insufficient', directionLabel: '데이터 부족',
       reasoning: '교정일 형식을 인식할 수 없습니다.',
-      details: [], extrapolation: emptyExtra,
+      details: [], simulation: null, extrapolation: emptyExtra,
     }
   }
 
@@ -490,7 +672,7 @@ export function predictCalibrationCycle(
       recommendedCycleMonths: null, currentCycleMonths: currentCycle,
       direction: 'insufficient', directionLabel: '데이터 부족',
       reasoning: '측정 데이터가 부족하여 추세 분석이 어렵습니다.',
-      details, extrapolation: emptyExtra,
+      details, simulation: null, extrapolation: emptyExtra,
     }
   }
 
@@ -606,6 +788,10 @@ export function predictCalibrationCycle(
 
   const reasoning = reasonParts.join('\n')
 
+  // ── 시뮬레이션 계산 ──
+  const baseScore = calculateHealthScore(series, certCount)
+  const simulation = buildCycleSimulation(details, series, baseScore, recommended, currentCycle, direction)
+
   return {
     recommendedCycleMonths: recommended,
     currentCycleMonths: currentCycle,
@@ -613,6 +799,7 @@ export function predictCalibrationCycle(
     directionLabel: direction === 'shorten' ? '단축 권고' : direction === 'extend' ? '연장 가능' : '현행 유지',
     reasoning,
     details,
+    simulation,
     extrapolation: {
       currentRatio,
       regressionSlope: Math.round(ratioSlope * 100) / 100,
@@ -737,7 +924,7 @@ export function analyzeEquipmentHealth(
 ): HealthCheckResult {
   const score = calculateHealthScore(series, certCount)
   const currentCycleMonths = affcCyclCd ? parseInt(affcCyclCd) || null : null
-  const prediction = predictCalibrationCycle(series, calDates, currentCycleMonths)
+  const prediction = predictCalibrationCycle(series, calDates, currentCycleMonths, certCount)
   const prescriptions = generatePrescriptions(score, prediction, series, certCount)
 
   return {
@@ -910,6 +1097,7 @@ export interface CalibrationInstructionInput {
   direction: CyclePrediction['direction']
   healthGrade: string
   healthTotal: number
+  quantityLabel?: string  // 물리량 탭 라벨 (예: "Torque Clockwise")
   details: Array<{
     label: string
     recentYears: string[]

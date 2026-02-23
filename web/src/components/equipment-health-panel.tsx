@@ -78,7 +78,7 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
       />
 
       {/* 종합 점수 + 레이더 차트 */}
-      <div className="flex items-center gap-2 mt-2">
+      <div className="flex items-center gap-2 mt-2 max-w-[480px] mx-auto">
         {/* 원형 게이지 (좌측) */}
         <div className="shrink-0">
           <div className="relative w-[120px] h-[120px]">
@@ -132,22 +132,42 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
         </div>
       </div>
 
-      {/* 세부 점수 (한 줄 요약) */}
-      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1 text-[10px] text-slate-400">
-        {radarData.map(d => (
-          <span key={d.axis}>
-            <span className="text-slate-500 font-medium">{d.axis.replace('\n', '')}</span>{' '}
-            <span className={d.value >= 75 ? 'text-green-500' : d.value >= 50 ? 'text-amber-500' : 'text-red-500'}>{d.value}점</span>
-          </span>
-        ))}
-      </div>
+      {/* 세부 점수 테이블 */}
+      <table className="w-full mt-2 text-[11px]">
+        <tbody>
+          {radarData.map(d => {
+            const pct = d.value
+            const barColor = pct >= 75 ? 'bg-emerald-400' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400'
+            const textColor = pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600'
+            return (
+              <tr key={d.axis} className="border-b border-slate-50 last:border-0">
+                <td className="py-1 text-slate-500 font-medium w-[80px]">{d.axis.replace('\n', '')}</td>
+                <td className="py-1 px-2">
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </td>
+                <td className={`py-1 text-right font-bold w-[36px] ${textColor}`}>{pct}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
 
 // ─── 교정주기 예측 카드 ───
 
+const VERDICT_ICONS: Record<string, { icon: string; color: string; label: string }> = {
+  safe:    { icon: '✓', color: 'text-emerald-500', label: '안전' },
+  caution: { icon: '!', color: 'text-amber-500', label: '주의' },
+  danger:  { icon: '✕', color: 'text-red-500', label: '위험' },
+}
+
 function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { prediction: CyclePrediction; llmStatus: 'idle' | 'loading' | 'done' | 'error'; onRequestAi?: () => void }) {
+  const [expandedCycle, setExpandedCycle] = useState<number | null>(null)
+
   const dirStyles: Record<string, string> = {
     shorten: 'text-red-600 bg-red-50 border-red-200',
     extend: 'text-green-600 bg-green-50 border-green-200',
@@ -155,15 +175,21 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
     insufficient: 'text-slate-400 bg-slate-50 border-slate-200',
   }
   const style = dirStyles[prediction.direction]
-  const ex = prediction.extrapolation
+  const sim = prediction.simulation
+  const sigCount = prediction.details.filter(d => d.significant).length
+  const urgentCount = prediction.details.filter(d =>
+    (d.yearsToLimit != null && d.yearsToLimit < 3) ||
+    (d.usageRatio != null && d.usageRatio > 80)
+  ).length
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      {/* 헤더 + 방향 배지 */}
       <Header
         icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
         title="교정주기 예측"
         color="text-indigo-500"
-        badge={llmStatus === 'done' ? (
+        badge={prediction.direction !== 'insufficient' ? (
           <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${style}`}>
             {prediction.directionLabel}
           </span>
@@ -179,28 +205,176 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
             <span className="text-xs font-normal text-slate-400 ml-0.5">개월</span>
           </p>
         </div>
-        {llmStatus === 'done' ? (
+        {prediction.recommendedCycleMonths != null ? (
           <div className={`p-3 rounded-lg text-center border border-dashed ${style}`}>
-            <span className="text-[10px] uppercase">AI 추천</span>
+            <span className="text-[10px] uppercase">추천 주기</span>
             <p className="text-2xl font-bold mt-0.5">
-              {prediction.recommendedCycleMonths ?? '--'}
+              {prediction.recommendedCycleMonths}
               <span className="text-xs font-normal ml-0.5">개월</span>
             </p>
           </div>
         ) : (
           <div className="p-3 rounded-lg text-center border border-dashed border-slate-200 bg-slate-50/50">
-            <span className="text-[10px] text-slate-300 uppercase">AI 추천</span>
+            <span className="text-[10px] text-slate-300 uppercase">추천 주기</span>
             <p className="text-2xl font-bold text-slate-200 mt-0.5">
-              --
-              <span className="text-xs font-normal ml-0.5">개월</span>
+              --<span className="text-xs font-normal ml-0.5">개월</span>
             </p>
           </div>
         )}
       </div>
 
-      {/* AI 인사이트 텍스트 (LLM 호출 후에만 표시) */}
-      {llmStatus === 'done' && (
-        <div className="text-xs text-slate-500 mt-3 space-y-1.5">
+      {/* 판단 근거 + 시뮬레이션 */}
+      {prediction.direction !== 'insufficient' && sim && (
+        <div className="mt-4 space-y-3">
+          {/* 판단 근거 */}
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold text-slate-600">판단 근거</p>
+            <div className="text-[11px] text-slate-500 space-y-0.5">
+              {prediction.direction === 'shorten' ? (
+                <>
+                  {sim.shortestPoint && (
+                    <p>· 최단 한계도달: <span className="font-semibold text-slate-700">{sim.shortestPoint.label}</span>, {sim.shortestPoint.yearsToLimit}년 후 ({Math.round(sim.shortestPoint.yearsToLimit * 12)}개월)</p>
+                  )}
+                  <p>· 유의미 추세 {sigCount}건/{prediction.details.length}건 (p&lt;0.05)</p>
+                  {urgentCount > 0 && (
+                    <p>· 위험 포인트: {urgentCount}건 (소진율 80% 초과 또는 3년 내 한계)</p>
+                  )}
+                </>
+              ) : prediction.direction === 'extend' ? (
+                <>
+                  <p>· 전 포인트 소진율 30% 이하</p>
+                  <p>· 유의미 추세 0건/{prediction.details.length}건</p>
+                </>
+              ) : sigCount > 0 ? (
+                <>
+                  {sim.shortestPoint && (
+                    <p>· 최단 한계도달: <span className="font-semibold text-slate-700">{sim.shortestPoint.label}</span>, {sim.shortestPoint.yearsToLimit}년 후</p>
+                  )}
+                  <p>· 변화 감지 {sigCount}건, 여유 충분하여 현행 유지</p>
+                </>
+              ) : (
+                <p>· 전 포인트 안정 — 현행 주기 유지 적절</p>
+              )}
+            </div>
+          </div>
+
+          {/* 타임라인 */}
+          {sim.rows.length >= 2 && (
+            <div className="relative">
+              <div className="flex items-center justify-between px-1">
+                {sim.rows.map((row, i) => {
+                  const isRecommended = row.cycleMonths === prediction.recommendedCycleMonths
+                  const isCurrent = row.cycleMonths === prediction.currentCycleMonths
+                  const vi = VERDICT_ICONS[row.verdict]
+                  return (
+                    <div key={row.cycleMonths} className="flex flex-col items-center relative z-10">
+                      {/* 아이콘 */}
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        isRecommended ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-300' :
+                        vi.color === 'text-emerald-500' ? 'bg-emerald-50 text-emerald-500' :
+                        vi.color === 'text-amber-500' ? 'bg-amber-50 text-amber-500' :
+                        'bg-red-50 text-red-500'
+                      }`}>
+                        {isRecommended ? '★' : vi.icon}
+                      </span>
+                      {/* 라벨 */}
+                      <span className={`text-[10px] mt-1 ${isRecommended ? 'font-bold text-indigo-600' : 'text-slate-400'}`}>
+                        {row.cycleMonths}개월
+                      </span>
+                      <span className={`text-[9px] ${
+                        isRecommended ? 'text-indigo-400' : isCurrent ? 'text-slate-400' : 'text-slate-300'
+                      }`}>
+                        {isRecommended ? '추천' : isCurrent ? '현재' : vi.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+              {/* 연결선 */}
+              <div className="absolute top-3 left-4 right-4 h-px bg-slate-200" />
+            </div>
+          )}
+
+          {/* 시뮬레이션 테이블 (건강점수 + 위험 포인트) */}
+          {sim.rows.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold text-slate-600 mb-1.5">주기별 시뮬레이션</p>
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="text-slate-400 border-b border-slate-100">
+                    <th className="text-left py-1 font-medium">주기</th>
+                    <th className="text-center py-1 font-medium">건강점수</th>
+                    <th className="text-right py-1 font-medium">위험 포인트</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sim.rows.map(row => {
+                    const isRecommended = row.cycleMonths === prediction.recommendedCycleMonths
+                    const gc = GRADE_COLORS[row.grade] ?? GRADE_COLORS.C
+                    const isExpanded = expandedCycle === row.cycleMonths
+                    return (
+                      <tr key={row.cycleMonths} className="group">
+                        <td colSpan={3} className="p-0">
+                          {/* 메인 행 */}
+                          <div className={`flex items-center py-1.5 px-1 border-b border-slate-50 ${isRecommended ? 'bg-indigo-50/50' : ''}`}>
+                            <span className={`flex-1 ${isRecommended ? 'font-semibold' : ''}`}>
+                              {row.cycleMonths}개월
+                              {isRecommended && <span className="text-[9px] text-indigo-400 ml-1">추천</span>}
+                            </span>
+                            <span className={`w-[80px] text-center font-semibold ${gc.text}`}>
+                              {row.healthScore}점 ({row.grade})
+                            </span>
+                            {row.dangerCount > 0 ? (
+                              <button
+                                onClick={() => setExpandedCycle(isExpanded ? null : row.cycleMonths)}
+                                className="w-[80px] text-right text-red-500 hover:text-red-700 cursor-pointer font-medium"
+                              >
+                                {row.dangerCount}건 {isExpanded ? '▼' : '▶'}
+                              </button>
+                            ) : (
+                              <span className="w-[80px] text-right text-emerald-500">0건</span>
+                            )}
+                          </div>
+                          {/* 펼침: 위험 포인트 상세 */}
+                          {isExpanded && row.dangerPoints.length > 0 && (
+                            <div className="bg-red-50/50 px-3 py-2 border-b border-red-100">
+                              {row.dangerPoints.map((dp, i) => (
+                                <div key={`${dp.label}-${i}`} className="flex items-center gap-2 py-0.5 text-[11px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                                  <span className="text-slate-600">{dp.label}</span>
+                                  <span className="text-red-500 font-medium ml-auto">예상 소진율 {dp.usageRatio}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 결론 텍스트 (규칙 기반, 항상 표시) */}
+          <div className="text-[11px] text-slate-500 leading-relaxed">
+            {prediction.direction === 'shorten' ? (
+              <>
+                {prediction.currentCycleMonths}개월 유지 시 {sim.shortestPoint?.label ?? '일부'} 포인트가 허용한계에 근접합니다.{' '}
+                {prediction.recommendedCycleMonths}개월로 단축하여 사전 점검 기회를 확보할 것을 권고합니다.
+              </>
+            ) : prediction.direction === 'extend' ? (
+              <>전 포인트 안정적이며 교정주기 연장이 가능합니다.</>
+            ) : (
+              <>일부 변화가 감지되나 현행 주기로 관리 가능합니다.</>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* AI 인사이트 (LLM 호출 후) */}
+      {llmStatus === 'done' && prediction.reasoning && (
+        <div className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-100 space-y-1.5">
           {prediction.reasoning.split('\n').filter(l => l.trim()).map((line, i) => (
             <p key={i} className="leading-relaxed">{line}</p>
           ))}
@@ -210,14 +384,10 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
         </div>
       )}
 
-      {/* AI 호출 전: 빈 안내 + 버튼 */}
+      {/* AI 호출 버튼 / 로딩 / 에러 */}
       {llmStatus === 'idle' && onRequestAi && prediction.direction !== 'insufficient' && (
-        <div className="mt-3 text-center py-4">
-          <p className="text-[11px] text-slate-300 mb-2">AI 인사이트를 요청하면 전문 분석이 표시됩니다</p>
-          <button
-            onClick={onRequestAi}
-            className="inline-flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
-          >
+        <div className="mt-3 text-center py-2">
+          <button onClick={onRequestAi} className="inline-flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
@@ -226,7 +396,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
         </div>
       )}
       {llmStatus === 'loading' && (
-        <div className="flex items-center justify-center gap-1.5 mt-3 py-4 text-[10px] text-indigo-400">
+        <div className="flex items-center justify-center gap-1.5 mt-3 py-2 text-[10px] text-indigo-400">
           <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
             <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -235,17 +405,21 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
         </div>
       )}
       {llmStatus === 'error' && onRequestAi && (
-        <div className="mt-3 text-center py-4">
-          <button
-            onClick={onRequestAi}
-            className="inline-flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
-          >
+        <div className="mt-3 text-center py-2">
+          <button onClick={onRequestAi} className="inline-flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             재시도
           </button>
         </div>
+      )}
+
+      {/* ISO 참조 */}
+      {prediction.direction !== 'insufficient' && (
+        <p className="text-[10px] text-slate-300 mt-3 pt-2 border-t border-slate-50">
+          교정주기 조정은 ISO 17025 / ILAC-G24 기반 통계적 분석에 따른 권고입니다
+        </p>
       )}
     </div>
   )
