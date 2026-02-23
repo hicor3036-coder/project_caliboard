@@ -427,79 +427,193 @@ function parseConformity(ws: Worksheet): {
   }
 
   // ─── 측정 데이터 영역 파싱 ───
-  // PASS/FAIL 첫 행 위로 올라가며 헤더 행을 탐색
-  let headers: string[] = []
-  let headerFound = false
+  // 전략: PASS/FAIL이 있는 첫 행으로 헤더를 찾고, 헤더 아래 모든 데이터 행을 수집.
+  // PDF→Excel 변환 시 셀 병합이 풀리면 오차/허용오차/판정 열이 대표 행에만 남으므로,
+  // 빈 열은 동일 블록 내 PASS/FAIL 대표 행의 값을 전파한다.
 
+  let headers: string[] = []
+  let dataStartIdx = -1  // 헤더 바로 다음 행 인덱스
+
+  // 1단계: 첫 번째 PASS/FAIL 행을 기준으로 헤더 탐색
   for (let idx = 0; idx < rows.length; idx++) {
     const vals = rows[idx]
     if (!vals.includes('PASS') && !vals.includes('FAIL')) continue
 
-    if (!headerFound) {
-      headerFound = true
+    // 위로 최대 5행까지 후보 수집
+    const candidates: { idx: number; row: string[] }[] = []
+    for (let h = idx - 1; h >= Math.max(0, idx - 5); h--) {
+      candidates.unshift({ idx: h, row: rows[h] })
+    }
 
-      // 위로 최대 5행까지 후보 수집
-      const candidates: { idx: number; row: string[] }[] = []
-      for (let h = idx - 1; h >= Math.max(0, idx - 5); h--) {
-        candidates.unshift({ idx: h, row: rows[h] })
+    // 헤더 행 찾기: 숫자가 아닌 텍스트가 주로 있는 행
+    const merged: string[][] = []
+
+    for (let ci = candidates.length - 1; ci >= 0; ci--) {
+      const row = candidates[ci].row
+      const nonEmptyVals = row.filter(v => v.trim())
+      if (nonEmptyVals.length === 0) break
+
+      const allNumeric = nonEmptyVals.every(v => !isNaN(parseFloat(v.replace(/[\s,]/g, ''))))
+      if (allNumeric) break
+
+      merged.unshift(row)
+    }
+
+    if (merged.length > 0) {
+      const maxLen = Math.max(vals.length, ...merged.map(r => r.length))
+      headers = Array.from({ length: maxLen }, (_, i) => {
+        const parts: string[] = []
+        for (const row of merged) {
+          const v = (row[i] || '').trim()
+          if (v) parts.push(v)
+        }
+        return parts.join(' ')
+      })
+      // 데이터 시작: 헤더 후보 중 마지막 행 바로 다음
+      dataStartIdx = candidates[candidates.length - merged.length].idx + merged.length
+    } else {
+      dataStartIdx = idx
+    }
+    break
+  }
+
+  // 헤더를 못 찾은 경우 (PASS/FAIL 없는 시트) → 빈 결과 반환
+  if (dataStartIdx < 0) {
+    return { info, measurements, headers }
+  }
+
+  // 2단계: 데이터 영역 전체 행 수집 (숫자가 있거나, "-"만 있는 특수행 포함)
+  // 여러 테이블(Clockwise/Counterclockwise 등)을 블록 단위로 분리
+  type DataBlock = { rows: { idx: number; vals: string[] }[]; conformity: string }
+  const blocks: DataBlock[] = []
+  let currentBlock: DataBlock = { rows: [], conformity: '' }
+
+  for (let idx = dataStartIdx; idx < rows.length; idx++) {
+    const vals = rows[idx]
+    const joined = vals.join(' ')
+
+    // "The end" → 데이터 영역 종료
+    if (/the\s*end/i.test(joined)) break
+
+    // 테이블 구분자 감지 (Clockwise, Counterclockwise 등)
+    // 새 헤더가 시작되면 현재 블록 저장 후 새 블록, 헤더 행은 건너뜀
+    const isNewSectionHeader = /\b(clockwise|counterclockwise|function|range)\b/i.test(joined)
+      && !vals.some(v => !isNaN(parseFloat(v.replace(/[\s,±]/g, ''))) && parseFloat(v.replace(/[\s,±]/g, '')) !== 0)
+      && !/^[0-9.\-+,\s±]+$/.test(joined.replace(/\s/g, ''))
+
+    if (isNewSectionHeader && currentBlock.rows.length > 0) {
+      blocks.push(currentBlock)
+      currentBlock = { rows: [], conformity: '' }
+
+      // 새 헤더 영역 건너뛰기: 숫자 데이터가 나올 때까지
+      let skipTo = idx
+      for (let s = idx + 1; s < rows.length && s <= idx + 8; s++) {
+        const sVals = rows[s]
+        const hasNumber = sVals.some(v => {
+          const n = parseFloat(v.replace(/[\s,]/g, ''))
+          return !isNaN(n)
+        })
+        const hasPF = sVals.includes('PASS') || sVals.includes('FAIL')
+        const hasDash = sVals.includes('-')
+        if (hasNumber || hasPF || (hasDash && sVals.filter(v => v.trim()).length >= 2)) {
+          skipTo = s - 1
+          break
+        }
+        skipTo = s
+      }
+      idx = skipTo
+      continue
+    }
+
+    // 빈 행: 연속 2개 이상이면 데이터 영역 종료
+    const nonEmptyVals = vals.filter(v => v.trim())
+    if (nonEmptyVals.length === 0) {
+      if (idx + 1 < rows.length && rows[idx + 1].filter(v => v.trim()).length === 0) break
+      continue
+    }
+
+    // 숫자가 1개 이상 있거나, "-"가 있는 행 → 데이터 행
+    const hasNumber = vals.some(v => {
+      const n = parseFloat(v.replace(/[\s,]/g, ''))
+      return !isNaN(n)
+    })
+    const hasDash = vals.includes('-')
+    const hasPF = vals.includes('PASS') || vals.includes('FAIL')
+
+    if (hasNumber || hasPF || (hasDash && nonEmptyVals.length >= 2)) {
+      currentBlock.rows.push({ idx, vals })
+      if (hasPF) {
+        currentBlock.conformity = vals.includes('FAIL') ? 'FAIL' : 'PASS'
+      }
+    }
+  }
+
+  // 마지막 블록 저장
+  if (currentBlock.rows.length > 0) {
+    blocks.push(currentBlock)
+  }
+
+  // 3단계: 각 블록 내에서 병합 열 전파 + MeasurementPoint 생성
+  // 판정 열 인덱스: 헤더에서 Conformity/PASS 포함하는 열
+  let conformityColIdx = headers.findIndex(h => /conformity|pass.*fail/i.test(h))
+  if (conformityColIdx < 0) conformityColIdx = headers.length - 1  // 마지막 열 fallback
+
+  for (const block of blocks) {
+    // 블록 내 PASS/FAIL 대표 행 찾기
+    const repRow = block.rows.find(r => r.vals.includes('PASS') || r.vals.includes('FAIL'))
+    const blockConformity = block.conformity || ''
+
+    for (const { vals } of block.rows) {
+      const numbers: number[] = []
+      let conformity = ''
+      const nonEmpty: string[] = []
+      const maxLen = Math.max(vals.length, headers.length)
+      const cells = Array.from({ length: maxLen }, (_, i) => vals[i] || '')
+
+      for (let ci = 0; ci < vals.length; ci++) {
+        const sv = vals[ci]
+        if (sv === 'PASS' || sv === 'FAIL') {
+          conformity = sv
+        } else if (sv && sv !== '-' && sv !== 'None') {
+          nonEmpty.push(sv)
+          const num = parseFloat(sv.replace(/\s/g, '').replace(',', ''))
+          if (!isNaN(num)) numbers.push(num)
+        }
       }
 
-
-      // 헤더 행 찾기: 숫자가 아닌 텍스트가 주로 있는 행
-      // 단위행: 괄호로 감싸진 값이 대부분인 행
-      // 헤더행: 한글/영문 텍스트가 있는 행
-      const merged: string[][] = []  // [헤더행들]을 아래부터 위로 분류
-
-      for (let ci = candidates.length - 1; ci >= 0; ci--) {
-        const row = candidates[ci].row
-        const nonEmpty = row.filter(v => v.trim())
-        if (nonEmpty.length === 0) break  // 빈 행 만나면 중단
-
-        // 숫자만 있는 행이면 데이터행 → 중단
-        const allNumeric = nonEmpty.every(v => !isNaN(parseFloat(v.replace(/[\s,]/g, ''))))
-        if (allNumeric) break
-
-        merged.unshift(row)
-      }
-
-      if (merged.length > 0) {
-        // 모든 후보 행을 병합하여 하나의 헤더로
-        const maxLen = Math.max(vals.length, ...merged.map(r => r.length))
-        headers = Array.from({ length: maxLen }, (_, i) => {
-          const parts: string[] = []
-          for (const row of merged) {
-            const v = (row[i] || '').trim()
-            if (v) parts.push(v)
+      // 병합 전파: 이 행에 PASS/FAIL이 없으면 블록의 대표 값 사용
+      // 단, 행 자체에 "-"가 판정 위치에 명시적으로 있으면 전파 안 함 (0점 기준 등)
+      const hasExplicitDash = vals.some((v, ci) => v === '-' && ci >= Math.max(2, vals.length - 4))
+      if (!conformity && blockConformity && !hasExplicitDash) {
+        conformity = blockConformity
+        // 대표 행의 병합 열 값도 전파 (오차/허용오차 등)
+        if (repRow) {
+          for (let ci = 0; ci < repRow.vals.length; ci++) {
+            const rv = repRow.vals[ci]
+            if (!rv || rv === 'PASS' || rv === 'FAIL') continue
+            // 현재 행에서 해당 열이 비어있으면 전파
+            if (!cells[ci] && rv !== '-') {
+              cells[ci] = rv
+              // 숫자/원본데이터에도 추가
+              if (rv !== 'None') {
+                nonEmpty.push(rv)
+                const num = parseFloat(rv.replace(/\s/g, '').replace(',', ''))
+                if (!isNaN(num)) numbers.push(num)
+              }
+            }
           }
-          return parts.join(' ')
+        }
+      }
+
+      // 숫자가 있고 판정이 있는 행만 측정포인트로 (순수 "-"만 있는 0점 행은 제외)
+      if (conformity && numbers.length > 0) {
+        measurements.push({
+          원본데이터: nonEmpty,
+          숫자값: numbers,
+          판정: conformity as 'PASS' | 'FAIL',
+          셀: cells,
         })
       }
-    }
-
-    const numbers: number[] = []
-    let conformity = ''
-    const nonEmpty: string[] = []
-    // 셀 전체를 같은 길이로 보존
-    const maxLen = Math.max(vals.length, headers.length)
-    const cells = Array.from({ length: maxLen }, (_, i) => vals[i] || '')
-
-    for (const sv of vals) {
-      if (sv === 'PASS' || sv === 'FAIL') {
-        conformity = sv
-      } else if (sv && sv !== '-' && sv !== 'None') {
-        nonEmpty.push(sv)
-        const num = parseFloat(sv.replace(/\s/g, '').replace(',', ''))
-        if (!isNaN(num)) numbers.push(num)
-      }
-    }
-
-    if (conformity) {
-      measurements.push({
-        원본데이터: nonEmpty,
-        숫자값: numbers,
-        판정: conformity as 'PASS' | 'FAIL',
-        셀: cells,
-      })
     }
   }
 

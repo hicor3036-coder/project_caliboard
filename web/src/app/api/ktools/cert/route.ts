@@ -13,7 +13,8 @@ import { NextRequest } from 'next/server'
 import { ktoolsLogin } from '@/lib/ktools-login'
 import { getSessionId, setSessionId } from '@/lib/cache'
 import { getCert, setCert, deleteCert } from '@/lib/cert-cache'
-import { downloadAndParseCert, ensureSpmAccess } from '@/lib/cert-download'
+import { downloadAndRuleParse, llmEnhanceCert, ensureSpmAccess } from '@/lib/cert-download'
+import type { DownloadResult } from '@/lib/cert-download'
 
 const DETAIL_API = 'https://k-tools.ktl.re.kr/spm/api/spm0907_getConsignPrjcDtlEquipGroupList.ajax'
 const PRJC_CD_LIST = '[KL151000, KL161020, KL171020, KL171140, KL180940, KL181200, KL211420, KL221490, KL231360, KL241520, KL251650]'
@@ -131,7 +132,10 @@ export async function GET(request: NextRequest) {
           for (const acptNo of acptNos) deleteCert(acptNo)
         }
 
-        // 5. 건별 순차 처리
+        // 5. 파이프라인: 다운로드 순차 → LLM 동시
+        // LLM 작업을 Promise로 수집, 다운로드는 기다리지 않고 다음 건으로
+        const llmJobs: Promise<void>[] = []
+
         for (let i = 0; i < total; i++) {
           const acptNo = acptNos[i]
 
@@ -144,29 +148,56 @@ export async function GET(request: NextRequest) {
             continue
           }
 
-          // 다운로드 + 파싱
+          // 다운로드 + 규칙기반 파싱 (순차 대기)
           send('progress', { current: i + 1, total, acptNo, status: 'downloading' })
 
+          let dl: DownloadResult | null = null
           try {
-            const result = await downloadAndParseCert(sessionId, acptNo)
-            if (result) {
-              setCert(acptNo, result)
-              send('cert', { acptNo, result })
-              success++
-            } else {
-              send('cert_error', { acptNo, error: '다운로드 실패' })
-              fail++
-            }
+            dl = await downloadAndRuleParse(sessionId, acptNo)
           } catch (e) {
-            const msg = e instanceof Error ? e.message : '파싱 실패'
+            const msg = e instanceof Error ? e.message : '다운로드 실패'
             send('cert_error', { acptNo, error: msg })
             fail++
+            if (i < total - 1) await new Promise(r => setTimeout(r, DELAY_BETWEEN_MS))
+            continue
           }
 
-          // k-tools 부하 방지
+          if (!dl) {
+            send('cert_error', { acptNo, error: '다운로드 실패' })
+            fail++
+            if (i < total - 1) await new Promise(r => setTimeout(r, DELAY_BETWEEN_MS))
+            continue
+          }
+
+          // 규칙기반 결과 즉시 전송 (LLM 완료 전)
+          send('progress', { current: i + 1, total, acptNo, status: 'llm_parsing' })
+
+          // LLM 보강을 풀에 fire-and-forget
+          const job = llmEnhanceCert(dl, acptNo)
+            .then(enhanced => {
+              setCert(acptNo, enhanced)
+              send('cert', { acptNo, result: enhanced })
+              success++
+            })
+            .catch(e => {
+              // LLM 실패해도 규칙기반 결과 사용
+              setCert(acptNo, dl!.result)
+              send('cert', { acptNo, result: dl!.result })
+              success++
+              console.log(`[cert] ${acptNo} LLM 실패, 규칙기반 유지: ${e instanceof Error ? e.message : e}`)
+            })
+          llmJobs.push(job)
+
+          // k-tools 부하 방지 (다음 다운로드 전)
           if (i < total - 1) {
             await new Promise(r => setTimeout(r, DELAY_BETWEEN_MS))
           }
+        }
+
+        // 모든 LLM 작업 완료 대기
+        if (llmJobs.length > 0) {
+          console.log(`[cert] LLM ${llmJobs.length}건 병렬 처리 대기...`)
+          await Promise.all(llmJobs)
         }
 
         send('complete', { total, success, fail })

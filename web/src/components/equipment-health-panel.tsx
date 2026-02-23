@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { HealthCheckResult, HealthScore, CyclePrediction, Prescription, TrendSeries } from '@/lib/equipment-health'
-import { analyzeEquipmentHealth } from '@/lib/equipment-health'
+import { analyzeEquipmentHealth, buildHealthReasoningInput } from '@/lib/equipment-health'
 
 // ─── Props ───
 
@@ -56,10 +56,11 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
   const offset = circumference - (score.total / 100) * circumference
 
   const bars: { label: string; value: number; weight: string }[] = [
-    { label: '허용오차 여유', value: score.components.toleranceProximity, weight: '25%' },
-    { label: '추세 안정성', value: score.components.trendDirection, weight: '25%' },
+    { label: '허용오차 여유', value: score.components.toleranceProximity, weight: '20%' },
+    { label: '장기 안정도', value: score.components.longTermStability, weight: '15%' },
+    { label: '단기 안정도', value: score.components.shortTermStability, weight: '20%' },
     { label: '적합 이력', value: score.components.failHistory, weight: '30%' },
-    { label: '데이터 충분성', value: score.components.dataAvailability, weight: '20%' },
+    { label: '데이터 충분성', value: score.components.dataAvailability, weight: '15%' },
   ]
 
   return (
@@ -122,7 +123,7 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
 
 // ─── 교정주기 예측 카드 ───
 
-function CyclePredictionCard({ prediction }: { prediction: CyclePrediction }) {
+function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { prediction: CyclePrediction; llmStatus: 'idle' | 'loading' | 'done' | 'error'; onRequestAi?: () => void }) {
   const dirStyles: Record<string, string> = {
     shorten: 'text-red-600 bg-red-50 border-red-200',
     extend: 'text-green-600 bg-green-50 border-green-200',
@@ -164,7 +165,51 @@ function CyclePredictionCard({ prediction }: { prediction: CyclePrediction }) {
       </div>
 
       {/* 근거 텍스트 */}
-      <p className="text-xs text-slate-500 mt-3 leading-relaxed">{prediction.reasoning}</p>
+      <div className={`text-xs text-slate-500 mt-3 space-y-1.5 transition-opacity duration-300 ${
+        llmStatus === 'loading' ? 'opacity-60' : 'opacity-100'
+      }`}>
+        {prediction.reasoning.split('\n').filter(l => l.trim()).map((line, i) => (
+          <p key={i} className="leading-relaxed">{line}</p>
+        ))}
+      </div>
+
+      {/* AI 분석 버튼/상태 */}
+      {llmStatus === 'idle' && onRequestAi && prediction.direction !== 'insufficient' && (
+        <button
+          onClick={onRequestAi}
+          className="mt-3 flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          AI 전문 소견 요청
+        </button>
+      )}
+      {llmStatus === 'loading' && (
+        <div className="flex items-center gap-1.5 mt-3 text-[10px] text-indigo-400">
+          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
+            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          AI 분석 중...
+        </div>
+      )}
+      {llmStatus === 'done' && (
+        <div className="flex items-center gap-1 mt-2">
+          <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">AI 소견</span>
+        </div>
+      )}
+      {llmStatus === 'error' && onRequestAi && (
+        <button
+          onClick={onRequestAi}
+          className="mt-3 flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          재시도
+        </button>
+      )}
 
       {/* 예측 상세 */}
       {ex.regressionSlope != null && ex.currentRatio != null && (
@@ -187,6 +232,42 @@ function CyclePredictionCard({ prediction }: { prediction: CyclePrediction }) {
           )}
         </div>
       )}
+
+      {/* 포인트별 분석 근거 */}
+      {prediction.details.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">측정포인트별 추세 분석</p>
+          <div className="space-y-2">
+            {prediction.details.map((d, i) => {
+              const sigColor = d.significant ? 'border-l-amber-400 bg-amber-50/40' : 'border-l-green-400 bg-green-50/30'
+              const dir = d.slope > 0 ? '증가' : '감소'
+              const pText = d.pValue < 0.01 ? '<0.01' : d.pValue.toFixed(3)
+              return (
+                <div key={i} className={`rounded border-l-[3px] ${sigColor} px-2.5 py-2`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-semibold text-slate-700 truncate mr-2">{d.label}</span>
+                    <span className={`text-[10px] font-bold shrink-0 px-1.5 py-0.5 rounded ${
+                      d.significant ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                    }`}>
+                      {d.significant ? '유의미' : '안정'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <span>기울기 <span className={`font-medium ${d.slope > 0 ? 'text-red-500' : 'text-blue-500'}`}>{d.slope > 0 ? '+' : ''}{d.slope}</span>/년 ({dir})</span>
+                    <span>p={pText}</span>
+                    <span>{d.recentYears[0]}~{d.recentYears[d.recentYears.length - 1]}</span>
+                  </div>
+                  {d.significant && (
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      {d.recentYears.length}회 측정에서 오차값 {dir} 추세 감지 (95% 신뢰수준)
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -207,7 +288,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   general: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
 }
 
-function PrescriptionList({ prescriptions }: { prescriptions: Prescription[] }) {
+function PrescriptionList({ prescriptions, llmStatus }: { prescriptions: Prescription[]; llmStatus: 'idle' | 'loading' | 'done' | 'error' }) {
   if (prescriptions.length === 0) return null
 
   return (
@@ -216,6 +297,7 @@ function PrescriptionList({ prescriptions }: { prescriptions: Prescription[] }) 
         icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
         title="처방 / 권고사항"
         color="text-purple-500"
+        badge={llmStatus === 'done' ? <span className="text-[9px] text-indigo-300 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">AI 소견</span> : undefined}
       />
 
       <div className="space-y-2.5">
@@ -243,21 +325,79 @@ function PrescriptionList({ prescriptions }: { prescriptions: Prescription[] }) 
   )
 }
 
+// ─── 카테고리 라벨 매핑 ───
+
+const CATEGORY_LABELS: Record<string, string> = {
+  cycle: '교정주기',
+  replacement: '장비 교체',
+  focus: '집중 관리',
+  data: '데이터 관리',
+  general: '종합 관리',
+}
+
 // ─── 메인 패널 ───
 
 export default function EquipmentHealthPanel({ series, calDates, certCount, affcCyclCd }: Props) {
+  // 1. 규칙 기반 결과 즉시 계산
   const result = useMemo(
     () => analyzeEquipmentHealth(series, calDates, certCount, affcCyclCd),
     [series, calDates, certCount, affcCyclCd],
   )
 
+  // 2. LLM 강화 상태
+  const [llmReasoning, setLlmReasoning] = useState<string | null>(null)
+  const [llmPrescriptions, setLlmPrescriptions] = useState<Prescription[] | null>(null)
+  const [llmStatus, setLlmStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+
+  // result 변경 시 LLM 상태 리셋
+  useEffect(() => {
+    setLlmReasoning(null)
+    setLlmPrescriptions(null)
+    setLlmStatus('idle')
+  }, [result])
+
+  // 3. 사용자가 능동적으로 호출
+  const requestAi = useCallback(async () => {
+    if (result.prediction.direction === 'insufficient') return
+    setLlmStatus('loading')
+    try {
+      const input = buildHealthReasoningInput(result)
+      const response = await fetch('/api/ai/health-reasoning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const data = await response.json()
+
+      if (data.reasoning) setLlmReasoning(data.reasoning)
+      if (Array.isArray(data.prescriptions)) {
+        setLlmPrescriptions(data.prescriptions.map((p: { priority: string; category: string; title: string; description: string }) => ({
+          ...p,
+          categoryLabel: CATEGORY_LABELS[p.category] || p.category,
+        })))
+      }
+      setLlmStatus('done')
+    } catch {
+      setLlmStatus('error')
+    }
+  }, [result])
+
+  // 4. 최종 렌더링 데이터
+  const displayPrediction = useMemo(() => ({
+    ...result.prediction,
+    reasoning: llmReasoning ?? result.prediction.reasoning,
+  }), [result.prediction, llmReasoning])
+
+  const displayPrescriptions = llmPrescriptions ?? result.prescriptions
+
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <HealthScoreCard score={result.score} />
-        <CyclePredictionCard prediction={result.prediction} />
+        <CyclePredictionCard prediction={displayPrediction} llmStatus={llmStatus} onRequestAi={requestAi} />
       </div>
-      <PrescriptionList prescriptions={result.prescriptions} />
+      <PrescriptionList prescriptions={displayPrescriptions} llmStatus={llmStatus} />
     </>
   )
 }

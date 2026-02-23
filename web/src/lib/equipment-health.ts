@@ -25,10 +25,22 @@ export interface HealthScore {
   gradeLabel: string
   components: {
     toleranceProximity: number
-    trendDirection: number
+    longTermStability: number
+    shortTermStability: number
     failHistory: number
     dataAvailability: number
   }
+}
+
+export interface CyclePredictionDetail {
+  label: string           // 측정포인트명 (예: "81.36 N·m")
+  recentYears: string[]   // 분석 대상 연도 (예: ["2022","2024","2025","2026"])
+  recentErrors: number[]  // 해당 연도 절대오차
+  slope: number           // 기울기 (%p/년 또는 오차단위/년)
+  pValue: number          // t-검정 p-value
+  significant: boolean    // 통계적 유의성 (p < 0.05)
+  usageRatio: number | null    // |오차|/|허용오차| % (최신 측정 기준)
+  yearsToLimit: number | null  // 현 추세로 허용한계 도달까지 남은 연수
 }
 
 export interface CyclePrediction {
@@ -37,6 +49,7 @@ export interface CyclePrediction {
   direction: 'shorten' | 'maintain' | 'extend' | 'insufficient'
   directionLabel: string
   reasoning: string
+  details: CyclePredictionDetail[]  // 포인트별 분석 근거
   extrapolation: {
     currentRatio: number | null
     regressionSlope: number | null
@@ -105,33 +118,156 @@ function calcToleranceProximity(series: TrendSeries[]): number {
   return 0
 }
 
-function calcTrendDirection(series: TrendSeries[]): number {
+// 장기안정성(Long-term stability) 평가: 선형 회귀 기울기의 t-검정
+// 교정에서 "안정"이란 오차의 크기가 아니라 변화의 부재.
+// 5년 내내 오차 10%인 장비가, 매년 1%씩 감소하는 장비보다 안정적이다.
+//
+// 방법: 각 측정포인트별 시계열에서 선형 회귀 → slope의 t-검정
+// H0: slope = 0 (추세 없음 = 안정)
+// p >= 0.05 → 귀무가설 채택 → 안정  |  p < 0.05 → 유의미한 추세 → 불안정
+
+function slopeSignificance(values: number[]): { slope: number; pValue: number } {
+  const n = values.length
+  if (n < 3) return { slope: 0, pValue: 1 }  // 최소 3점 필요 (df=n-2≥1)
+
+  // x = 0,1,2,...,n-1 (시간축)
+  const sumX = (n * (n - 1)) / 2
+  const sumX2 = (n * (n - 1) * (2 * n - 1)) / 6
+  const sumY = values.reduce((a, b) => a + b, 0)
+  const sumXY = values.reduce((s, y, i) => s + i * y, 0)
+
+  const denom = n * sumX2 - sumX * sumX
+  if (Math.abs(denom) < 1e-12) return { slope: 0, pValue: 1 }
+
+  const slope = (n * sumXY - sumX * sumY) / denom
+  const intercept = (sumY - slope * sumX) / n
+
+  // 잔차 제곱합 (SSE)
+  let sse = 0
+  for (let i = 0; i < n; i++) {
+    const residual = values[i] - (intercept + slope * i)
+    sse += residual * residual
+  }
+
+  const df = n - 2
+  const mse = sse / df
+  const seBeta = Math.sqrt(mse / (sumX2 - (sumX * sumX) / n))
+
+  if (seBeta < 1e-12) {
+    return { slope, pValue: Math.abs(slope) < 1e-12 ? 1 : 0 }
+  }
+
+  const tStat = slope / seBeta
+  const absT = Math.abs(tStat)
+
+  // t분포 양측 p-value 근사
+  let pValue: number
+  if (df >= 30) {
+    pValue = 2 * (1 - normalCdf(absT))
+  } else {
+    // t-table 임계값 (양측 0.05) for df=1..20
+    const critTable = [0, 12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228,
+      2.201, 2.179, 2.160, 2.145, 2.131, 2.120, 2.110, 2.101, 2.093, 2.086]
+    const crit05 = df < critTable.length ? critTable[df] : 2.0
+    // 0.01 임계값 근사: crit05 * 1.5~1.8
+    const crit01 = crit05 * 1.5
+
+    if (absT < crit05 * 0.3) pValue = 0.7
+    else if (absT < crit05 * 0.6) pValue = 0.4
+    else if (absT < crit05 * 0.85) pValue = 0.15
+    else if (absT < crit05) pValue = 0.08
+    else if (absT < crit01) pValue = 0.03
+    else pValue = 0.005
+  }
+
+  return { slope, pValue }
+}
+
+function normalCdf(x: number): number {
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741
+  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911
+  const sign = x < 0 ? -1 : 1
+  const absX = Math.abs(x)
+  const t = 1 / (1 + p * absX)
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-absX * absX / 2)
+  return 0.5 * (1 + sign * y)
+}
+
+function pValueToScore(pValue: number): number {
+  if (pValue >= 0.3) return 100       // 추세 없음 확실 (매우 안정)
+  if (pValue >= 0.1) return 80        // 추세 미약 (안정)
+  if (pValue >= 0.05) return 60       // 경계 (0.05 턱걸이)
+  if (pValue >= 0.01) return 30       // 유의미한 추세 (불안정)
+  return 10                           // 매우 유의미한 추세 (경고)
+}
+
+// CV(변동계수) 기반 fallback 점수 (데이터 부족 시)
+function cvFallbackScore(series: TrendSeries[], minPoints: number): number | null {
   let totalScore = 0
   let count = 0
+  for (const s of series) {
+    const absErrors = s.points
+      .map(p => p.오차 != null ? Math.abs(p.오차) : null)
+      .filter((v): v is number => v != null)
+    if (absErrors.length < minPoints) continue
+    count++
+    const mean = absErrors.reduce((a, b) => a + b, 0) / absErrors.length
+    const variance = absErrors.reduce((sum, v) => sum + (v - mean) ** 2, 0) / absErrors.length
+    const cv = mean > 0 ? Math.sqrt(variance) / mean : 0
+    totalScore += cv <= 0.05 ? 100 : cv <= 0.15 ? 80 : cv <= 0.3 ? 55 : cv <= 0.5 ? 30 : 10
+  }
+  return count > 0 ? Math.round(totalScore / count) : null
+}
+
+function calcStability(series: TrendSeries[]): { longTerm: number; shortTerm: number } {
+  // 장기안정도: 전체 기간 기울기 t-검정
+  // 단기안정도: 최근 3년(3점) 기울기 t-검정
+  // 각각 독립적으로 보고 — 장기는 OK인데 단기 불안정, 또는 그 반대 가능
+
+  const RECENT_WINDOW = 3
+
+  const longTermScores: number[] = []
+  const shortTermScores: number[] = []
 
   for (const s of series) {
     const absErrors = s.points
       .map(p => p.오차 != null ? Math.abs(p.오차) : null)
       .filter((v): v is number => v != null)
 
-    if (absErrors.length < 2) continue
-    count++
+    // 장기: 전체 기간 (3점 이상)
+    if (absErrors.length >= 3) {
+      const { pValue } = slopeSignificance(absErrors)
+      longTermScores.push(pValueToScore(pValue))
+    }
 
-    const first = absErrors[0] || 0.001
-    const change = (absErrors[absErrors.length - 1] - absErrors[0]) / first
-
-    let score: number
-    if (change <= -0.2) score = 100
-    else if (change <= 0) score = 80 + (-change / 0.2) * 20
-    else if (change <= 0.2) score = 80 - (change / 0.2) * 40
-    else if (change <= 0.5) score = 40 - ((change - 0.2) / 0.3) * 30
-    else if (change <= 1.0) score = 10 - ((change - 0.5) / 0.5) * 10
-    else score = 0
-
-    totalScore += Math.max(0, Math.min(100, score))
+    // 단기: 최근 윈도우 (전체 4점 이상일 때만 의미 — 3점이면 장기=단기)
+    if (absErrors.length >= 4) {
+      const recent = absErrors.slice(-RECENT_WINDOW)
+      if (recent.length >= 3) {
+        const { pValue } = slopeSignificance(recent)
+        shortTermScores.push(pValueToScore(pValue))
+      }
+    }
   }
 
-  return count > 0 ? Math.round(totalScore / count) : 60
+  // 장기 점수
+  let longTerm: number
+  if (longTermScores.length > 0) {
+    longTerm = Math.round(longTermScores.reduce((a, b) => a + b, 0) / longTermScores.length)
+  } else {
+    longTerm = cvFallbackScore(series, 2) ?? 60
+  }
+
+  // 단기 점수
+  let shortTerm: number
+  if (shortTermScores.length > 0) {
+    shortTerm = Math.round(shortTermScores.reduce((a, b) => a + b, 0) / shortTermScores.length)
+  } else {
+    // 데이터 부족 시 장기와 동일하게
+    shortTerm = longTerm
+  }
+
+  return { longTerm, shortTerm }
 }
 
 function calcFailHistory(series: TrendSeries[]): number {
@@ -178,11 +314,12 @@ function calcDataAvailability(series: TrendSeries[], certCount: number): number 
 
 export function calculateHealthScore(series: TrendSeries[], certCount: number): HealthScore {
   const tp = calcToleranceProximity(series)
-  const td = calcTrendDirection(series)
+  const { longTerm, shortTerm } = calcStability(series)
   const fh = calcFailHistory(series)
   const da = calcDataAvailability(series, certCount)
 
-  const total = Math.round(tp * 0.25 + td * 0.25 + fh * 0.30 + da * 0.20)
+  // 가중치: 허용오차여유 20% + 장기안정 15% + 단기안정 20% + 적합이력 30% + 데이터충분성 15%
+  const total = Math.round(tp * 0.20 + longTerm * 0.15 + shortTerm * 0.20 + fh * 0.30 + da * 0.15)
   const grade = toGrade(total)
 
   return {
@@ -191,7 +328,8 @@ export function calculateHealthScore(series: TrendSeries[], certCount: number): 
     gradeLabel: GRADE_CONFIG[grade].label,
     components: {
       toleranceProximity: Math.round(tp),
-      trendDirection: Math.round(td),
+      longTermStability: Math.round(longTerm),
+      shortTermStability: Math.round(shortTerm),
       failHistory: Math.round(fh),
       dataAvailability: Math.round(da),
     },
@@ -223,30 +361,74 @@ export function predictCalibrationCycle(
   currentCycleMonths: number | null,
 ): CyclePrediction {
   const currentCycle = currentCycleMonths ?? 12
+  const emptyExtra = { currentRatio: null, regressionSlope: null, yearsTo80: null, yearsTo100: null, predictedDate100: null }
 
   if (calDates.length < 2) {
     return {
-      recommendedCycleMonths: null,
-      currentCycleMonths: currentCycle,
-      direction: 'insufficient',
-      directionLabel: '데이터 부족',
+      recommendedCycleMonths: null, currentCycleMonths: currentCycle,
+      direction: 'insufficient', directionLabel: '데이터 부족',
       reasoning: `교정 이력이 ${calDates.length}건으로 추세 분석이 어렵습니다. 2건 이상의 이력이 필요합니다.`,
-      extrapolation: { currentRatio: null, regressionSlope: null, yearsTo80: null, yearsTo100: null, predictedDate100: null },
+      details: [], extrapolation: emptyExtra,
     }
   }
 
-  // 시간축(연수) 변환
   const firstDate = parseYmd(calDates[0])
   if (!firstDate) {
     return {
       recommendedCycleMonths: null, currentCycleMonths: currentCycle,
       direction: 'insufficient', directionLabel: '데이터 부족',
       reasoning: '교정일 형식을 인식할 수 없습니다.',
-      extrapolation: { currentRatio: null, regressionSlope: null, yearsTo80: null, yearsTo100: null, predictedDate100: null },
+      details: [], extrapolation: emptyExtra,
     }
   }
 
-  // 각 시점에서 worst-case 비율 추출
+  // ── 포인트별 상세 분석 (details) ──
+  const yearLabels = calDates.map(d => {
+    const pd = parseYmd(d)
+    return pd ? String(pd.getFullYear()) : d.slice(0, 4)
+  })
+
+  const details: CyclePredictionDetail[] = []
+  for (const s of series) {
+    const absErrors = s.points
+      .map(p => p.오차 != null ? Math.abs(p.오차) : null)
+
+    const validPairs: { year: string; error: number }[] = []
+    for (let i = 0; i < absErrors.length; i++) {
+      if (absErrors[i] != null) validPairs.push({ year: yearLabels[i] ?? `#${i + 1}`, error: absErrors[i]! })
+    }
+
+    if (validPairs.length >= 3) {
+      const errors = validPairs.map(p => p.error)
+      const { slope, pValue } = slopeSignificance(errors)
+
+      // usageRatio / yearsToLimit 계산
+      const lastPt = s.points.findLast(p => p.오차 != null)
+      const latestErr = lastPt?.오차 != null ? Math.abs(lastPt.오차) : null
+      const tol = lastPt?.허용오차 != null ? Math.abs(lastPt.허용오차) : null
+      const usageRatio = latestErr != null && tol != null && tol > 0
+        ? Math.round((latestErr / tol) * 1000) / 10
+        : null
+      const absSlope = Math.abs(slope)
+      let yearsToLimit: number | null = null
+      if (absSlope > 0 && latestErr != null && tol != null && latestErr < tol) {
+        yearsToLimit = Math.round(((tol - latestErr) / absSlope) * 10) / 10
+      }
+
+      details.push({
+        label: s.label,
+        recentYears: validPairs.map(p => p.year),
+        recentErrors: errors,
+        slope: Math.round(slope * 10000) / 10000,
+        pValue,
+        significant: pValue < 0.05,
+        usageRatio,
+        yearsToLimit,
+      })
+    }
+  }
+
+  // ── worst-case 비율 기반 회귀 (보조 지표, 없어도 주기 결정 가능) ──
   const timeRatios: { t: number; ratio: number }[] = []
   for (let ci = 0; ci < calDates.length; ci++) {
     const date = parseYmd(calDates[ci])
@@ -261,101 +443,168 @@ export function predictCalibrationCycle(
     if (maxRatio > -Infinity) timeRatios.push({ t, ratio: maxRatio })
   }
 
-  if (timeRatios.length < 2) {
-    return {
-      recommendedCycleMonths: null, currentCycleMonths: currentCycle,
-      direction: 'insufficient', directionLabel: '데이터 부족',
-      reasoning: '비율 데이터가 부족하여 추세 분석이 어렵습니다.',
-      extrapolation: { currentRatio: null, regressionSlope: null, yearsTo80: null, yearsTo100: null, predictedDate100: null },
-    }
-  }
-
-  // 단순 선형 회귀
-  const n = timeRatios.length
-  const sumT = timeRatios.reduce((s, p) => s + p.t, 0)
-  const sumR = timeRatios.reduce((s, p) => s + p.ratio, 0)
-  const sumTR = timeRatios.reduce((s, p) => s + p.t * p.ratio, 0)
-  const sumT2 = timeRatios.reduce((s, p) => s + p.t * p.t, 0)
-
-  const denom = n * sumT2 - sumT * sumT
-  if (Math.abs(denom) < 1e-10) {
-    return {
-      recommendedCycleMonths: currentCycle, currentCycleMonths: currentCycle,
-      direction: 'maintain', directionLabel: '현행 유지',
-      reasoning: '데이터가 동일 시점에 집중되어 추세 판단이 어렵습니다. 현행 유지를 권고합니다.',
-      extrapolation: { currentRatio: timeRatios[n - 1].ratio, regressionSlope: 0, yearsTo80: null, yearsTo100: null, predictedDate100: null },
-    }
-  }
-
-  const slope = (n * sumTR - sumT * sumR) / denom  // %p / year
-  const intercept = (sumR - slope * sumT) / n
-  const currentRatio = timeRatios[n - 1].ratio
-  const latestT = timeRatios[n - 1].t
-
-  // 80%/100% 도달 예측
+  // 비율 회귀 계산 (가능한 경우에만)
+  let ratioSlope = 0
+  let currentRatio: number | null = null
   let yearsTo80: number | null = null
   let yearsTo100: number | null = null
   let predictedDate100: string | null = null
 
-  if (slope > 0.1) {
-    if (currentRatio < 80) {
-      const t80 = (80 - intercept) / slope - latestT
-      if (t80 > 0) yearsTo80 = t80
-    }
-    if (currentRatio < 100) {
-      const t100 = (100 - intercept) / slope - latestT
-      if (t100 > 0) {
-        yearsTo100 = t100
-        const latestDate = parseYmd(calDates[calDates.length - 1])
-        if (latestDate) {
-          const pred = new Date(latestDate.getTime() + t100 * 365.25 * 86400000)
-          predictedDate100 = formatYmd(pred)
+  if (timeRatios.length >= 2) {
+    const n = timeRatios.length
+    const sumT = timeRatios.reduce((s, p) => s + p.t, 0)
+    const sumR = timeRatios.reduce((s, p) => s + p.ratio, 0)
+    const sumTR = timeRatios.reduce((s, p) => s + p.t * p.ratio, 0)
+    const sumT2 = timeRatios.reduce((s, p) => s + p.t * p.t, 0)
+    const denom = n * sumT2 - sumT * sumT
+
+    if (Math.abs(denom) > 1e-10) {
+      ratioSlope = (n * sumTR - sumT * sumR) / denom
+      currentRatio = timeRatios[n - 1].ratio
+      const intercept = (sumR - ratioSlope * sumT) / n
+      const latestT = timeRatios[n - 1].t
+
+      if (ratioSlope > 0.1) {
+        if (currentRatio < 80) {
+          const t80 = (80 - intercept) / ratioSlope - latestT
+          if (t80 > 0) yearsTo80 = t80
+        }
+        if (currentRatio < 100) {
+          const t100 = (100 - intercept) / ratioSlope - latestT
+          if (t100 > 0) {
+            yearsTo100 = t100
+            const latestDate = parseYmd(calDates[calDates.length - 1])
+            if (latestDate) {
+              const pred = new Date(latestDate.getTime() + t100 * 365.25 * 86400000)
+              predictedDate100 = formatYmd(pred)
+            }
+          }
         }
       }
     }
   }
 
-  // 주기 결정
-  let recommended: number
-  let direction: CyclePrediction['direction']
-  let reasoning: string
-
-  if (slope > 5) {
-    recommended = Math.max(6, Math.round(currentCycle * 0.7))
-    direction = 'shorten'
-    reasoning = `오차 비율이 연간 ${slope.toFixed(1)}%p 증가 추세입니다. ${currentCycle}개월 → ${recommended}개월 단축을 권고합니다.`
-    if (yearsTo100 != null) reasoning += ` 현 추세 시 약 ${yearsTo100.toFixed(1)}년 후 허용오차 도달 예상.`
-  } else if (slope > 2) {
-    if (currentRatio > 70) {
-      recommended = Math.max(6, Math.round(currentCycle * 0.85))
-      direction = 'shorten'
-      reasoning = `현재 비율 ${currentRatio.toFixed(1)}%이며 완만한 증가 추세(연 ${slope.toFixed(1)}%p). ${recommended}개월로 소폭 단축을 권고합니다.`
-    } else {
-      recommended = currentCycle
-      direction = 'maintain'
-      reasoning = `완만한 증가 추세이나 현재 비율 ${currentRatio.toFixed(1)}%로 여유가 있어 현행 유지 가능합니다.`
-    }
-  } else if (slope > -1) {
-    if (currentRatio < 40) {
-      recommended = Math.min(24, Math.round(currentCycle * 1.2))
-      direction = 'extend'
-      reasoning = `오차가 안정적이고 비율 ${currentRatio.toFixed(1)}%로 여유가 있어 ${recommended}개월로 연장 가능합니다.`
-    } else {
-      recommended = currentCycle
-      direction = 'maintain'
-      reasoning = `오차 추세가 안정적입니다. 현행 ${currentCycle}개월 유지를 권고합니다.`
-    }
-  } else {
-    if (currentRatio < 50) {
-      recommended = Math.min(24, Math.round(currentCycle * 1.3))
-      direction = 'extend'
-      reasoning = `오차 개선 추세(연 ${Math.abs(slope).toFixed(1)}%p 감소)이며 비율 ${currentRatio.toFixed(1)}%. ${recommended}개월로 연장 검토 가능합니다.`
-    } else {
-      recommended = currentCycle
-      direction = 'maintain'
-      reasoning = `개선 추세이지만 현재 비율 ${currentRatio.toFixed(1)}%이므로 현행 유지를 권고합니다.`
+  // details도 비율도 없으면 진짜 데이터 부족
+  if (details.length === 0 && timeRatios.length < 2) {
+    return {
+      recommendedCycleMonths: null, currentCycleMonths: currentCycle,
+      direction: 'insufficient', directionLabel: '데이터 부족',
+      reasoning: '측정 데이터가 부족하여 추세 분석이 어렵습니다.',
+      details, extrapolation: emptyExtra,
     }
   }
+
+  // ── 유의미 포인트 판별 + 위험도 판단 ──
+  const significantDetails = details.filter(d => d.significant)
+  const sigCount = significantDetails.length
+  const sigRatio = details.length > 0 ? sigCount / details.length : 0
+  const hasRatio = currentRatio != null
+
+  // 위험도 판단: 유의미 포인트 중 한계 도달이 가까운 것이 있는가?
+  const urgentPoints = significantDetails.filter(d =>
+    (d.yearsToLimit != null && d.yearsToLimit < 3) ||  // 3년 이내 한계 도달
+    (d.usageRatio != null && d.usageRatio > 80)        // 이미 80% 이상 사용
+  )
+
+  // ── 주기 결정 (포인트별 t-검정 + 위험도 종합) ──
+  let recommended: number
+  let direction: CyclePrediction['direction']
+
+  if (sigCount === 0 && details.length > 0) {
+    // 모든 포인트 안정
+    if (hasRatio && currentRatio! < 40) {
+      recommended = Math.min(24, Math.round(currentCycle * 1.2))
+      direction = 'extend'
+    } else {
+      recommended = currentCycle
+      direction = 'maintain'
+    }
+  } else if (sigRatio >= 0.5) {
+    // 과반 이상 포인트에서 유의미 → 단축
+    if (urgentPoints.length > 0) {
+      recommended = Math.max(6, Math.round(currentCycle * 0.7))
+    } else {
+      recommended = Math.max(6, Math.round(currentCycle * 0.85))
+    }
+    direction = 'shorten'
+  } else if (sigCount > 0 && urgentPoints.length > 0) {
+    // 소수 포인트이지만 한계 근접 → 단축
+    recommended = Math.max(6, Math.round(currentCycle * 0.85))
+    direction = 'shorten'
+  } else if (sigCount > 0) {
+    // 소수 포인트, 여유 충분 → 주의 관찰하며 유지
+    recommended = currentCycle
+    direction = 'maintain'
+  } else {
+    recommended = currentCycle
+    direction = 'maintain'
+  }
+
+  // ── 구체적 reasoning 생성 ──
+  const reasonParts: string[] = []
+
+  // 1줄 요약
+  if (direction === 'shorten') {
+    const pct = Math.round((1 - recommended / currentCycle) * 100)
+    reasonParts.push(`${calDates.length}회 교정 이력 분석 결과, ${currentCycle}개월 → ${recommended}개월(${pct}% 단축)을 권고합니다.`)
+  } else if (direction === 'extend') {
+    reasonParts.push(`${calDates.length}회 교정 이력 분석 결과, ${recommended}개월로 연장 검토가 가능합니다.`)
+  } else if (direction === 'maintain') {
+    reasonParts.push(`${calDates.length}회 교정 이력 분석 결과, 현행 ${currentCycle}개월 유지를 권고합니다.`)
+  }
+
+  // 유의미한 변화 포인트 상세
+  if (sigCount > 0) {
+    const pointDescs = significantDetails.slice(0, 3).map(a => {
+      const dir = a.slope > 0 ? '증가' : '감소'
+      let desc = `${a.label}(p=${a.pValue < 0.01 ? '<0.01' : a.pValue.toFixed(2)}, ${dir}`
+      if (a.usageRatio != null) desc += `, 허용대비 ${a.usageRatio}%`
+      desc += ')'
+      return desc
+    })
+    const extra = sigCount > 3 ? ` 외 ${sigCount - 3}건` : ''
+    reasonParts.push(`${details.length}개 중 ${sigCount}개 포인트에서 유의미한 변화: ${pointDescs.join(', ')}${extra}.`)
+
+    // 왜 유지/단축인지 설명
+    if (direction === 'maintain' && sigCount > 0) {
+      const reasons: string[] = []
+      if (sigCount < details.length * 0.5) reasons.push(`변화 포인트가 소수(${sigCount}/${details.length})`)
+      const safePoints = significantDetails.filter(a => a.yearsToLimit == null || a.yearsToLimit >= 3)
+      if (safePoints.length === significantDetails.length) {
+        const minYears = significantDetails.reduce((min, a) => a.yearsToLimit != null && a.yearsToLimit < min ? a.yearsToLimit : min, Infinity)
+        if (minYears < Infinity) {
+          reasons.push(`현 추세로도 허용한계 도달까지 약 ${minYears}년 여유`)
+        } else {
+          reasons.push(`허용한계까지 충분한 여유`)
+        }
+      }
+      if (reasons.length > 0) {
+        reasonParts.push(`다만 ${reasons.join(', ')}이므로 현행 주기를 유지하되 해당 포인트를 주시할 것을 권고합니다.`)
+      }
+    } else if (direction === 'shorten') {
+      if (urgentPoints.length > 0) {
+        const urgDesc = urgentPoints.map(a => {
+          if (a.yearsToLimit != null) return `${a.label}: 약 ${a.yearsToLimit}년 내 한계 도달 예상`
+          if (a.usageRatio != null) return `${a.label}: 허용오차의 ${a.usageRatio}% 사용`
+          return a.label
+        })
+        reasonParts.push(`주의 필요: ${urgDesc.join(', ')}.`)
+      }
+    }
+  } else if (details.length > 0) {
+    reasonParts.push(`${details.length}개 측정포인트 모두 통계적으로 유의미한 추세 없음 (p≥0.05).`)
+  }
+
+  // 비율 정보 (있는 경우에만)
+  if (hasRatio) {
+    reasonParts.push(`현재 최대 허용오차 비율 ${currentRatio!.toFixed(1)}%, 연간 변화량 ${ratioSlope > 0 ? '+' : ''}${ratioSlope.toFixed(2)}%p/년.`)
+  }
+
+  if (yearsTo100 != null && ratioSlope > 0) {
+    reasonParts.push(`현 추세 유지 시 약 ${yearsTo100.toFixed(1)}년 후 허용오차 100% 도달 예상 (${predictedDate100}).`)
+  }
+
+  const reasoning = reasonParts.join('\n')
 
   return {
     recommendedCycleMonths: recommended,
@@ -363,7 +612,12 @@ export function predictCalibrationCycle(
     direction,
     directionLabel: direction === 'shorten' ? '단축 권고' : direction === 'extend' ? '연장 가능' : '현행 유지',
     reasoning,
-    extrapolation: { currentRatio, regressionSlope: Math.round(slope * 100) / 100, yearsTo80, yearsTo100, predictedDate100 },
+    details,
+    extrapolation: {
+      currentRatio,
+      regressionSlope: Math.round(ratioSlope * 100) / 100,
+      yearsTo80, yearsTo100, predictedDate100,
+    },
   }
 }
 
@@ -492,5 +746,54 @@ export function analyzeEquipmentHealth(
     prescriptions,
     dataPoints: series.reduce((sum, s) => sum + s.points.length, 0),
     seriesCount: series.length,
+  }
+}
+
+// ─── LLM 입력용 요약 데이터 빌더 ───
+
+export interface HealthReasoningInput {
+  currentCycle: number
+  recommended: number | null
+  direction: CyclePrediction['direction']
+  totalPoints: number
+  details: Array<{
+    label: string
+    slope: number
+    pValue: number
+    significant: boolean
+    usageRatio: number | null
+    yearsToLimit: number | null
+  }>
+  currentRatio: number | null
+  ratioSlope: number | null
+  certCount: number
+  healthGrade: string
+  healthTotal: number
+  components: HealthScore['components']
+}
+
+export function buildHealthReasoningInput(result: HealthCheckResult): HealthReasoningInput {
+  const { prediction, score } = result
+  return {
+    currentCycle: prediction.currentCycleMonths ?? 12,
+    recommended: prediction.recommendedCycleMonths,
+    direction: prediction.direction,
+    totalPoints: prediction.details.length,
+    details: prediction.details.map(d => ({
+      label: d.label,
+      slope: d.slope,
+      pValue: d.pValue,
+      significant: d.significant,
+      usageRatio: d.usageRatio,
+      yearsToLimit: d.yearsToLimit,
+    })),
+    currentRatio: prediction.extrapolation.currentRatio,
+    ratioSlope: prediction.extrapolation.regressionSlope,
+    certCount: result.dataPoints > 0 && result.seriesCount > 0
+      ? Math.ceil(result.dataPoints / result.seriesCount)
+      : 0,
+    healthGrade: score.grade,
+    healthTotal: score.total,
+    components: score.components,
   }
 }

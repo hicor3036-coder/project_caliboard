@@ -1,4 +1,4 @@
-// 교정성적서 다운로드 + LLM fallback 보강
+// 교정성적서 다운로드 + LLM 워커 풀 파싱
 //
 // === 전체 흐름 ===
 // 1. acptNo 변환 (DB zero-padded → API unpadded)
@@ -6,9 +6,12 @@
 // 3. PDF→Excel 변환 요청 (서버에서 DRM 해제 + 변환)
 // 4. Excel 다운로드
 // 5. 규칙기반 파싱 (cert-parser.ts)
-// 6. [필요 시] LLM 보강 (Mistral → Groq fallback)
+// 6. [필요 시] LLM 워커 풀 파싱 (Groq, Mistral-S, Mistral-M 병렬)
 //
-// ※ 건당 2~5초 소요 (서버 변환이 병목)
+// === LLM 워커 풀 ===
+// 3개 워커(Groq, Mistral Small, Mistral Medium)가 유휴 상태에서 작업을 가져감.
+// rate limit(429) 시 해당 워커 쿨다운, 작업은 다른 워커에 재할당.
+// 여러 성적서 동시 처리 시 최대 3배 속도 향상.
 
 import { parseCertExcel, excelToText, conformityToText, conformityToStructuredText, findConformitySheet, findCalibrationResultSheets, calibrationResultsToText } from './cert-parser'
 import type { CertResult, MeasurementPoint } from './cert-cache'
@@ -25,27 +28,215 @@ interface LlmProvider {
   url: string
   key: string
   model: string
-  retries: number
 }
 
-function getLlmProviders(): LlmProvider[] {
+function getLlmWorkers(): LlmProvider[] {
   return [
     {
-      name: 'Mistral',
-      url: 'https://api.mistral.ai/v1/chat/completions',
-      key: process.env.MISTRAL_API_KEY ?? '',
-      model: 'mistral-small-latest',
-      retries: 2,
-    },
-    {
-      name: 'Groq',
+      name: 'Groq-70B',
       url: 'https://api.groq.com/openai/v1/chat/completions',
       key: process.env.GROQ_API_KEY ?? '',
       model: 'llama-3.3-70b-versatile',
-      retries: 1,
+    },
+    {
+      name: 'Groq-8B',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      key: process.env.GROQ_API_KEY ?? '',
+      model: 'llama-3.1-8b-instant',
+    },
+    {
+      name: 'Mistral-S',
+      url: 'https://api.mistral.ai/v1/chat/completions',
+      key: process.env.MISTRAL_API_KEY ?? '',
+      model: 'mistral-small-latest',
+    },
+    {
+      name: 'Mistral-M',
+      url: 'https://api.mistral.ai/v1/chat/completions',
+      key: process.env.MISTRAL_API_KEY ?? '',
+      model: 'mistral-medium-latest',
     },
   ]
 }
+
+// ─── LLM 워커 풀 ───
+// 유휴 워커를 할당해 LLM 호출. rate limit(429) 시 해당 워커를 쿨다운,
+// 작업은 다른 유휴 워커에게 재할당. 모든 워커가 바쁘면 먼저 끝나는 워커 대기.
+
+interface LlmTask {
+  prompt: string
+  systemPrompt?: string
+  maxTokens: number
+  retries: number // 남은 재시도 횟수
+  failedWorkers: Set<string> // 이 작업에서 실패한 워커 이름
+  resolve: (r: LlmResponse) => void
+  reject: (e: Error) => void
+}
+
+interface WorkerState {
+  provider: LlmProvider
+  busy: boolean
+  cooldownUntil: number // Date.now() 기준, 429 시 쿨다운 시각
+}
+
+const MAX_RETRIES = 3 // 작업당 최대 재시도 (429 포함)
+
+class LlmWorkerPool {
+  private workers: WorkerState[] = []
+  private queue: LlmTask[] = []
+  private initialized = false
+
+  private init() {
+    if (this.initialized) return
+    this.workers = getLlmWorkers()
+      .filter(p => !!p.key) // API 키 있는 것만
+      .map(p => ({ provider: p, busy: false, cooldownUntil: 0 }))
+    this.initialized = true
+    console.log(`[pool] 워커 ${this.workers.length}개 초기화: ${this.workers.map(w => w.provider.name).join(', ')}`)
+  }
+
+  // 유휴 워커 중 쿨다운 아닌 것 반환 (실패한 워커 제외)
+  private getIdleWorker(failedWorkers?: Set<string>): WorkerState | null {
+    const now = Date.now()
+    // 실패하지 않은 워커 우선
+    const idle = this.workers.find(w =>
+      !w.busy && w.cooldownUntil <= now && (!failedWorkers || !failedWorkers.has(w.provider.name))
+    )
+    if (idle) return idle
+    // 실패 워커라도 유휴면 반환 (재시도 횟수 내에서)
+    return this.workers.find(w => !w.busy && w.cooldownUntil <= now) ?? null
+  }
+
+  // 작업 제출 → Promise 반환
+  submit(prompt: string, systemPrompt?: string, maxTokens = 2000): Promise<LlmResponse> {
+    this.init()
+    return new Promise<LlmResponse>((resolve, reject) => {
+      this.queue.push({
+        prompt, systemPrompt, maxTokens,
+        retries: MAX_RETRIES,
+        failedWorkers: new Set(),
+        resolve, reject,
+      })
+      this.dispatch()
+    })
+  }
+
+  // 큐에서 작업 꺼내 유휴 워커에 할당
+  private dispatch() {
+    while (this.queue.length > 0) {
+      const task = this.queue[0]
+      const worker = this.getIdleWorker(task.failedWorkers)
+      if (!worker) break // 유휴 워커 없음
+
+      this.queue.shift()
+      worker.busy = true
+      this.execute(worker, task)
+    }
+  }
+
+  private async execute(worker: WorkerState, task: LlmTask) {
+    try {
+      const result = await this.callSingle(worker.provider, task)
+      worker.busy = false
+      task.resolve(result)
+    } catch (err) {
+      worker.busy = false
+      task.retries--
+      const errMsg = err instanceof Error ? err.message : String(err)
+
+      if (err instanceof RateLimitError) {
+        // 429: 같은 API 키 공유하는 워커 모두 쿨다운 (rate limit은 키 단위)
+        const cooldownUntil = Date.now() + err.waitMs
+        const sameKeyWorkers = this.workers.filter(w => w.provider.key === worker.provider.key)
+        for (const w of sameKeyWorkers) w.cooldownUntil = Math.max(w.cooldownUntil, cooldownUntil)
+        const names = sameKeyWorkers.map(w => w.provider.name).join('+')
+        console.log(`[pool] ${names} 429 → ${(err.waitMs / 1000).toFixed(0)}s 쿨다운 (남은 재시도: ${task.retries})`)
+      } else {
+        // 500 등: 이 워커를 실패 목록에 추가
+        task.failedWorkers.add(worker.provider.name)
+        console.log(`[pool] ${worker.provider.name} 실패: ${errMsg} (남은 재시도: ${task.retries})`)
+      }
+
+      // 재시도 소진 → 최종 실패
+      if (task.retries <= 0) {
+        task.reject(new Error(`모든 재시도 소진: ${errMsg}`))
+        this.dispatch()
+        return
+      }
+
+      // 재시도: 큐 앞에 삽입
+      this.queue.unshift(task)
+
+      // 유휴 워커 있으면 즉시, 없으면 쿨다운 후 재시도
+      if (this.getIdleWorker(task.failedWorkers)) {
+        this.dispatch()
+      } else {
+        const earliest = Math.min(...this.workers.map(w =>
+          w.busy ? Date.now() + 30000 : w.cooldownUntil
+        ))
+        const wait = Math.max(earliest - Date.now(), 1000)
+        setTimeout(() => this.dispatch(), Math.min(wait, 10000))
+      }
+      return
+    }
+    // 작업 완료 후 대기 중인 작업 처리
+    this.dispatch()
+  }
+
+  private async callSingle(
+    provider: LlmProvider,
+    task: LlmTask,
+  ): Promise<LlmResponse> {
+    if (!provider.key) throw new Error(`${provider.name} API 키 없음`)
+
+    const messages: { role: string; content: string }[] = []
+    if (task.systemPrompt) messages.push({ role: 'system', content: task.systemPrompt })
+    messages.push({ role: 'user', content: task.prompt })
+
+    const t0 = Date.now()
+    const res = await fetch(provider.url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${provider.key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: provider.model,
+        messages,
+        temperature: 0.0,
+        max_tokens: task.maxTokens,
+        response_format: { type: 'json_object' },
+      }),
+    })
+
+    if (res.status === 429) {
+      throw new RateLimitError(provider.name, 5000)
+    }
+
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`${provider.name} ${res.status}: ${text.slice(0, 200)}`)
+    }
+
+    const data = await res.json()
+    return {
+      content: data.choices[0].message.content,
+      model: provider.model,
+      elapsed: Date.now() - t0,
+    }
+  }
+}
+
+class RateLimitError extends Error {
+  constructor(public provider: string, public waitMs: number) {
+    super(`${provider} 429 rate limit`)
+  }
+}
+
+// 글로벌 싱글턴 (HMR 대응)
+const g = globalThis as unknown as { _llmPool?: LlmWorkerPool }
+if (!g._llmPool) g._llmPool = new LlmWorkerPool()
+const llmPool = g._llmPool
 
 const LLM_SYSTEM_PROMPT = `You are a calibration certificate data extraction assistant.
 You will receive the text content of a calibration certificate Excel file (converted from PDF).
@@ -130,81 +321,46 @@ export async function downloadCertExcel(
   return Buffer.from(arrayBuffer)
 }
 
-// ─── LLM 호출 ───
+// ─── LLM 호출 (워커 풀 경유) ───
 
-async function callLlm(
-  provider: LlmProvider,
-  prompt: string,
-  systemPrompt?: string,
-  maxTokens = 2000,
-): Promise<string> {
-  if (!provider.key) throw new Error(`${provider.name} API 키 없음`)
-
-  const messages: { role: string; content: string }[] = []
-  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
-  messages.push({ role: 'user', content: prompt })
-
-  for (let attempt = 0; attempt <= provider.retries; attempt++) {
-    const res = await fetch(provider.url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${provider.key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: provider.model,
-        messages,
-        temperature: 0.0,
-        max_tokens: maxTokens,
-        response_format: { type: 'json_object' },
-      }),
-    })
-
-    if (res.status === 429) {
-      const wait = Math.pow(2, attempt) + 1
-      await new Promise(r => setTimeout(r, wait * 1000))
-      continue
-    }
-
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(`${provider.name} ${res.status}: ${text.slice(0, 200)}`)
-    }
-
-    const data = await res.json()
-    return data.choices[0].message.content
-  }
-
-  throw new Error(`${provider.name} 429: rate limit ${provider.retries + 1}회 초과`)
+interface LlmResponse {
+  content: string
+  model: string
+  elapsed: number // ms
 }
 
-// LLM 파싱 (3단계 fallback)
+// JSON 파싱 헬퍼 (부분 추출 포함)
+function parseLlmJson<T>(content: string): T {
+  try {
+    return JSON.parse(content)
+  } catch {
+    const start = content.indexOf('{')
+    const end = content.lastIndexOf('}') + 1
+    if (start >= 0 && end > start) {
+      return JSON.parse(content.slice(start, end))
+    }
+    throw new Error('JSON 파싱 실패')
+  }
+}
+
+// LLM 파싱 (워커 풀)
 async function llmParse(
   buffer: Buffer,
+  acptNo?: string,
 ): Promise<{ parsed: Record<string, unknown>; provider: string } | null> {
   let text = await excelToText(buffer)
   if (text.length > 8000) text = text.slice(0, 8000) + '\n... (truncated)'
 
   const prompt = `다음은 교정성적서 Excel 파일의 내용입니다. 정보를 추출해주세요.\n\n${text}`
 
-  for (const provider of getLlmProviders()) {
-    try {
-      const content = await callLlm(provider, prompt, LLM_SYSTEM_PROMPT)
-      try {
-        return { parsed: JSON.parse(content), provider: provider.name }
-      } catch {
-        // JSON 부분만 추출 시도
-        const start = content.indexOf('{')
-        const end = content.lastIndexOf('}') + 1
-        if (start >= 0 && end > start) {
-          return { parsed: JSON.parse(content.slice(start, end)), provider: provider.name }
-        }
-      }
-    } catch {
-      continue // 다음 프로바이더로 fallback
-    }
+  try {
+    const { content, model, elapsed } = await llmPool.submit(prompt, LLM_SYSTEM_PROMPT)
+    console.log(`[pool] 기본정보 보강 ${acptNo ?? ''} → ${model} ${(elapsed / 1000).toFixed(1)}s`)
+    return { parsed: parseLlmJson(content), provider: model }
+  } catch (err) {
+    console.error(`[pool] 기본정보 보강 ${acptNo ?? ''} 실패:`, err instanceof Error ? err.message : err)
+    return null
   }
-  return null
 }
 
 // ─── LLM 보강 ───
@@ -212,12 +368,13 @@ async function llmParse(
 async function llmSupplement(
   result: CertResult,
   buffer: Buffer,
+  acptNo?: string,
 ): Promise<CertResult> {
   // 핵심 필드 중 THRESHOLD 이상 누락 시 LLM 호출
   const missing = LLM_KEY_FIELDS.filter(f => !result[f])
   if (missing.length < LLM_MISSING_THRESHOLD) return result
 
-  const llmResult = await llmParse(buffer)
+  const llmResult = await llmParse(buffer, acptNo)
   if (!llmResult) return result
 
   const { parsed, provider } = llmResult
@@ -303,6 +460,11 @@ CRITICAL RULES:
    c) Only if NO error column exists: calculate error = indicated - ref (preserve sign), errUnit = same as ref unit.
    errUnit must reflect the actual unit. If header says "(%)", errUnit = "%".
 
+   SANITY CHECK — After mapping columns, verify:
+   - If errUnit is "%", the error value should typically be small (< 10). If error ≈ ref or error ≈ indicated, you have a COLUMN MAPPING BUG — re-examine which column is actually the error column.
+   - error must come from a column whose header contains words like "Error", "Deviation", "Accuracy", "오차", "편차". NEVER use the indicated/ref value column as error.
+   - If error value equals the indicated value, something is wrong. Re-read the headers carefully.
+
 4. TOLERANCE PARSING — For compound expressions like "±0.5 μm (±2 %)":
    Use the absolute value: tolerance="0.5", tolUnit="μm"
    For "±4.0 %": tolerance="4.0", tolUnit="%"
@@ -339,12 +501,22 @@ CRITICAL RULES:
 
 EXAMPLES:
 
-Example 1 — Torque wrench (explicit error column):
+Example 1a — Torque wrench (explicit error column, N·cm):
 Input rows include:
   Indicated Torque (N·cm) | (lbf·in) | Ref Torque Calibrator (N·cm) | (lbf·in) | Relative Accuracy Error (%) | Tolerance (±%) | Conformity
   2260 | 1586.8 | 2279 | 1600.2 | -0.8 | 4 | PASS
 → indicated=2260 (N·cm), ref=2279 (N·cm), error=-0.8 (%), tolerance=4 (%), result=PASS
 Note: "(lbf·in)" = secondary unit, skip. Error column exists — use directly.
+WRONG: error=2260 or error=2279 — these are ref/indicated values, NOT error!
+
+Example 1b — Torque measuring device (explicit error column, N·m):
+Input rows include:
+  Indicated Torque | Ref Torque | Relative Accuracy | Tolerance | Conformity
+  (N·m) | Calibrator (N·m) | Error (%) | (±%) |
+  0.5 | 0.498 | 0.12 | 0.50 | PASS
+  1.0 | 0.997 | 0.08 | 0.50 | PASS
+→ indicated=0.5, ref=0.498, error=0.12 (%), tolerance=0.50 (%), result=PASS
+WRONG: error=0.498 or error=0.5 — these are ref/indicated, NOT error! The error is the SMALL percentage value (0.12%).
 
 Example 2 — Coating thickness (no error column):
 Input rows include:
@@ -503,23 +675,21 @@ async function llmParseConformity(
 ): Promise<{ result: LlmConformityResult; provider: string } | null> {
   const prompt = `Parse the following conformity review sheet data:\n\n${conformityText}`
 
-  for (const provider of getLlmProviders()) {
-    try {
-      const content = await callLlm(provider, prompt, CONFORMITY_SYSTEM_PROMPT, 4000)
-      try {
-        return { result: JSON.parse(content) as LlmConformityResult, provider: provider.name }
-      } catch {
-        const start = content.indexOf('{')
-        const end = content.lastIndexOf('}') + 1
-        if (start >= 0 && end > start) {
-          return { result: JSON.parse(content.slice(start, end)) as LlmConformityResult, provider: provider.name }
-        }
-      }
-    } catch {
-      continue
+  try {
+    const { content, model, elapsed } = await llmPool.submit(prompt, CONFORMITY_SYSTEM_PROMPT, 4000)
+    const parsed = parseLlmJson<LlmConformityResult>(content)
+    // 디버그: 첫 측정포인트 샘플 출력
+    const sample = parsed.measurements?.[0]
+    if (sample) {
+      console.log(`[pool] 적합성검토서 → ${model} ${(elapsed / 1000).toFixed(1)}s | 샘플: ref=${sample.ref} ind=${sample.indicated} err=${sample.error}(${sample.errUnit}) tol=${sample.tolerance}(${sample.tolUnit}) ${sample.result}`)
+    } else {
+      console.log(`[pool] 적합성검토서 → ${model} ${(elapsed / 1000).toFixed(1)}s | 측정포인트 0개`)
     }
+    return { result: parsed, provider: model }
+  } catch (err) {
+    console.error('[pool] 적합성검토서 실패:', err instanceof Error ? err.message : err)
+    return null
   }
-  return null
 }
 
 // 을지 LLM 파싱 (같은 응답 구조 재활용)
@@ -528,23 +698,20 @@ async function llmParseCalibrationResults(
 ): Promise<{ result: LlmConformityResult; provider: string } | null> {
   const prompt = `Parse the following calibration measurement results data:\n\n${text}`
 
-  for (const provider of getLlmProviders()) {
-    try {
-      const content = await callLlm(provider, prompt, CALIBRATION_RESULTS_SYSTEM_PROMPT, 4000)
-      try {
-        return { result: JSON.parse(content) as LlmConformityResult, provider: provider.name }
-      } catch {
-        const start = content.indexOf('{')
-        const end = content.lastIndexOf('}') + 1
-        if (start >= 0 && end > start) {
-          return { result: JSON.parse(content.slice(start, end)) as LlmConformityResult, provider: provider.name }
-        }
-      }
-    } catch {
-      continue
+  try {
+    const { content, model, elapsed } = await llmPool.submit(prompt, CALIBRATION_RESULTS_SYSTEM_PROMPT, 4000)
+    const parsed = parseLlmJson<LlmConformityResult>(content)
+    const sample = parsed.measurements?.[0]
+    if (sample) {
+      console.log(`[pool] 을지 → ${model} ${(elapsed / 1000).toFixed(1)}s | 샘플: ref=${sample.ref} ind=${sample.indicated} err=${sample.error}(${sample.errUnit}) tol=${sample.tolerance}(${sample.tolUnit})`)
+    } else {
+      console.log(`[pool] 을지 → ${model} ${(elapsed / 1000).toFixed(1)}s | 측정포인트 0개`)
     }
+    return { result: parsed, provider: model }
+  } catch (err) {
+    console.error('[pool] 을지 실패:', err instanceof Error ? err.message : err)
+    return null
   }
-  return null
 }
 
 function conformityResultToMeasurements(
@@ -572,23 +739,36 @@ function conformityResultToMeasurements(
   }))
 }
 
-// ─── 메인: 다운로드 + 파싱 + LLM 보강 ───
+// ─── 1단계: 다운로드 + 규칙기반 파싱 (빠름, 순차 OK) ───
 
-export async function downloadAndParseCert(
+export interface DownloadResult {
+  result: CertResult
+  buffer: Buffer
+}
+
+export async function downloadAndRuleParse(
   sessionId: string,
   acptNo: string,
-  useLlm = true,
-): Promise<CertResult | null> {
+): Promise<DownloadResult | null> {
   const apiAcceptNo = makeApiAcceptNo(acptNo)
   const buffer = await downloadCertExcel(sessionId, apiAcceptNo)
   if (!buffer) return null
 
-  // 1. 규칙기반 파싱 (갑지 + 적합성검토서 기본)
-  let result = await parseCertExcel(buffer)
+  const result = await parseCertExcel(buffer)
+  return { result, buffer }
+}
 
-  if (!useLlm) return result
+// ─── 2단계: LLM 보강 (느림, 워커 풀 병렬) ───
 
-  // 2. 적합성검토서가 있으면 LLM 구조화 파싱 시도
+export async function llmEnhanceCert(
+  dl: DownloadResult,
+  acptNo?: string,
+): Promise<CertResult> {
+  const tag = acptNo ? `[cert:${acptNo}]` : '[cert]'
+  let { result } = dl
+  const { buffer } = dl
+
+  // 1. 적합성검토서가 있으면 LLM 구조화 파싱 시도
   if (result.적합성검토) {
     try {
       const ExcelJS = (await import('exceljs')).default
@@ -598,18 +778,15 @@ export async function downloadAndParseCert(
       const confWs = findConformitySheet(wb)
       if (confWs) {
         const text = conformityToStructuredText(confWs)
-        console.log(`[cert] LLM 적합성검토서 파싱 (${text.length}자, ~${Math.ceil(text.length / 4)}토큰)`)
         const llmConf = await llmParseConformity(text)
         if (llmConf) {
           const { result: confResult, provider } = llmConf
-          // LLM 측정결과로 교체
           const measurements = conformityResultToMeasurements(confResult)
           if (measurements.length > 0) {
             result.측정결과 = measurements
             result.측정포인트수 = measurements.length
             result.전체판정 = measurements.every(m => m.판정 === 'PASS') ? 'PASS' : 'FAIL'
           }
-          // LLM 장비정보로 누락 필드 보강
           const eq = confResult.equipment
           if (eq) {
             if (!result.제조사 && eq.manufacturer) result.제조사 = eq.manufacturer
@@ -620,15 +797,15 @@ export async function downloadAndParseCert(
             if (!result.차기교정일 && eq.dueDate) result.차기교정일 = eq.dueDate
           }
           result._llm_provider = provider
-          console.log(`[cert] LLM 적합성검토서 파싱 완료: ${measurements.length}포인트 via ${provider}`)
+          console.log(`${tag} 적합성검토서 → ${provider} | ${measurements.length}포인트`)
         }
       }
     } catch (err) {
-      console.error('[cert] LLM 적합성검토서 파싱 실패 (규칙기반 유지):', err)
+      console.error(`${tag} LLM 적합성검토서 실패 (규칙기반 유지):`, err)
     }
   }
 
-  // 3. 적합성검토서가 없고 측정결과도 없으면 을지 LLM 파싱
+  // 2. 적합성검토서가 없고 측정결과도 없으면 을지 LLM 파싱
   if (result.측정포인트수 === 0) {
     try {
       const ExcelJS = (await import('exceljs')).default
@@ -639,7 +816,6 @@ export async function downloadAndParseCert(
       if (calSheets.length > 0) {
         const text = calibrationResultsToText(calSheets)
         if (text.trim()) {
-          console.log(`[cert] LLM 을지 파싱 (${calSheets.length}시트, ${text.length}자, ~${Math.ceil(text.length / 4)}토큰)`)
           const llmCal = await llmParseCalibrationResults(text)
           if (llmCal) {
             const { result: calResult, provider } = llmCal
@@ -647,7 +823,6 @@ export async function downloadAndParseCert(
             if (measurements.length > 0) {
               result.측정결과 = measurements
               result.측정포인트수 = measurements.length
-              // 을지에는 PASS/FAIL이 없으므로 전체판정 null
               result.전체판정 = null
             }
             const eq = calResult.equipment
@@ -660,19 +835,32 @@ export async function downloadAndParseCert(
               if (!result.차기교정일 && eq.dueDate) result.차기교정일 = eq.dueDate
             }
             result._llm_provider = provider
-            console.log(`[cert] LLM 을지 파싱 완료: ${measurements.length}포인트 via ${provider}`)
+            console.log(`${tag} 을지 → ${provider} | ${measurements.length}포인트`)
           }
         }
       }
     } catch (err) {
-      console.error('[cert] LLM 을지 파싱 실패:', err)
+      console.error(`${tag} LLM 을지 실패:`, err)
     }
   }
 
-  // 4. 핵심 필드 누락 시 기존 LLM 보강
-  result = await llmSupplement(result, buffer)
+  // 3. 핵심 필드 누락 시 기존 LLM 보강
+  result = await llmSupplement(result, buffer, acptNo)
 
   return result
+}
+
+// ─── 레거시 호환: 순차 다운로드+파싱+LLM (단건용) ───
+
+export async function downloadAndParseCert(
+  sessionId: string,
+  acptNo: string,
+  useLlm = true,
+): Promise<CertResult | null> {
+  const dl = await downloadAndRuleParse(sessionId, acptNo)
+  if (!dl) return null
+  if (!useLlm) return dl.result
+  return llmEnhanceCert(dl, acptNo)
 }
 
 // spm0907.do 페이지 접근 (API 호출 전제조건)

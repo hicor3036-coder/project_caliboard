@@ -68,7 +68,8 @@ function daysBetween(a: Date, b: Date): number {
 
 // === 트렌드 유틸 ===
 
-const TREND_COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#0ea5e9', '#ec4899', '#64748b']
+// 전문 교정 리포트 팔레트 — 절제되고 구분 명확한 색상
+const TREND_COLORS = ['#1e40af', '#dc2626', '#d97706', '#059669', '#7c3aed', '#0284c7', '#be185d', '#475569']
 
 function normalizeRef(val: string): string {
   // 숫자로 파싱 가능하면 정규화 (소수점 표기 통일: "1.0" → "1", "3.0" → "3", "1.2" → "1.2")
@@ -351,6 +352,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
   const [imageError, setImageError] = useState(false)
   const [selectedCert, setSelectedCert] = useState<{ acptNo: string; cert: CertResult } | null>(null)
   const [activeTrendQuantity, setActiveTrendQuantity] = useState<string | null>(null)
+  const [hiddenYears, setHiddenYears] = useState<Set<string>>(new Set())
 
   // 성적서 데이터
   const { certs, setCerts, errors: certErrors, progress: certProgress, certLoading, certDone, fetchCerts } = useCertData(groupNm)
@@ -887,7 +889,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                 </tr>
               </thead>
               <tbody>
-                {Array.from(certs.entries()).map(([acptNo, cert]) => (
+                {Array.from(certs.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(([acptNo, cert]) => (
                   <tr
                     key={acptNo}
                     className="border-b border-gray-50 hover:bg-slate-50 transition-colors cursor-pointer"
@@ -954,13 +956,16 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
-            <h3 className="text-sm font-semibold text-slate-700">연차별 적합성검토 트렌드</h3>
-            <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 rounded-full">
+            <div className="flex flex-col">
+              <h3 className="text-sm font-semibold text-slate-800">연차별 적합성검토 트렌드</h3>
+              <span className="text-[10px] text-slate-400 tracking-wide">AI Calibration Trend Analysis</span>
+            </div>
+            <span className="px-2.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200">
               {conformityTrend.certCount}건 분석
             </span>
             <div className="ml-auto">
@@ -994,88 +999,116 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           )}
 
           {/* 오차 추이 차트: X축=측정포인트, Y축=오차, 라인=연차별, 허용오차 밴드 */}
-          <ResponsiveContainer key={activeQ ?? '__all__'} width="100%" height={300}>
-            <ComposedChart data={currentTrend.chartData} margin={{ left: 15, right: 15, top: 10, bottom: 5 }}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis
-                dataKey="측정포인트"
-                tick={{ fontSize: 10, fill: '#64748b' }}
-                axisLine={{ stroke: '#e2e8f0' }}
-                tickLine={false}
-                angle={-30}
-                textAnchor="end"
-                height={50}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: '#94a3b8' }}
-                axisLine={false}
-                tickLine={false}
-                label={currentTrend.mpOrder[0]?.unit ? {
-                  value: `오차 (${currentTrend.mpOrder[0].unit})`,
-                  angle: -90, position: 'insideLeft',
-                  style: { fontSize: 11, fill: '#94a3b8' },
-                  offset: -5,
-                } : undefined}
-              />
-              <Tooltip content={<TrendChartTooltip yearLabels={conformityTrend.yearLabels} unit={currentTrend.mpOrder[0]?.unit ?? ''} />} />
-              {/* 허용오차 밴드 (상한/하한) */}
-              {currentTrend.chartData.some(d => d['허용상한'] != null) && (
-                <>
-                  <Area dataKey="허용상한" fill="#fef3c7" stroke="none" fillOpacity={0.5} isAnimationActive={false} />
-                  <Area dataKey="허용하한" fill="#fef3c7" stroke="none" fillOpacity={0.5} isAnimationActive={false} />
-                  <ReferenceLine y={0} stroke="#e2e8f0" strokeDasharray="3 3" />
-                </>
-              )}
-              {conformityTrend.yearLabels.map((label, i) => (
-                <Line
-                  key={label}
-                  dataKey={label}
-                  name={label}
-                  stroke={TREND_COLORS[i % TREND_COLORS.length]}
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: TREND_COLORS[i % TREND_COLORS.length], strokeWidth: 2, stroke: '#fff' }}
-                  connectNulls
-                />
-              ))}
-            </ComposedChart>
-          </ResponsiveContainer>
+          {(() => {
+            const totalYears = conformityTrend.yearLabels.length
+            const hasTolerance = currentTrend.chartData.some(d => d['허용상한'] != null)
+            return (
+              <ResponsiveContainer key={activeQ ?? '__all__'} width="100%" height={300}>
+                <ComposedChart data={currentTrend.chartData} margin={{ left: 15, right: 15, top: 10, bottom: 5 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e8ecf1" />
+                  <XAxis
+                    dataKey="측정포인트"
+                    tick={{ fontSize: 10, fill: '#475569' }}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                    angle={-30}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
+                    label={currentTrend.mpOrder[0]?.unit ? {
+                      value: `오차 (${currentTrend.mpOrder[0].unit})`,
+                      angle: -90, position: 'insideLeft',
+                      style: { fontSize: 11, fill: '#64748b' },
+                      offset: -5,
+                    } : undefined}
+                  />
+                  <Tooltip content={<TrendChartTooltip yearLabels={conformityTrend.yearLabels} unit={currentTrend.mpOrder[0]?.unit ?? ''} />} />
+                  {/* 허용오차 밴드 — 중성적 인디고 계열 */}
+                  {hasTolerance && (
+                    <>
+                      <Area dataKey="허용상한" fill="#dbeafe" stroke="none" fillOpacity={0.45} isAnimationActive={false} />
+                      <Area dataKey="허용하한" fill="#dbeafe" stroke="none" fillOpacity={0.45} isAnimationActive={false} />
+                      <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1.5} />
+                    </>
+                  )}
+                  {conformityTrend.yearLabels.map((label, i) => {
+                    const isLatest = i === totalYears - 1
+                    const color = TREND_COLORS[i % TREND_COLORS.length]
+                    const isHidden = hiddenYears.has(label)
+                    return (
+                      <Line
+                        key={label}
+                        dataKey={label}
+                        name={label}
+                        stroke={color}
+                        strokeWidth={isLatest ? 2.5 : 1.5}
+                        strokeOpacity={isLatest ? 1 : 0.55}
+                        dot={{ r: isLatest ? 3.5 : 2.5, fill: color, strokeWidth: 2, stroke: '#fff' }}
+                        activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
+                        connectNulls
+                        hide={isHidden}
+                      />
+                    )
+                  })}
+                </ComposedChart>
+              </ResponsiveContainer>
+            )
+          })()}
 
           {/* 범례 */}
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 mt-3">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 mt-3 text-[11px]">
             {currentTrend.chartData.some(d => d['허용상한'] != null) && (
-              <div className="flex items-center gap-2 text-xs text-slate-600">
-                <div className="w-5 h-3 rounded-sm bg-amber-100 border border-amber-200" />
-                <span className="font-medium text-amber-600">허용오차</span>
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <svg width="20" height="10"><rect x="0" y="2" width="20" height="6" rx="1" fill="#dbeafe" opacity="0.7" /><line x1="0" y1="5" x2="20" y2="5" stroke="#93c5fd" strokeWidth="1" strokeDasharray="2 2" /></svg>
+                <span>허용오차</span>
               </div>
             )}
-            {conformityTrend.yearLabels.map((label, i) => (
-              <div key={label} className="flex items-center gap-2 text-xs text-slate-600">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: TREND_COLORS[i % TREND_COLORS.length] }} />
-                  <div className="w-5 h-0.5 rounded" style={{ backgroundColor: TREND_COLORS[i % TREND_COLORS.length] }} />
-                </div>
-                <span className="font-medium">{label}</span>
-              </div>
-            ))}
+            {conformityTrend.yearLabels.map((label, i) => {
+              const isLatest = i === conformityTrend.yearLabels.length - 1
+              const color = TREND_COLORS[i % TREND_COLORS.length]
+              const isHidden = hiddenYears.has(label)
+              return (
+                <button
+                  key={label}
+                  className="flex items-center gap-1.5 cursor-pointer select-none transition-opacity hover:opacity-80"
+                  onClick={() => setHiddenYears(prev => {
+                    const next = new Set(prev)
+                    if (next.has(label)) next.delete(label); else next.add(label)
+                    return next
+                  })}
+                >
+                  <svg width="18" height="10" className={isHidden ? 'opacity-25' : ''}>
+                    <line x1="0" y1="5" x2="18" y2="5" stroke={color} strokeWidth={isLatest ? 2.5 : 1.5} opacity={isLatest ? 1 : 0.55} />
+                    <circle cx="9" cy="5" r="2.5" fill={color} stroke="#fff" strokeWidth="1.5" />
+                  </svg>
+                  <span className={`${isLatest ? 'font-bold text-slate-700' : 'text-slate-500'} ${isHidden ? 'line-through opacity-40' : ''}`}>{label}</span>
+                </button>
+              )
+            })}
           </div>
 
           {/* 트렌드 요약 테이블 */}
-          <div className="mt-5 overflow-x-auto border border-gray-100 rounded-lg">
+          <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200 shadow-sm">
             <table className="w-full text-[11px] border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-1.5 px-2 text-gray-400 font-medium whitespace-nowrap">측정포인트</th>
+                <tr className="bg-slate-800">
+                  <th className="text-left py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap text-[11px]">측정포인트</th>
                   {conformityTrend.yearLabels.map(y => (
-                    <th key={y} className="text-center py-1.5 px-2 text-gray-400 font-medium whitespace-nowrap">{y}</th>
+                    !hiddenYears.has(y) && <th key={y} className="text-center py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap text-[11px]">{y}</th>
                   ))}
-                  <th className="text-center py-1.5 px-2 text-gray-400 font-medium">추세</th>
-                  <th className="text-center py-1.5 px-2 text-gray-400 font-medium">상태</th>
+                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold text-[11px]">추세</th>
+                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold text-[11px]">상태</th>
                 </tr>
               </thead>
               <tbody>
-                {currentTrend.series.map((s) => {
+                {currentTrend.series.map((s, si) => {
                   const errors = s.points.map(p => p.오차).filter((v): v is number => v != null)
                   const absErrors = errors.map(Math.abs)
+                  // 추세: 증가/감소 모두 "변화"로 표시 (교정 관점: 변화 자체가 위험)
                   const trend = absErrors.length >= 2
                     ? absErrors[absErrors.length - 1] > absErrors[0] * 1.1 ? 'up'
                     : absErrors[absErrors.length - 1] < absErrors[0] * 0.9 ? 'down'
@@ -1084,35 +1117,65 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 
                   const lastRatio = [...s.points].reverse().find(p => p.비율 != null)?.비율
                   const hasFail = s.points.some(p => p.판정 === 'FAIL')
+                  // 상태: 증가든 감소든 변화가 있으면 주의 (안정만 양호)
+                  const hasChange = trend !== 'stable'
                   const level = hasFail || (lastRatio != null && lastRatio > 100) ? 'danger'
-                    : (lastRatio != null && lastRatio > 80) || trend === 'up' ? 'warning'
+                    : (lastRatio != null && lastRatio > 80) || hasChange ? 'warning'
                     : 'safe'
 
                   return (
-                    <tr key={s.key} className="border-b border-gray-50 hover:bg-gray-50/50">
-                      <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{s.label}</td>
-                      {s.points.map((p, pi) => (
-                        <td key={conformityTrend.yearLabels[pi]} className="py-1.5 px-2 text-center font-mono whitespace-nowrap">
-                          {p.오차 != null ? (
-                            <span className={p.판정 === 'FAIL' ? 'text-red-600 font-bold' : 'text-slate-600'}>
-                              {p.오차}
-                              {s.unit && <span className="text-slate-400 text-[10px] ml-0.5">{s.unit}</span>}
-                            </span>
-                          ) : <span className="text-slate-300">-</span>}
-                        </td>
-                      ))}
-                      <td className="py-1.5 px-2 text-center text-base">
+                    <tr key={s.key} className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${si % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+                      <td className="py-2 px-2.5 font-semibold text-slate-700 whitespace-nowrap">{s.label}</td>
+                      {s.points.map((p, pi) => {
+                        if (hiddenYears.has(conformityTrend.yearLabels[pi])) return null
+                        // 오차 색상: FAIL=빨간배경, 음수=파랑, 양수=주황, 0=회색
+                        let cellStyle = 'text-slate-500'
+                        let cellBg = ''
+                        if (p.오차 != null) {
+                          if (p.판정 === 'FAIL') {
+                            cellBg = 'bg-red-600 text-white font-bold rounded'
+                            cellStyle = ''
+                          } else if (p.오차 > 0) {
+                            cellStyle = 'text-amber-700 font-medium'
+                          } else if (p.오차 < 0) {
+                            cellStyle = 'text-blue-700 font-medium'
+                          } else {
+                            cellStyle = 'text-slate-400'
+                          }
+                        }
+                        return (
+                          <td key={conformityTrend.yearLabels[pi]} className="py-2 px-2.5 text-center font-mono whitespace-nowrap">
+                            {p.오차 != null ? (
+                              <span className={`${cellStyle} ${cellBg ? `inline-block px-1.5 py-0.5 ${cellBg}` : ''}`}>
+                                {p.오차 > 0 ? '+' : ''}{p.오차}
+                                {s.unit && !cellBg && <span className="text-slate-300 text-[10px] ml-0.5">{s.unit}</span>}
+                              </span>
+                            ) : <span className="text-slate-300">-</span>}
+                          </td>
+                        )
+                      })}
+                      <td className="py-2 px-2.5 text-center">
                         {isSingleCert
                           ? <span className="text-slate-300 text-xs" title="데이터 부족">&mdash;</span>
-                          : trend === 'up' ? <span className="text-red-500" title="증가">&#8593;</span>
-                          : trend === 'down' ? <span className="text-green-500" title="감소">&#8595;</span>
-                          : <span className="text-slate-400" title="안정">&#8594;</span>}
+                          : trend === 'up' ? (
+                            <svg className="w-4 h-4 text-red-500 inline-block" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M8 12V4M8 4l3 3M8 4L5 7" />
+                            </svg>
+                          ) : trend === 'down' ? (
+                            <svg className="w-4 h-4 text-amber-500 inline-block" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M8 4v8M8 12l3-3M8 12L5 9" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 text-slate-400 inline-block" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M3 8h10M13 8l-3-3M13 8l-3 3" />
+                            </svg>
+                          )}
                       </td>
-                      <td className="py-1.5 px-2 text-center">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          level === 'safe' ? 'bg-green-100 text-green-700'
-                          : level === 'warning' ? 'bg-amber-100 text-amber-700'
-                          : 'bg-red-100 text-red-700'
+                      <td className="py-2 px-2.5 text-center">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                          level === 'safe' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : level === 'warning' ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-red-50 text-red-700 border border-red-200'
                         }`}>
                           {level === 'safe' ? '양호' : level === 'warning' ? '주의' : '위험'}
                         </span>
@@ -1126,19 +1189,36 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 
           {/* 종합 평가 */}
           {currentTrend.evaluation.riskPoints.length > 0 && (
-            <div className="mt-4 bg-slate-50 rounded-lg p-3 border border-slate-100">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-semibold text-slate-500">경년 안정성 평가</span>
+            <div className="mt-4 rounded-lg border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">경년 안정성 평가</span>
                 <StabilityBadge level={currentTrend.evaluation.stability} />
               </div>
-              <ul className="space-y-1">
-                {currentTrend.evaluation.riskPoints.map((rp, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
-                    <span className="text-amber-500 mt-0.5">&#9679;</span>
-                    {rp}
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-2">
+                {currentTrend.evaluation.riskPoints.map((rp, i) => {
+                  // 위험도 분류: FAIL/초과/위험 키워드 → 빨강, 증가/주의 → 주황, 나머지 → 파랑
+                  const isDanger = /FAIL|초과|위험|100%/.test(rp)
+                  const isWarning = /증가|주의|불안정|80%/.test(rp)
+                  const borderColor = isDanger ? 'border-l-red-500' : isWarning ? 'border-l-amber-500' : 'border-l-blue-400'
+                  const iconColor = isDanger ? 'text-red-500' : isWarning ? 'text-amber-500' : 'text-blue-400'
+                  const iconPath = isDanger
+                    ? 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+                    : isWarning
+                    ? 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                    : 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                  return (
+                    <div key={i} className={`flex items-start gap-2.5 pl-3 py-2 border-l-[3px] ${borderColor} bg-white rounded-r-md`}>
+                      <svg className={`w-3.5 h-3.5 ${iconColor} mt-0.5 shrink-0`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
+                      </svg>
+                      <span className="text-xs text-slate-600 leading-relaxed">{rp}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
