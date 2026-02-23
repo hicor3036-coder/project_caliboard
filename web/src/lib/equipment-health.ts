@@ -388,6 +388,18 @@ function simulateHealthForCycle(
     }
   }
 
+  // 같은 label이 여러 series에서 나오는지 검사 (CW/CCW 구분 필요 여부)
+  const labelCount = new Map<string, number>()
+  for (const s of series) labelCount.set(s.label, (labelCount.get(s.label) ?? 0) + 1)
+
+  // series key에서 방향 접미사 추출 (예: "Torque Clockwise_1_N·m" → "CW")
+  function directionSuffix(key: string): string {
+    const kl = key.toLowerCase()
+    if (kl.includes('counterclockwise') || kl.includes('ccw') || kl.includes('반시계')) return ' (CCW)'
+    if (kl.includes('clockwise') || kl.includes('cw') || kl.includes('시계')) return ' (CW)'
+    return ''
+  }
+
   // 각 series의 주기 도래 시점 예상 비율 계산
   const predictedRatios: number[] = []
   const dangerPoints: { label: string; usageRatio: number }[] = []
@@ -404,6 +416,7 @@ function simulateHealthForCycle(
     if (currentRatio == null) continue
 
     // 이 series에 해당하는 detail 찾기 (label 매칭)
+    const detail = details.find(d => d.label === s.label)
     const rate = pointRates.find(pr => pr.label === s.label)
     const predicted = rate
       ? rate.currentRatio + rate.annualRate * yearsAhead
@@ -411,8 +424,16 @@ function simulateHealthForCycle(
 
     predictedRatios.push(predicted)
 
-    if (predicted > 80) {
-      dangerPoints.push({ label: s.label, usageRatio: Math.round(predicted * 10) / 10 })
+    // 위험 포인트: 예상 소진율 > 80% 또는 yearsToLimit < 주기(년)
+    const isDanger = predicted > 80 ||
+      (detail?.yearsToLimit != null && detail.yearsToLimit > 0 && detail.yearsToLimit < yearsAhead)
+
+    if (isDanger) {
+      // 동일 label이 여러 개면 CW/CCW 접미사 추가
+      const displayLabel = (labelCount.get(s.label) ?? 0) > 1
+        ? s.label + directionSuffix(s.key)
+        : s.label
+      dangerPoints.push({ label: displayLabel, usageRatio: Math.round(predicted * 10) / 10 })
     }
   }
 
@@ -429,33 +450,21 @@ function simulateHealthForCycle(
 
   // 건강점수 재계산 (tp만 변경, 나머지 고정)
   const { longTermStability, shortTermStability, failHistory, dataAvailability } = baseScore.components
-  const healthScore = Math.round(
+  const rawScore =
     simulatedTp * 0.20 +
     longTermStability * 0.15 +
     shortTermStability * 0.20 +
     failHistory * 0.30 +
     dataAvailability * 0.15
-  )
-  const grade = toGrade(healthScore)
-
-  // 위험 포인트: yearsToLimit < 주기(년)인 포인트도 추가
-  for (const d of details) {
-    if (d.yearsToLimit != null && d.yearsToLimit < yearsAhead && d.usageRatio != null) {
-      if (!dangerPoints.some(dp => dp.label === d.label)) {
-        const rate = pointRates.find(pr => pr.label === d.label)
-        const predicted = rate
-          ? rate.currentRatio + rate.annualRate * yearsAhead
-          : d.usageRatio
-        dangerPoints.push({ label: d.label, usageRatio: Math.round(predicted * 10) / 10 })
-      }
-    }
-  }
+  const healthScore = Math.round(rawScore * 10) / 10  // 소수점 1자리
+  const grade = toGrade(Math.round(rawScore))
 
   // 위험도순 정렬
   dangerPoints.sort((a, b) => b.usageRatio - a.usageRatio)
 
+  // verdict: 위험 포인트 건수 기반 (점수보다 직관적)
   const verdict: CycleSimulationRow['verdict'] =
-    grade === 'A' || grade === 'B' ? 'safe' : grade === 'C' ? 'caution' : 'danger'
+    dangerPoints.length === 0 ? 'safe' : dangerPoints.length <= 2 ? 'caution' : 'danger'
 
   return { cycleMonths, healthScore, grade, dangerCount: dangerPoints.length, dangerPoints, verdict }
 }

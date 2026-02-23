@@ -159,10 +159,10 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
 
 // ─── 교정주기 예측 카드 ───
 
-const VERDICT_ICONS: Record<string, { icon: string; color: string; label: string }> = {
-  safe:    { icon: '✓', color: 'text-emerald-500', label: '안전' },
-  caution: { icon: '!', color: 'text-amber-500', label: '주의' },
-  danger:  { icon: '✕', color: 'text-red-500', label: '위험' },
+const VERDICT_ICONS: Record<string, { icon: string; color: string; label: string; bg: string }> = {
+  safe:    { icon: '✓', color: 'text-emerald-500', bg: 'bg-emerald-50', label: '안전' },
+  caution: { icon: '⚠', color: 'text-amber-500', bg: 'bg-amber-50', label: '주의' },
+  danger:  { icon: '✕', color: 'text-red-500', bg: 'bg-red-50', label: '위험' },
 }
 
 function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { prediction: CyclePrediction; llmStatus: 'idle' | 'loading' | 'done' | 'error'; onRequestAi?: () => void }) {
@@ -271,9 +271,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
                       {/* 아이콘 */}
                       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                         isRecommended ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-300' :
-                        vi.color === 'text-emerald-500' ? 'bg-emerald-50 text-emerald-500' :
-                        vi.color === 'text-amber-500' ? 'bg-amber-50 text-amber-500' :
-                        'bg-red-50 text-red-500'
+                        `${vi.bg} ${vi.color}`
                       }`}>
                         {isRecommended ? '★' : vi.icon}
                       </span>
@@ -322,7 +320,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
                               {isRecommended && <span className="text-[9px] text-indigo-400 ml-1">추천</span>}
                             </span>
                             <span className={`w-[80px] text-center font-semibold ${gc.text}`}>
-                              {row.healthScore}점 ({row.grade})
+                              {row.healthScore % 1 === 0 ? row.healthScore : row.healthScore.toFixed(1)}점 ({row.grade})
                             </span>
                             {row.dangerCount > 0 ? (
                               <button
