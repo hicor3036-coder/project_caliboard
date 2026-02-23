@@ -83,6 +83,8 @@ export interface UpcomingCalibration {
   d60: number
   d90: number
   items: UpcomingItem[]
+  제조사별: { label: string; value: number }[]
+  시급건수: number
 }
 
 // 전체 장비 검색용 간소화 항목
@@ -243,8 +245,8 @@ function analyzeUpcoming(items: KtoolsItem[], 전체중앙값: number): Upcoming
     const 접수시급 = 접수권장일 <= today
 
     let 구간: UpcomingItem['구간']
-    if (dDay < -1095) 구간 = '장기경과'  // 3년+ 초과
-    else if (dDay < 0) 구간 = '만료'
+    if (dDay < -730) 구간 = '장기경과'   // 2년+ 초과
+    else if (dDay <= 0) 구간 = '만료'   // 오늘 만료(D-0) 포함
     else if (dDay <= 30) 구간 = 'D-30'
     else if (dDay <= 60) 구간 = 'D-60'
     else if (dDay <= 90) 구간 = 'D-90'
@@ -272,6 +274,18 @@ function analyzeUpcoming(items: KtoolsItem[], 전체중앙값: number): Upcoming
     .filter(r => r.구간 !== 'D-90+')
     .sort((a, b) => a.dDay - b.dDay)
 
+  // 제조사별 집계 (장기경과 제외 기준, Top 10)
+  const mfrCounts = new Map<string, number>()
+  for (const item of alertItems) {
+    if (item.구간 === '장기경과') continue
+    const key = item.prdnCmpnNm || '(없음)'
+    mfrCounts.set(key, (mfrCounts.get(key) ?? 0) + 1)
+  }
+  const 제조사별 = Array.from(mfrCounts.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10)
+
   return {
     평균소요일: 전체중앙값,
     여유일,
@@ -281,6 +295,8 @@ function analyzeUpcoming(items: KtoolsItem[], 전체중앙값: number): Upcoming
     d60: result.filter(r => r.구간 === 'D-60').length,
     d90: result.filter(r => r.구간 === 'D-90').length,
     items: alertItems,
+    제조사별,
+    시급건수: alertItems.filter(i => i.접수시급 && i.구간 !== '장기경과').length,
   }
 }
 

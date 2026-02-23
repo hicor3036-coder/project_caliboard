@@ -42,6 +42,8 @@ interface AnalysisData {
       nxtrExrsYmd: string; dDay: number; 접수권장일: string;
       접수시급: boolean; 구간: string; groupNm: string; groupCnt: number
     }>
+    제조사별: { label: string; value: number }[]
+    시급건수: number
   }
   진행상태분포: { label: string; value: number }[]
   월별접수추이: { month: string; 건수: number }[]
