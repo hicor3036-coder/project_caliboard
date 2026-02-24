@@ -18,6 +18,12 @@ interface EquipmentProfile {
     resolution: string | null
     units: string[] | null
     overload_limit: string | null
+    manual_tolerance: {
+      value: number
+      unit: string
+      type: 'absolute' | 'percentage'
+      note: string | null
+    } | null
   }
   environment: {
     operating_temp: string | null
@@ -221,6 +227,22 @@ const tableColumns: Column<UniqueModel>[] = [
 
 // ─── 상세 모달 ───
 
+// 빈 프로필 생성 (미수집 장비에서 허용오차 입력용)
+function createEmptyProfile(manufacturer: string, model: string): EquipmentProfile {
+  return {
+    manufacturer, model,
+    category: null, source: 'manual_input', verified: false, source_urls: [],
+    spec: { range: null, accuracy: null, resolution: null, units: null, overload_limit: null, manual_tolerance: null },
+    environment: { operating_temp: null, storage_temp: null, operating_humidity: null, ip_rating: null, warmup_time: null },
+    power: { type: null, battery: null, battery_life: null, charge_time: null },
+    interface: { output: null, software: null, wireless: null, memory: null },
+    calibration: { recommended_cycle: null, self_calibration: null, standards: null, stability_spec: null, drift_spec: null },
+    maintenance: [], cautions: [],
+    meta: { country: null, discontinued: null, successor_model: null, alternatives: [], approx_price: null, support_url: null, manual_url: null },
+    updated_at: new Date().toISOString().slice(0, 10),
+  }
+}
+
 function ProfileDetailModal({
   model,
   onClose,
@@ -232,7 +254,9 @@ function ProfileDetailModal({
 }) {
   const p = model.profile
   const [editMode, setEditMode] = useState(false)
-  const [editData, setEditData] = useState<EquipmentProfile | null>(p)
+  const [editData, setEditData] = useState<EquipmentProfile | null>(
+    p ?? createEmptyProfile(model.manufacturer, model.model)
+  )
 
   function handleSave() {
     if (editData) {
@@ -272,8 +296,108 @@ function ProfileDetailModal({
         {/* 본문 */}
         <div className="px-6 py-4 space-y-5">
           {!p ? (
-            <div className="text-center py-10 text-slate-400">
-              <p className="text-sm">수집된 정보가 없습니다.</p>
+            <div className="space-y-5">
+              <div className="text-center py-6 text-slate-400">
+                <p className="text-sm">수집된 정보가 없습니다.</p>
+              </div>
+
+              {/* 미수집 장비에서도 매뉴얼 허용오차 입력 가능 */}
+              <div className="bg-red-50/60 rounded-xl p-4 border border-red-100">
+                <h3 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Manual Tolerance (차트 표시용)
+                </h3>
+                {editMode ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-red-600">±</span>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="0.5"
+                        value={editData?.spec.manual_tolerance?.value ?? ''}
+                        onChange={e => {
+                          if (!editData) return
+                          const val = e.target.value ? parseFloat(e.target.value) : null
+                          setEditData({
+                            ...editData,
+                            spec: {
+                              ...editData.spec,
+                              manual_tolerance: val != null ? {
+                                value: val,
+                                unit: editData.spec.manual_tolerance?.unit ?? '',
+                                type: editData.spec.manual_tolerance?.type ?? 'absolute',
+                                note: editData.spec.manual_tolerance?.note ?? null,
+                              } : null,
+                            },
+                          })
+                        }}
+                        className="w-24 px-2 py-1.5 text-sm border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200"
+                      />
+                      <input
+                        type="text"
+                        placeholder="단위 (°C, N·m...)"
+                        value={editData?.spec.manual_tolerance?.unit ?? ''}
+                        onChange={e => {
+                          if (!editData || !editData.spec.manual_tolerance) return
+                          setEditData({
+                            ...editData,
+                            spec: {
+                              ...editData.spec,
+                              manual_tolerance: { ...editData.spec.manual_tolerance, unit: e.target.value },
+                            },
+                          })
+                        }}
+                        className="w-28 px-2 py-1.5 text-sm border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200"
+                      />
+                      <select
+                        value={editData?.spec.manual_tolerance?.type ?? 'absolute'}
+                        onChange={e => {
+                          if (!editData || !editData.spec.manual_tolerance) return
+                          setEditData({
+                            ...editData,
+                            spec: {
+                              ...editData.spec,
+                              manual_tolerance: {
+                                ...editData.spec.manual_tolerance,
+                                type: e.target.value as 'absolute' | 'percentage',
+                              },
+                            },
+                          })
+                        }}
+                        className="px-2 py-1.5 text-sm border border-red-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-200"
+                      >
+                        <option value="absolute">Absolute</option>
+                        <option value="percentage">%</option>
+                      </select>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="출처 (e.g. Manual p.42, Datasheet)"
+                      value={editData?.spec.manual_tolerance?.note ?? ''}
+                      onChange={e => {
+                        if (!editData || !editData.spec.manual_tolerance) return
+                        setEditData({
+                          ...editData,
+                          spec: {
+                            ...editData.spec,
+                            manual_tolerance: {
+                              ...editData.spec.manual_tolerance,
+                              note: e.target.value || null,
+                            },
+                          },
+                        })
+                      }}
+                      className="w-full px-2 py-1.5 text-xs border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-xs text-red-300">미설정 — 아래 '수동 편집' 버튼으로 입력</p>
+                )}
+                <p className="text-[10px] text-red-300 mt-2">이 값은 트렌드 차트에 빨간 점선으로 표시됩니다.</p>
+              </div>
             </div>
           ) : (
             <>
@@ -288,6 +412,118 @@ function ProfileDetailModal({
                 <Field label="단위" value={p.spec.units?.join(', ')} />
                 <Field label="과부하 한계" value={p.spec.overload_limit} />
               </Section>
+
+              {/* 매뉴얼 허용오차 (별도 섹션) */}
+              <div className="bg-red-50/60 rounded-xl p-4 border border-red-100">
+                <h3 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Manual Tolerance (차트 표시용)
+                </h3>
+                {editMode ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-red-600">±</span>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="0.5"
+                        value={editData?.spec.manual_tolerance?.value ?? ''}
+                        onChange={e => {
+                          if (!editData) return
+                          const val = e.target.value ? parseFloat(e.target.value) : null
+                          setEditData({
+                            ...editData,
+                            spec: {
+                              ...editData.spec,
+                              manual_tolerance: val != null ? {
+                                value: val,
+                                unit: editData.spec.manual_tolerance?.unit ?? '',
+                                type: editData.spec.manual_tolerance?.type ?? 'absolute',
+                                note: editData.spec.manual_tolerance?.note ?? null,
+                              } : null,
+                            },
+                          })
+                        }}
+                        className="w-24 px-2 py-1.5 text-sm border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200"
+                      />
+                      <input
+                        type="text"
+                        placeholder="단위 (°C, N·m...)"
+                        value={editData?.spec.manual_tolerance?.unit ?? ''}
+                        onChange={e => {
+                          if (!editData || !editData.spec.manual_tolerance) return
+                          setEditData({
+                            ...editData,
+                            spec: {
+                              ...editData.spec,
+                              manual_tolerance: { ...editData.spec.manual_tolerance, unit: e.target.value },
+                            },
+                          })
+                        }}
+                        className="w-28 px-2 py-1.5 text-sm border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200"
+                      />
+                      <select
+                        value={editData?.spec.manual_tolerance?.type ?? 'absolute'}
+                        onChange={e => {
+                          if (!editData || !editData.spec.manual_tolerance) return
+                          setEditData({
+                            ...editData,
+                            spec: {
+                              ...editData.spec,
+                              manual_tolerance: {
+                                ...editData.spec.manual_tolerance,
+                                type: e.target.value as 'absolute' | 'percentage',
+                              },
+                            },
+                          })
+                        }}
+                        className="px-2 py-1.5 text-sm border border-red-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-200"
+                      >
+                        <option value="absolute">Absolute</option>
+                        <option value="percentage">%</option>
+                      </select>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="출처 (e.g. Manual p.42, Datasheet)"
+                      value={editData?.spec.manual_tolerance?.note ?? ''}
+                      onChange={e => {
+                        if (!editData || !editData.spec.manual_tolerance) return
+                        setEditData({
+                          ...editData,
+                          spec: {
+                            ...editData.spec,
+                            manual_tolerance: {
+                              ...editData.spec.manual_tolerance,
+                              note: e.target.value || null,
+                            },
+                          },
+                        })
+                      }}
+                      className="w-full px-2 py-1.5 text-xs border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200"
+                    />
+                  </div>
+                ) : (
+                  p.spec.manual_tolerance ? (
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg font-bold text-red-700">
+                        ±{p.spec.manual_tolerance.value} {p.spec.manual_tolerance.unit}
+                      </span>
+                      <span className="text-xs text-red-400">
+                        ({p.spec.manual_tolerance.type === 'percentage' ? '%' : 'abs'})
+                      </span>
+                      {p.spec.manual_tolerance.note && (
+                        <span className="text-xs text-red-300 ml-auto">{p.spec.manual_tolerance.note}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-red-300">미설정 — 편집 모드에서 입력</p>
+                  )
+                )}
+                <p className="text-[10px] text-red-300 mt-2">이 값은 트렌드 차트에 빨간 점선으로 표시됩니다.</p>
+              </div>
 
               <Section title="사용 환경" icon="🌡️">
                 <Field label="사용 온도" value={p.environment.operating_temp} />
@@ -372,26 +608,32 @@ function ProfileDetailModal({
           )}
         </div>
 
-        {/* 하단 액션 */}
-        {p && (
-          <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-3 rounded-b-2xl flex items-center gap-2 justify-end">
-            {!editMode ? (
+        {/* 하단 액션 — 미수집 장비에서도 허용오차 입력을 위해 항상 표시 */}
+        <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-3 rounded-b-2xl flex items-center gap-2 justify-end">
+          {!editMode ? (
+            <button
+              onClick={() => setEditMode(true)}
+              className="px-3 py-1.5 text-xs text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+            >
+              수동 편집
+            </button>
+          ) : (
+            <>
               <button
-                onClick={() => setEditMode(true)}
-                className="px-3 py-1.5 text-xs text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+                onClick={() => setEditMode(false)}
+                className="px-3 py-1.5 text-xs text-slate-500 bg-slate-50 rounded-lg hover:bg-slate-100"
               >
-                수동 편집
+                취소
               </button>
-            ) : (
               <button
                 onClick={handleSave}
                 className="px-3 py-1.5 text-xs text-white bg-slate-700 rounded-lg hover:bg-slate-800"
               >
                 저장
               </button>
-            )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

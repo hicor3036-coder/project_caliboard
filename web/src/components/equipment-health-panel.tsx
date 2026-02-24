@@ -42,7 +42,7 @@ function Header({ icon, title, color, badge }: { icon: string; title: string; co
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
         <Icon d={icon} className={`w-4 h-4 ${color}`} />
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{title}</span>
+        <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{title}</span>
       </div>
       {badge}
     </div>
@@ -73,7 +73,7 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
         title={t.health.healthDiag}
         color="text-emerald-500"
         badge={
-          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${c.bg} ${c.text} border ${c.border}`}>
+          <span className={`px-2.5 py-1 text-sm font-bold rounded-full ${c.bg} ${c.text} border ${c.border}`}>
             {score.grade} / {score.gradeLabel}
           </span>
         }
@@ -97,7 +97,7 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-2xl font-bold text-slate-800">{score.total}</span>
-              <span className={`text-[10px] font-semibold ${c.text}`}>{score.gradeLabel}</span>
+              <span className={`text-xs font-semibold ${c.text}`}>{score.gradeLabel}</span>
             </div>
           </div>
         </div>
@@ -112,7 +112,7 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
                 tick={({ x, y, payload }) => {
                   const lines = (payload.value as string).split('\n')
                   return (
-                    <text x={x} y={y} textAnchor="middle" dominantBaseline="central" className="fill-slate-400" style={{ fontSize: 9 }}>
+                    <text x={x} y={y} textAnchor="middle" dominantBaseline="central" className="fill-slate-400" style={{ fontSize: 11 }}>
                       {lines.map((line: string, i: number) => (
                         <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
                       ))}
@@ -135,7 +135,7 @@ function HealthScoreCard({ score }: { score: HealthScore }) {
       </div>
 
       {/* 세부 점수 테이블 */}
-      <table className="w-full mt-2 text-[11px]">
+      <table className="w-full mt-2 text-sm">
         <tbody>
           {radarData.map(d => {
             const pct = d.value
@@ -199,7 +199,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
         title={t.health.cyclePred}
         color="text-indigo-500"
         badge={prediction.direction !== 'insufficient' ? (
-          <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${style}`}>
+          <span className={`px-2.5 py-1 text-sm font-bold rounded-full border ${style}`}>
             {prediction.directionLabel}
           </span>
         ) : undefined}
@@ -208,25 +208,25 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
       {/* 주기 비교 */}
       <div className="grid grid-cols-2 gap-3 mt-2">
         <div className="p-3 bg-slate-50 rounded-lg text-center">
-          <span className="text-[10px] text-slate-400 uppercase">{t.health.currentCycle}</span>
+          <span className="text-xs text-slate-400 uppercase">{t.health.currentCycle}</span>
           <p className="text-2xl font-bold text-slate-800 mt-0.5">
             {prediction.currentCycleMonths ?? '-'}
-            <span className="text-xs font-normal text-slate-400 ml-0.5">{t.detail.months}</span>
+            <span className="text-sm font-normal text-slate-400 ml-0.5">{t.detail.months}</span>
           </p>
         </div>
         {prediction.recommendedCycleMonths != null ? (
           <div className={`p-3 rounded-lg text-center border border-dashed ${style}`}>
-            <span className="text-[10px] uppercase">{t.health.recCycle}</span>
+            <span className="text-xs uppercase">{t.health.recCycle}</span>
             <p className="text-2xl font-bold mt-0.5">
               {prediction.recommendedCycleMonths}
-              <span className="text-xs font-normal ml-0.5">{t.detail.months}</span>
+              <span className="text-sm font-normal ml-0.5">{t.detail.months}</span>
             </p>
           </div>
         ) : (
           <div className="p-3 rounded-lg text-center border border-dashed border-slate-200 bg-slate-50/50">
-            <span className="text-[10px] text-slate-300 uppercase">{t.health.recCycle}</span>
+            <span className="text-xs text-slate-300 uppercase">{t.health.recCycle}</span>
             <p className="text-2xl font-bold text-slate-200 mt-0.5">
-              --<span className="text-xs font-normal ml-0.5">{t.detail.months}</span>
+              --<span className="text-sm font-normal ml-0.5">{t.detail.months}</span>
             </p>
           </div>
         )}
@@ -237,8 +237,8 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
         <div className="mt-4 space-y-3">
           {/* 판단 근거 */}
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold text-slate-600">{t.health.reasoning}</p>
-            <div className="text-[11px] text-slate-500 space-y-0.5">
+            <p className="text-sm font-semibold text-slate-600">{t.health.reasoning}</p>
+            <div className="text-sm text-slate-500 space-y-0.5">
               {prediction.direction === 'shorten' ? (
                 <>
                   {sim.shortestPoint && (
@@ -278,14 +278,14 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
                   return (
                     <div key={row.cycleMonths} className="flex flex-col items-center relative z-10">
                       {/* 아이콘 */}
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
                         isRecommended ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-300' :
                         `${vi.bg} ${vi.color}`
                       }`}>
                         {isRecommended ? '★' : vi.icon}
                       </span>
                       {/* 라벨 */}
-                      <span className={`text-[10px] mt-1 ${isRecommended ? 'font-bold text-indigo-600' : 'text-slate-400'}`}>
+                      <span className={`text-xs mt-1 ${isRecommended ? 'font-bold text-indigo-600' : 'text-slate-400'}`}>
                         {row.cycleMonths}{t.detail.months}
                       </span>
                       <span className={`text-[9px] ${
@@ -305,8 +305,8 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
           {/* 시뮬레이션 테이블 (건강점수 + 위험 포인트) */}
           {sim.rows.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-slate-600 mb-1.5">{t.health.simTitle}</p>
-              <table className="w-full text-[11px]">
+              <p className="text-sm font-semibold text-slate-600 mb-1.5">{t.health.simTitle}</p>
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-100">
                     <th className="text-left py-1 font-medium">{t.health.simCycle}</th>
@@ -346,7 +346,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
                           {isExpanded && row.dangerPoints.length > 0 && (
                             <div className="bg-red-50/50 px-3 py-2 border-b border-red-100">
                               {row.dangerPoints.map((dp, i) => (
-                                <div key={`${dp.label}-${i}`} className="flex items-center gap-2 py-0.5 text-[11px]">
+                                <div key={`${dp.label}-${i}`} className="flex items-center gap-2 py-0.5 text-sm">
                                   <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
                                   <span className="text-slate-600">{dp.label}</span>
                                   <span className="text-red-500 font-medium ml-auto">{fmt(t.health.simUsageRatio, dp.usageRatio)}</span>
@@ -364,7 +364,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
           )}
 
           {/* 결론 텍스트 (규칙 기반, 항상 표시) */}
-          <div className="text-[11px] text-slate-500 leading-relaxed">
+          <div className="text-sm text-slate-500 leading-relaxed">
             {prediction.direction === 'shorten' ? (
               <>{fmt(t.health.shortenNote, prediction.currentCycleMonths ?? '-', sim.shortestPoint?.label ?? '-', prediction.recommendedCycleMonths ?? '-')}</>
             ) : prediction.direction === 'extend' ? (
@@ -378,7 +378,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
 
       {/* AI 인사이트 (LLM 호출 후) */}
       {llmStatus === 'done' && prediction.reasoning && (
-        <div className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-100 space-y-1.5">
+        <div className="text-sm text-slate-500 mt-3 pt-3 border-t border-slate-100 space-y-1.5">
           {prediction.reasoning.split('\n').filter(l => l.trim()).map((line, i) => (
             <p key={i} className="leading-relaxed">{line}</p>
           ))}
@@ -391,7 +391,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
       {/* AI 호출 버튼 / 로딩 / 에러 */}
       {llmStatus === 'idle' && onRequestAi && prediction.direction !== 'insufficient' && (
         <div className="mt-3 text-center py-2">
-          <button onClick={onRequestAi} className="inline-flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer">
+          <button onClick={onRequestAi} className="inline-flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
@@ -400,7 +400,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
         </div>
       )}
       {llmStatus === 'loading' && (
-        <div className="flex items-center justify-center gap-1.5 mt-3 py-2 text-[10px] text-indigo-400">
+        <div className="flex items-center justify-center gap-1.5 mt-3 py-2 text-xs text-indigo-400">
           <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
             <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -410,7 +410,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
       )}
       {llmStatus === 'error' && onRequestAi && (
         <div className="mt-3 text-center py-2">
-          <button onClick={onRequestAi} className="inline-flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer">
+          <button onClick={onRequestAi} className="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
@@ -421,7 +421,7 @@ function CyclePredictionCard({ prediction, llmStatus, onRequestAi }: { predictio
 
       {/* ISO 참조 */}
       {prediction.direction !== 'insufficient' && (
-        <p className="text-[10px] text-slate-300 mt-3 pt-2 border-t border-slate-50">
+        <p className="text-xs text-slate-300 mt-3 pt-2 border-t border-slate-50">
           {t.health.isoRef}
         </p>
       )}
@@ -474,11 +474,11 @@ function PrescriptionList({ prescriptions, llmStatus }: { prescriptions: Prescri
                 <Icon d={iconD} className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ps.badge}`}>{priorityLabels[rx.priority]}</span>
-                    <span className="text-[10px] text-slate-400">{rx.categoryLabel}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${ps.badge}`}>{priorityLabels[rx.priority]}</span>
+                    <span className="text-xs text-slate-400">{rx.categoryLabel}</span>
                   </div>
                   <p className="text-sm font-medium text-slate-700 leading-snug">{rx.title}</p>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">{rx.description}</p>
+                  <p className="text-sm text-slate-500 mt-1 leading-relaxed">{rx.description}</p>
                 </div>
               </div>
             </div>

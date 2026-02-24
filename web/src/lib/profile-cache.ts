@@ -22,6 +22,12 @@ export interface EquipmentProfile {
     resolution: string | null
     units: string[] | null
     overload_limit: string | null
+    manual_tolerance: {
+      value: number
+      unit: string
+      type: 'absolute' | 'percentage'
+      note: string | null
+    } | null
   }
 
   environment: {

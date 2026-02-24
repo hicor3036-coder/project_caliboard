@@ -30,6 +30,7 @@ interface LlmProvider {
   model: string
 }
 
+// Groq-Mistral 교차 배치: 한쪽 호스팅 rate limit 걸려도 다른 쪽으로 빠르게 전환
 function getLlmWorkers(): LlmProvider[] {
   return [
     {
@@ -39,22 +40,16 @@ function getLlmWorkers(): LlmProvider[] {
       model: 'llama-3.3-70b-versatile',
     },
     {
-      name: 'Groq-Maverick',
-      url: 'https://api.groq.com/openai/v1/chat/completions',
-      key: process.env.GROQ_API_KEY ?? '',
-      model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
-    },
-    {
-      name: 'Groq-Scout',
-      url: 'https://api.groq.com/openai/v1/chat/completions',
-      key: process.env.GROQ_API_KEY ?? '',
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-    },
-    {
       name: 'Mistral-S',
       url: 'https://api.mistral.ai/v1/chat/completions',
       key: process.env.MISTRAL_API_KEY ?? '',
       model: 'mistral-small-latest',
+    },
+    {
+      name: 'Groq-Maverick',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      key: process.env.GROQ_API_KEY ?? '',
+      model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
     },
     {
       name: 'Mistral-M',
@@ -67,6 +62,30 @@ function getLlmWorkers(): LlmProvider[] {
       url: 'https://api.mistral.ai/v1/chat/completions',
       key: process.env.MISTRAL_API_KEY ?? '',
       model: 'mistral-large-latest',
+    },
+    {
+      name: 'Cerebras-GPT-120B',
+      url: 'https://api.cerebras.ai/v1/chat/completions',
+      key: process.env.CEREBRAS_API_KEY ?? '',
+      model: 'gpt-oss-120b',
+    },
+    {
+      name: 'Groq-Scout',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      key: process.env.GROQ_API_KEY ?? '',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    },
+    {
+      name: 'Cerebras-Llama-8B',
+      url: 'https://api.cerebras.ai/v1/chat/completions',
+      key: process.env.CEREBRAS_API_KEY ?? '',
+      model: 'llama3.1-8b',
+    },
+    {
+      name: 'Groq-Qwen3-32B',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      key: process.env.GROQ_API_KEY ?? '',
+      model: 'qwen/qwen3-32b',
     },
   ]
 }
@@ -153,18 +172,30 @@ class LlmWorkerPool {
       task.resolve(result)
     } catch (err) {
       worker.busy = false
-      task.retries--
       const errMsg = err instanceof Error ? err.message : String(err)
 
-      if (err instanceof RateLimitError) {
-        // 429: 같은 API 키 공유하는 워커 모두 쿨다운 (rate limit은 키 단위)
+      if (err instanceof TpmExceededError) {
+        // 413 TPM 초과: 재시도 무의미 — 워커만 제외하고 다른 워커에 재할당
+        task.failedWorkers.add(worker.provider.name)
+        console.log(`[pool] ${worker.provider.name} TPM 초과 → 제외 (재시도 차감 없음)`)
+      } else if (err instanceof RateLimitError) {
+        // 429 쿨다운 범위:
+        // - Groq: 모델별 독립 rate limit → 같은 모델만 쿨다운
+        // - Mistral: 조직 단위 공유 rate limit → 같은 키 전체 쿨다운
+        task.retries--
         const cooldownUntil = Date.now() + err.waitMs
-        const sameKeyWorkers = this.workers.filter(w => w.provider.key === worker.provider.key)
-        for (const w of sameKeyWorkers) w.cooldownUntil = Math.max(w.cooldownUntil, cooldownUntil)
-        const names = sameKeyWorkers.map(w => w.provider.name).join('+')
+        // Groq/Cerebras: 모델별 독립 rate limit → 같은 모델만 쿨다운
+        // Mistral: 조직 단위 공유 rate limit → 같은 키 전체 쿨다운
+        const isPerModel = worker.provider.url.includes('groq.com') || worker.provider.url.includes('cerebras.ai')
+        const affectedWorkers = isPerModel
+          ? this.workers.filter(w => w.provider.model === worker.provider.model)
+          : this.workers.filter(w => w.provider.key === worker.provider.key)
+        for (const w of affectedWorkers) w.cooldownUntil = Math.max(w.cooldownUntil, cooldownUntil)
+        const names = affectedWorkers.map(w => w.provider.name).join('+')
         console.log(`[pool] ${names} 429 → ${(err.waitMs / 1000).toFixed(0)}s 쿨다운 (남은 재시도: ${task.retries})`)
       } else {
         // 500 등: 이 워커를 실패 목록에 추가
+        task.retries--
         task.failedWorkers.add(worker.provider.name)
         console.log(`[pool] ${worker.provider.name} 실패: ${errMsg} (남은 재시도: ${task.retries})`)
       }
@@ -225,6 +256,11 @@ class LlmWorkerPool {
       throw new RateLimitError(provider.name, 5000)
     }
 
+    if (res.status === 413) {
+      // TPM 초과: 이 모델로는 이 요청을 처리할 수 없음 → 재시도 무의미
+      throw new TpmExceededError(provider.name)
+    }
+
     if (!res.ok) {
       const text = await res.text()
       throw new Error(`${provider.name} ${res.status}: ${text.slice(0, 200)}`)
@@ -242,6 +278,12 @@ class LlmWorkerPool {
 class RateLimitError extends Error {
   constructor(public provider: string, public waitMs: number) {
     super(`${provider} 429 rate limit`)
+  }
+}
+
+class TpmExceededError extends Error {
+  constructor(public provider: string) {
+    super(`${provider} 413 TPM 초과 — 요청이 모델 한도보다 큼`)
   }
 }
 
@@ -462,14 +504,25 @@ CRITICAL RULES:
    - tolerance: The acceptable limit or allowable range
    - result: PASS/FAIL conformity judgment
 
+1b. KOREAN FORMAT — Some conformity sheets are in Korean. Map these labels:
+   Equipment info: 제조사 (Manufacturer), 모델 (Model), 장비명 (Description),
+     제조사 일련번호 (Serial Number), [관리번호] (Identification Number),
+     교정일 (Date of Calibration), 차기교정일 (Due Date), 성적서번호 (Certificate No.)
+   Column headers: 기준값 (ref), 지시값 (indicated), 보정값 (Correction — NOT error!),
+     Spec Accuracy / 허용범위 (tolerance), 적합여부 (result)
+   Verdict markers: "O" = PASS, "X" = FAIL. Map to "PASS"/"FAIL" in output.
+   IMPORTANT: "보정값" means "Correction", same as English "Correction" — do NOT use as error.
+
 2. DUPLICATE UNIT COLUMNS — When the same measurement appears in multiple units (e.g., N·cm AND lbf·in), use ONLY the first (primary) unit. Skip secondary unit columns entirely.
 
 3. ERROR/DEVIATION — Priority order:
    a) If the table has an explicit error/deviation column (e.g., "Relative Accuracy Error (%)", "Error", "Deviation"), use that value and unit DIRECTLY. Do NOT recalculate.
-   b) IMPORTANT: "Correction" is NOT the same as "Error".
+   b) IMPORTANT: "Correction" (Korean: "보정값") is NOT the same as "Error".
       Correction = Reference - Indication (opposite sign of error).
-      If only a "Correction" column exists with NO separate "Error" column, calculate: error = indicated - ref. Do NOT use the Correction value as error.
+      If only a "Correction"/"보정값" column exists with NO separate "Error" column, calculate: error = indicated - ref. Do NOT use the Correction/보정값 value as error.
    c) Only if NO error column exists: calculate error = indicated - ref (preserve sign), errUnit = same as ref unit.
+      HOWEVER, if tolerance is expressed in "%" or "% FS" (Full Scale), calculate RELATIVE error instead:
+      error = (indicated - ref) / ref * 100, errUnit = "%". This ensures error and tolerance are comparable.
    errUnit must reflect the actual unit. If header says "(%)", errUnit = "%".
 
    SANITY CHECK — After mapping columns, verify:
@@ -498,6 +551,17 @@ CRITICAL RULES:
 
    You MUST populate the same error, tolerance, and result for every data row in the group.
    Do NOT calculate individual errors per row — use the group's shared value.
+
+6b. CLASS/GRADE COLUMNS (OVERRIDES Rule 6 for error) — CRITICAL:
+   "허용등급", "등급", "Class", "Grade" are NOT error columns!
+   These are accuracy class ratings (e.g., Class 0.5, Class 1) that describe the instrument's grade.
+
+   When only Class/Grade columns exist (no explicit error column):
+   - **This OVERRIDES Rule 6 for the error field**: Do NOT use the grouped Class value as error.
+     Instead, CALCULATE error INDIVIDUALLY per row: (indicated - ref) / ref * 100, errUnit="%"
+   - tolerance: Use the grouped Class value (e.g., Class 1 → tolerance="1", tolUnit="% FS")
+     Rule 6 still applies for tolerance and result — propagate grouped values.
+   - If "제조사 사양 허용등급" (manufacturer spec) differs from "허용등급", use 허용등급 as tolerance.
 
 7. DATA ROWS — Rows with numeric measurement data are data rows even without PASS/FAIL.
    Rows with only "-" in error/tolerance/result columns are also data rows (the "-" means "not applicable" for that specific point, often the 0.0 reference point).
@@ -559,7 +623,55 @@ Input rows include:
   1.0 | 1.003 7 | | |
 → ALL rows (0.1~1.0) share: error=0.37 (%), tolerance=0.50 (%), result=PASS
    Skip the 0.0 row (zero point with "-" markers).
-   For each: ref=0.1, indicated=0.1012, error=0.37, errUnit="%", tolerance=0.50, tolUnit="%", result=PASS`
+   For each: ref=0.1, indicated=0.1012, error=0.37, errUnit="%", tolerance=0.50, tolUnit="%", result=PASS
+
+Example 5 — Torque device (Class/Grade columns, NO error column, grouped result):
+Input rows include:
+  시 계 방 향
+  지시토크 | 측정값 평균 | 등 급 | 제조사 사양 허용등급 | 적합여부
+  (N·m) | (N·m) | (Full Scale 대비) | (Full Scale 대비) | (PASS, FAIL)
+  0.0 | 0.000 0 | - | - | -
+  0.1 | 0.100 6 | | |
+  0.2 | 0.200 6 | | |
+  0.3 | 0.300 7 | | |
+  0.4 | 0.400 9 | | |
+  0.5 | 0.501 0 | | |
+  | | 1 | 1 | PASS
+  0.6 | 0.601 2 | | |
+  0.7 | 0.701 5 | | |
+  0.8 | 0.801 7 | | |
+  0.9 | 0.902 0 | | |
+  1.0 | 1.002 3 | | |
+→ "등급" and "제조사 사양 허용등급" are Class/Grade — NOT error!
+  NO error column exists → CALCULATE error per row.
+  "등급 1 (Full Scale 대비)" → tolerance="1", tolUnit="% FS"
+  Grouped: tolerance and result apply to ALL rows in the group.
+  Row 1: ref=0.1, indicated=0.1006, error="0.60" (calculated: (0.1006-0.1)/0.1*100=0.60%), errUnit="%",
+    tolerance="1", tolUnit="% FS", result="PASS", quantity="Torque Clockwise"
+  Row 5: ref=0.5, indicated=0.5010, error="0.20" (calculated: (0.5010-0.5)/0.5*100=0.20%), errUnit="%",
+    tolerance="1", tolUnit="% FS", result="PASS"
+  Skip 0.0 row (zero point). Skip the summary row (no ref/indicated).
+WRONG: error=1 — that's the Class/Grade value, NOT error! Error must be calculated.
+
+Example 6 — Korean format (O/X verdict, 보정값 is Correction):
+Input rows include:
+  교정결과 사용적합성 검토서
+  제조사 | GE DRUCK LIMITED | 모델 | ADTS542F | 장비명 | 고도계
+  제조사 일련번호 | 10895844
+  [관리번호] | B40074
+  교정일 | 2023-03-17 | 차기교정일 | 2024-03-16
+  성적서번호 | 23-015176-01-34
+  측정점번호 | 기준값 | 지시값 | 보정값 | Spec Accuracy | 허용범위 | 적합여부
+  | (kPa) | (kPa) | (kPa) | (± % Measurement) | (±) | (O, X)
+  1 | 2.134 0 | 2.134 | 0.000 | 0.2 % of RDG | 0.004 3 | O
+  2 | 4.269 0 | 4.268 | 0.001 | 0.2 % of RDG | 0.008 5 | O
+→ equipment: manufacturer="GE DRUCK LIMITED", model="ADTS542F", serial="10895844",
+  certNo="23-015176-01-34", calDate="2023-03-17", dueDate="2024-03-16"
+→ ref="2.1340", refUnit="kPa", indicated="2.134", indUnit="kPa",
+  error="-0.0000" (calculated: 2.134 - 2.1340, NOT from 보정값 0.000),
+  errUnit="kPa", tolerance="0.0043", tolUnit="kPa", result="PASS"
+Note: "O" → PASS. "보정값" is Correction — do NOT use as error. Calculate error = indicated - ref.
+  "허용범위" provides the absolute tolerance value. "Spec Accuracy" describes the spec but use 허용범위 for tolerance.`
 
 // ─── 을지(교정 측정결과) LLM 파싱 프롬프트 ───
 

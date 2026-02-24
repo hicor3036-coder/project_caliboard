@@ -363,6 +363,16 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
   const [selectedCert, setSelectedCert] = useState<{ acptNo: string; cert: CertResult } | null>(null)
   const [activeTrendQuantity, setActiveTrendQuantity] = useState<string | null>(null)
   const [hiddenYears, setHiddenYears] = useState<Set<string>>(new Set())
+  // 장비 사전정보 매뉴얼 허용오차
+  const [manualTolerance, setManualTolerance] = useState<{
+    value: number; unit: string; type: 'absolute' | 'percentage'
+  } | null>(null)
+  const [tolEditOpen, setTolEditOpen] = useState(false)
+  const [tolEditValue, setTolEditValue] = useState('')
+  const [tolEditUnit, setTolEditUnit] = useState('')
+  const [tolEditType, setTolEditType] = useState<'absolute' | 'percentage'>('absolute')
+  const [tolEditNote, setTolEditNote] = useState('')
+  const [tolSaving, setTolSaving] = useState(false)
 
   // 성적서 데이터
   const { certs, setCerts, errors: certErrors, progress: certProgress, certLoading, certDone, fetchCerts } = useCertData(groupNm)
@@ -419,6 +429,23 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
       })
       .catch(() => setImageError(true))
       .finally(() => setImageLoading(false))
+  }, [items])
+
+  // 장비 사전정보에서 매뉴얼 허용오차 조회
+  useEffect(() => {
+    if (!items.length) return
+    const info = items[0]
+    const manufacturer = info.prdnCmpnNm
+    const model = info.stszNm
+    if (!manufacturer || !model) return
+
+    fetch(`/api/profiles?manufacturer=${encodeURIComponent(manufacturer)}&model=${encodeURIComponent(model)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(profile => {
+        const tol = profile?.spec?.manual_tolerance
+        if (tol && tol.value != null) setManualTolerance(tol)
+      })
+      .catch(() => {})
   }, [items])
 
   // ESC로 모달 닫기 또는 뒤로가기
@@ -492,7 +519,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
     function buildTrendForMeasurements(
       measurements: (mp: MeasurementPoint, idx: number) => boolean
     ) {
-      const mpOrderLocal: { key: string; label: string; unit: string }[] = []
+      const mpOrderLocal: { key: string; label: string; unit: string; sortNum: number }[] = []
       const mpKeySet = new Set<string>()
       for (const [, cert] of sorted) {
         cert.측정결과.forEach((mp, idx) => {
@@ -500,18 +527,22 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           const key = mpKey(mp, idx)
           if (!mpKeySet.has(key)) {
             mpKeySet.add(key)
+            const refNum = mp.기준값 != null ? parseFloat(mp.기준값.replace(/\s/g, '')) : NaN
             const label = mp.기준값 != null
               ? `${normalizeRef(mp.기준값)}${mp.기준단위 ? ' ' + mp.기준단위 : ''}`
               : `측정점 ${idx + 1}`
-            mpOrderLocal.push({ key, label, unit: mp.오차단위 || mp.기준단위 || '' })
+            mpOrderLocal.push({ key, label, unit: mp.오차단위 || mp.기준단위 || '', sortNum: isNaN(refNum) ? Infinity : refNum })
           }
         })
       }
 
+      // 숫자 기반 오름차순 정렬 (작은 값 → 큰 값)
+      mpOrderLocal.sort((a, b) => a.sortNum - b.sortNum)
+
       if (mpOrderLocal.length === 0) return null
 
       const chartData: Record<string, string | number | null>[] = mpOrderLocal.map(mp => {
-        const point: Record<string, string | number | null> = { 측정포인트: mp.label }
+        const point: Record<string, string | number | null> = { 측정포인트: mp.label, _x: mp.sortNum === Infinity ? null : mp.sortNum }
         for (let ci = 0; ci < sorted.length; ci++) {
           const [, cert] = sorted[ci]
           const yearLabel = yearLabels[ci]
@@ -529,6 +560,17 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               point['허용하한'] = -Math.abs(tol)
             }
             break
+          }
+        }
+        // 매뉴얼 허용오차 (장비 사전정보에서 수기 입력된 값)
+        if (manualTolerance && manualTolerance.value != null) {
+          // absolute: 단위 호환 시 표시, percentage: 오차 단위가 %이거나 단위 무관하게 표시
+          const show = manualTolerance.type === 'percentage'
+            ? (!mp.unit || mp.unit === '%' || mp.unit === manualTolerance.unit || !manualTolerance.unit)
+            : (!mp.unit || !manualTolerance.unit || mp.unit === manualTolerance.unit)
+          if (show) {
+            point['매뉴얼허용상한'] = manualTolerance.value
+            point['매뉴얼허용하한'] = -manualTolerance.value
           }
         }
         return point
@@ -593,7 +635,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
       byQuantity,
       quantityKeys,
     }
-  }, [certs, t])
+  }, [certs, t, manualTolerance])
 
   // D-day 계산
   const dday = useMemo(() => {
@@ -767,12 +809,12 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                     <div className="flex flex-col items-center min-w-[120px] group relative">
                       <div className={`w-3.5 h-3.5 rounded-full ${statusColor} ring-4 ring-white shadow-sm z-10`} />
                       <div className="mt-2 text-center">
-                        <p className="text-xs font-medium text-slate-700">{fmtDate(item.rcpnYmd)}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{item.prjcCd}</p>
+                        <p className="text-sm font-medium text-slate-700">{fmtDate(item.rcpnYmd)}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{item.prjcCd}</p>
                         {item.소요일 !== null && (
-                          <p className="text-[10px] text-blue-500 mt-0.5">{fmt(t.detail.elapsed, item.소요일)}</p>
+                          <p className="text-xs text-blue-500 mt-0.5">{fmt(t.detail.elapsed, item.소요일)}</p>
                         )}
-                        <span className={`mt-1 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        <span className={`mt-1 inline-block px-1.5 py-0.5 rounded text-[11px] font-medium ${
                           item.pgstNm.includes('완료') ? 'bg-green-50 text-green-600' :
                           item.pgstNm.includes('미처리') ? 'bg-amber-50 text-amber-600' :
                           'bg-gray-50 text-gray-500'
@@ -783,7 +825,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                       <div className="flex flex-col items-center mt-[6px]">
                         <div className="w-20 h-0.5 bg-gray-200" />
                         {gapDays !== null && (
-                          <span className="text-[10px] text-slate-400 mt-1 whitespace-nowrap">
+                          <span className="text-xs text-slate-400 mt-1 whitespace-nowrap">
                             {fmt(t.detail.gapDays, gapDays)}
                           </span>
                         )}
@@ -810,12 +852,12 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           {/* 상태 배지 + 버튼 */}
           <div className="ml-auto flex items-center gap-2">
             {certDone && certs.size > 0 && (
-              <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-600 rounded-full">
+              <span className="px-2 py-0.5 text-[11px] font-medium bg-emerald-50 text-emerald-600 rounded-full">
                 {fmt(t.detail.certDone, certs.size)}
               </span>
             )}
             {certErrors.size > 0 && (
-              <span className="px-2 py-0.5 text-[10px] font-medium bg-red-50 text-red-500 rounded-full">
+              <span className="px-2 py-0.5 text-[11px] font-medium bg-red-50 text-red-500 rounded-full">
                 {fmt(t.detail.certFail, certErrors.size)}
               </span>
             )}
@@ -830,7 +872,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             {certDone && (
               <button
                 onClick={() => fetchCerts(true)}
-                className="px-2 py-1 text-[10px] text-slate-400 hover:text-slate-600 transition-colors"
+                className="px-2 py-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
               >
                 {t.detail.refresh}
               </button>
@@ -874,7 +916,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         {/* 미시작 상태 */}
         {!certLoading && !certDone && certs.size === 0 && (
           <div className="bg-slate-50 rounded-lg p-4 border border-dashed border-slate-200">
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-sm text-slate-400 leading-relaxed">
               {t.detail.certDesc}
             </p>
           </div>
@@ -883,7 +925,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         {/* 성적서 결과 테이블 */}
         {certs.size > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-2 px-2 text-slate-400 font-medium">{t.detail.acptNo}</th>
@@ -932,7 +974,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         {certErrors.size > 0 && (
           <div className="mt-3 space-y-1">
             {Array.from(certErrors.entries()).map(([acptNo, errMsg]) => (
-              <div key={acptNo} className="flex items-center gap-2 text-xs text-red-500 bg-red-50 rounded px-3 py-1.5">
+              <div key={acptNo} className="flex items-center gap-2 text-sm text-red-500 bg-red-50 rounded px-3 py-1.5">
                 <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -972,9 +1014,9 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             </div>
             <div className="flex flex-col">
               <h3 className="text-sm font-semibold text-slate-800">{t.detail.trendTitle}</h3>
-              <span className="text-[10px] text-slate-400 tracking-wide">{t.detail.trendSub}</span>
+              <span className="text-xs text-slate-400 tracking-wide">{t.detail.trendSub}</span>
             </div>
-            <span className="px-2.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200">
+            <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200">
               {fmt(t.detail.trendCount, conformityTrend.certCount)}
             </span>
             <div className="ml-auto">
@@ -1016,22 +1058,30 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                 <ComposedChart data={currentTrend.chartData} margin={{ left: 15, right: 15, top: 10, bottom: 5 }}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e8ecf1" />
                   <XAxis
-                    dataKey="측정포인트"
-                    tick={{ fontSize: 10, fill: '#475569' }}
+                    dataKey={currentTrend.chartData.every(d => d._x != null) ? '_x' : '측정포인트'}
+                    type={currentTrend.chartData.every(d => d._x != null) ? 'number' : 'category'}
+                    tick={{ fontSize: 12, fill: '#475569' }}
                     axisLine={{ stroke: '#cbd5e1' }}
                     tickLine={false}
                     angle={-30}
                     textAnchor="end"
-                    height={50}
+                    height={55}
+                    tickFormatter={currentTrend.chartData.every(d => d._x != null)
+                      ? (v: number) => `${v} ${currentTrend.mpOrder[0]?.unit || ''}`
+                      : undefined}
+                    domain={currentTrend.chartData.every(d => d._x != null) ? ['dataMin', 'dataMax'] : undefined}
+                    ticks={currentTrend.chartData.every(d => d._x != null)
+                      ? [...new Set(currentTrend.chartData.map(d => d._x as number))].sort((a, b) => a - b)
+                      : undefined}
                   />
                   <YAxis
-                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    tick={{ fontSize: 12, fill: '#64748b' }}
                     axisLine={false}
                     tickLine={false}
                     label={currentTrend.mpOrder[0]?.unit ? {
                       value: fmt(t.detail.errorAxis, currentTrend.mpOrder[0].unit),
                       angle: -90, position: 'insideLeft',
-                      style: { fontSize: 11, fill: '#64748b' },
+                      style: { fontSize: 12, fill: '#64748b' },
                       offset: -5,
                     } : undefined}
                   />
@@ -1042,6 +1092,13 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                       <Area dataKey="허용상한" fill="#dbeafe" stroke="none" fillOpacity={0.45} isAnimationActive={false} />
                       <Area dataKey="허용하한" fill="#dbeafe" stroke="none" fillOpacity={0.45} isAnimationActive={false} />
                       <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1.5} />
+                    </>
+                  )}
+                  {/* 매뉴얼 허용오차 — 진한 빨간 점선 */}
+                  {currentTrend.chartData.some(d => d['매뉴얼허용상한'] != null) && (
+                    <>
+                      <Line dataKey="매뉴얼허용상한" stroke="#dc2626" strokeWidth={1.5} strokeDasharray="6 3" dot={false} isAnimationActive={false} connectNulls />
+                      <Line dataKey="매뉴얼허용하한" stroke="#dc2626" strokeWidth={1.5} strokeDasharray="6 3" dot={false} isAnimationActive={false} connectNulls />
                     </>
                   )}
                   {conformityTrend.yearLabels.map((label, i) => {
@@ -1069,12 +1126,47 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           })()}
 
           {/* 범례 */}
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 mt-3 text-[11px]">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 mt-3 text-xs">
             {currentTrend.chartData.some(d => d['허용상한'] != null) && (
               <div className="flex items-center gap-1.5 text-slate-400">
                 <svg width="20" height="10"><rect x="0" y="2" width="20" height="6" rx="1" fill="#dbeafe" opacity="0.7" /><line x1="0" y1="5" x2="20" y2="5" stroke="#93c5fd" strokeWidth="1" strokeDasharray="2 2" /></svg>
                 <span>{t.detail.tolerance}</span>
               </div>
+            )}
+            {currentTrend.chartData.some(d => d['매뉴얼허용상한'] != null) && (
+              <div className="flex items-center gap-1.5 text-red-500">
+                <svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" stroke="#dc2626" strokeWidth="1.5" strokeDasharray="4 2" /></svg>
+                <span>{t.detail.manualTolerance} (±{manualTolerance?.value}{manualTolerance?.type === 'percentage' ? '%' : manualTolerance?.unit ? ' ' + manualTolerance.unit : ''})</span>
+                <button
+                  onClick={() => {
+                    setTolEditValue(manualTolerance?.value?.toString() ?? '')
+                    setTolEditUnit(manualTolerance?.unit ?? '')
+                    setTolEditType(manualTolerance?.type ?? 'absolute')
+                    setTolEditNote('')
+                    setTolEditOpen(true)
+                  }}
+                  className="text-red-400 hover:text-red-600 ml-0.5"
+                  title="편집"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                </button>
+              </div>
+            )}
+            {/* 매뉴얼 허용오차 없을 때도 추가 버튼 표시 */}
+            {!currentTrend.chartData.some(d => d['매뉴얼허용상한'] != null) && (
+              <button
+                onClick={() => {
+                  setTolEditValue('')
+                  setTolEditUnit('')
+                  setTolEditType('absolute')
+                  setTolEditNote('')
+                  setTolEditOpen(true)
+                }}
+                className="flex items-center gap-1 text-red-300 hover:text-red-500 transition-colors"
+              >
+                <svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 2" /></svg>
+                <span>+ {t.detail.manualTolerance}</span>
+              </button>
             )}
             {conformityTrend.yearLabels.map((label, i) => {
               const isLatest = i === conformityTrend.yearLabels.length - 1
@@ -1100,17 +1192,141 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             })}
           </div>
 
+          {/* 매뉴얼 허용오차 편집 팝업 */}
+          {tolEditOpen && (
+            <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => setTolEditOpen(false)}>
+              <div className="bg-white rounded-xl shadow-xl w-80 p-5" onClick={e => e.stopPropagation()}>
+                <h3 className="text-sm font-bold text-red-700 mb-3 flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  {t.detail.manualTolerance}
+                </h3>
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-red-600 w-4">±</span>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="0.5"
+                      value={tolEditValue}
+                      onChange={e => setTolEditValue(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 text-sm border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="단위 (°C, N·m, %...)"
+                      value={tolEditUnit}
+                      onChange={e => setTolEditUnit(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 text-sm border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200"
+                    />
+                    <select
+                      value={tolEditType}
+                      onChange={e => setTolEditType(e.target.value as 'absolute' | 'percentage')}
+                      className="px-2 py-1.5 text-sm border border-red-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-200"
+                    >
+                      <option value="absolute">Absolute</option>
+                      <option value="percentage">%</option>
+                    </select>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="메모 (e.g. Manual p.42)"
+                    value={tolEditNote}
+                    onChange={e => setTolEditNote(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  {manualTolerance && (
+                    <button
+                      onClick={async () => {
+                        if (!items.length) return
+                        setTolSaving(true)
+                        try {
+                          const info = items[0]
+                          // 기존 프로필 조회 후 manual_tolerance만 null로 저장
+                          const res = await fetch(`/api/profiles?manufacturer=${encodeURIComponent(info.prdnCmpnNm)}&model=${encodeURIComponent(info.stszNm)}`)
+                          const profile = res.ok ? await res.json() : null
+                          if (profile) {
+                            profile.spec.manual_tolerance = null
+                            await fetch('/api/profiles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) })
+                          }
+                          setManualTolerance(null)
+                          setTolEditOpen(false)
+                        } finally { setTolSaving(false) }
+                      }}
+                      disabled={tolSaving}
+                      className="px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      삭제
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setTolEditOpen(false)}
+                    className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50 rounded-lg transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    disabled={!tolEditValue || tolSaving}
+                    onClick={async () => {
+                      if (!items.length || !tolEditValue) return
+                      setTolSaving(true)
+                      try {
+                        const info = items[0]
+                        const newTol = {
+                          value: parseFloat(tolEditValue),
+                          unit: tolEditUnit,
+                          type: tolEditType,
+                          note: tolEditNote || null,
+                        }
+                        // 기존 프로필 조회 → 없으면 빈 프로필 생성
+                        const res = await fetch(`/api/profiles?manufacturer=${encodeURIComponent(info.prdnCmpnNm)}&model=${encodeURIComponent(info.stszNm)}`)
+                        let profile = res.ok ? await res.json() : null
+                        if (!profile) {
+                          profile = {
+                            manufacturer: info.prdnCmpnNm, model: info.stszNm,
+                            category: null, source: 'manual_input', verified: false, source_urls: [],
+                            spec: { range: null, accuracy: null, resolution: null, units: null, overload_limit: null, manual_tolerance: null },
+                            environment: { operating_temp: null, storage_temp: null, operating_humidity: null, ip_rating: null, warmup_time: null },
+                            power: { type: null, battery: null, battery_life: null, charge_time: null },
+                            interface: { output: null, software: null, wireless: null, memory: null },
+                            calibration: { recommended_cycle: null, self_calibration: null, standards: null, stability_spec: null, drift_spec: null },
+                            maintenance: [], cautions: [],
+                            meta: { country: null, discontinued: null, successor_model: null, alternatives: [], approx_price: null, support_url: null, manual_url: null },
+                            updated_at: '',
+                          }
+                        }
+                        profile.spec.manual_tolerance = newTol
+                        await fetch('/api/profiles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) })
+                        setManualTolerance(newTol)
+                        setTolEditOpen(false)
+                      } finally { setTolSaving(false) }
+                    }}
+                    className="px-3 py-1.5 text-xs text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-40 transition-colors"
+                  >
+                    {tolSaving ? '저장 중...' : '저장'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 트렌드 요약 테이블 */}
           <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200 shadow-sm">
-            <table className="w-full text-[11px] border-collapse">
+            <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-800">
-                  <th className="text-left py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap text-[11px]">{t.detail.mpHeader}</th>
+                  <th className="text-left py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap">{t.detail.mpHeader}</th>
                   {conformityTrend.yearLabels.map(y => (
-                    !hiddenYears.has(y) && <th key={y} className="text-center py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap text-[11px]">{y}</th>
+                    !hiddenYears.has(y) && <th key={y} className="text-center py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap">{y}</th>
                   ))}
-                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold text-[11px]">{t.detail.trendCol}</th>
-                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold text-[11px]">{t.detail.statusCol}</th>
+                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold">{t.detail.trendCol}</th>
+                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold">{t.detail.statusCol}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1157,7 +1373,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                             {p.오차 != null ? (
                               <span className={`${cellStyle} ${cellBg ? `inline-block px-1.5 py-0.5 ${cellBg}` : ''}`}>
                                 {p.오차 > 0 ? '+' : ''}{p.오차}
-                                {s.unit && !cellBg && <span className="text-slate-300 text-[10px] ml-0.5">{s.unit}</span>}
+                                {s.unit && !cellBg && <span className="text-slate-300 text-[11px] ml-0.5">{s.unit}</span>}
                               </span>
                             ) : <span className="text-slate-300">-</span>}
                           </td>
@@ -1181,7 +1397,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                           )}
                       </td>
                       <td className="py-2 px-2.5 text-center">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                        <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
                           level === 'safe' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : level === 'warning' ? 'bg-amber-50 text-amber-700 border border-amber-200'
                           : 'bg-red-50 text-red-700 border border-red-200'
@@ -1203,7 +1419,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                 <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">{t.detail.stabilityEval}</span>
+                <span className="text-sm font-bold text-slate-600 uppercase tracking-wide">{t.detail.stabilityEval}</span>
                 <StabilityBadge level={currentTrend.evaluation.stability} />
               </div>
               <div className="space-y-2">
@@ -1223,7 +1439,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                       <svg className={`w-3.5 h-3.5 ${iconColor} mt-0.5 shrink-0`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
                       </svg>
-                      <span className="text-xs text-slate-600 leading-relaxed">{rp}</span>
+                      <span className="text-sm text-slate-600 leading-relaxed">{rp}</span>
                     </div>
                   )
                 })}
@@ -1304,7 +1520,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-xs text-gray-400 whitespace-nowrap min-w-[56px]">{label}</span>
+      <span className="text-sm text-gray-400 whitespace-nowrap min-w-[56px]">{label}</span>
       <span className="text-sm text-gray-800 font-medium truncate" title={value}>{value || '-'}</span>
     </div>
   )
@@ -1316,7 +1532,7 @@ function SectionHeader({ icon, title, color }: { icon: ReactNode; title: string;
       <svg className={`w-4 h-4 ${color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         {icon}
       </svg>
-      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{title}</span>
+      <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{title}</span>
     </div>
   )
 }
@@ -1397,8 +1613,8 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
         {/* 헤더 */}
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <div>
-            <h2 className="text-sm font-bold text-slate-800">{t.detail.parseResult}</h2>
-            <p className="text-xs text-slate-400 font-mono mt-0.5">{acptNo}</p>
+            <h2 className="text-base font-bold text-slate-800">{t.detail.parseResult}</h2>
+            <p className="text-sm text-slate-400 font-mono mt-0.5">{acptNo}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1410,12 +1626,12 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
         <div className="px-6 py-5 space-y-5">
           {/* 기본정보 */}
           <section>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t.detail.basicInfo}</h3>
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">{t.detail.basicInfo}</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2">
               {fields.map(([label, value, koKey]) => (
                 <div key={koKey} className="flex items-baseline gap-2">
-                  <span className="text-[11px] text-gray-400 min-w-[60px] shrink-0">{label}</span>
-                  <span className={`text-xs font-medium truncate ${
+                  <span className="text-xs text-gray-400 min-w-[60px] shrink-0">{label}</span>
+                  <span className={`text-sm font-medium truncate ${
                     cert._llm_보강.includes(koKey) ? 'text-indigo-600' : 'text-slate-700'
                   }`} title={value || '-'}>
                     {value || '-'}
@@ -1430,16 +1646,16 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
 
           {/* 적합성검토 */}
           <section>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t.detail.conformity}</h3>
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">{t.detail.conformity}</h3>
             <div className="flex items-center gap-4 mb-3">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-400">{t.detail.conformityDoc}</span>
-                <span className={`text-xs font-medium ${cert.적합성검토 ? 'text-green-600' : 'text-slate-400'}`}>
+                <span className="text-xs text-gray-400">{t.detail.conformityDoc}</span>
+                <span className={`text-sm font-medium ${cert.적합성검토 ? 'text-green-600' : 'text-slate-400'}`}>
                   {cert.적합성검토 ? t.detail.exists : t.detail.notExists}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-400">{t.detail.overallVerdict}</span>
+                <span className="text-xs text-gray-400">{t.detail.overallVerdict}</span>
                 {cert.전체판정 === 'PASS' ? (
                   <span className="px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-bold">PASS</span>
                 ) : cert.전체판정 === 'FAIL' ? (
@@ -1449,8 +1665,8 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-400">{t.detail.mpCount}</span>
-                <span className="text-xs font-medium text-slate-700">{fmt(t.detail.mpCountUnit, cert.측정포인트수)}</span>
+                <span className="text-xs text-gray-400">{t.detail.mpCount}</span>
+                <span className="text-sm font-medium text-slate-700">{fmt(t.detail.mpCountUnit, cert.측정포인트수)}</span>
               </div>
             </div>
 
@@ -1468,7 +1684,7 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                     }`}
                   >
                     {quantityLabel(q, lang, t.detail.allQuantities)}
-                    <span className="ml-1 text-[10px] text-gray-400">({quantityGroups.get(q)?.length ?? 0})</span>
+                    <span className="ml-1 text-[11px] text-gray-400">({quantityGroups.get(q)?.length ?? 0})</span>
                   </button>
                 ))}
               </div>
@@ -1494,7 +1710,7 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
 
                 return (
                   <div className="overflow-x-auto border border-gray-100 rounded-lg">
-                    <table className="w-full text-[11px] border-collapse">
+                    <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-100">
                           <th className="text-center py-1.5 px-2 text-gray-400 font-medium">#</th>
@@ -1516,12 +1732,12 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                               return (
                                 <td key={c.key} className="py-1.5 px-2 text-center whitespace-nowrap font-mono text-slate-600">
                                   {val ?? '-'}
-                                  {unit && <span className="text-slate-400 text-[10px] ml-0.5">{unit}</span>}
+                                  {unit && <span className="text-slate-400 text-[11px] ml-0.5">{unit}</span>}
                                 </td>
                               )
                             })}
                             <td className="py-1.5 px-2 text-center">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              <span className={`px-1.5 py-0.5 rounded text-[11px] font-bold ${
                                 mp.판정 === 'PASS' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                               }`}>{mp.판정}</span>
                             </td>
@@ -1536,7 +1752,7 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
               // Fallback: 원본데이터 텍스트
               return (
                 <div className="overflow-x-auto border border-gray-100 rounded-lg">
-                  <table className="w-full text-[11px]">
+                  <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-100">
                         <th className="text-left py-1.5 px-2 text-gray-400 font-medium">#</th>
@@ -1550,7 +1766,7 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                           <td className="py-1.5 px-2 text-gray-400">{i + 1}</td>
                           <td className="py-1.5 px-2 text-slate-600 font-mono">{mp.원본데이터.join(' | ')}</td>
                           <td className="py-1.5 px-2 text-center">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            <span className={`px-1.5 py-0.5 rounded text-[11px] font-bold ${
                               mp.판정 === 'PASS' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                             }`}>{mp.판정}</span>
                           </td>
@@ -1566,10 +1782,10 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
           {/* 불일치 항목 */}
           {cert.불일치.length > 0 && (
             <section>
-              <h3 className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">{t.detail.discrepancy}</h3>
+              <h3 className="text-sm font-semibold text-amber-600 uppercase tracking-wide mb-2">{t.detail.discrepancy}</h3>
               <div className="space-y-1.5">
                 {cert.불일치.map((item, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs bg-amber-50 rounded-lg px-3 py-2 border border-amber-100">
+                  <div key={i} className="flex items-start gap-2 text-sm bg-amber-50 rounded-lg px-3 py-2 border border-amber-100">
                     <svg className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
@@ -1577,10 +1793,10 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
                       <span className="font-medium text-amber-700">{item.항목}</span>
                       <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
                         <span className="px-1.5 py-0.5 bg-white rounded text-amber-700 font-mono">{item.갑지}</span>
-                        <span className="text-amber-400 text-[10px]">{t.detail.coverSheet}</span>
+                        <span className="text-amber-400 text-xs">{t.detail.coverSheet}</span>
                         <span className="text-amber-300 mx-0.5">vs</span>
                         <span className="px-1.5 py-0.5 bg-white rounded text-amber-700 font-mono">{item.적합성검토}</span>
-                        <span className="text-amber-400 text-[10px]">{t.detail.conformDoc}</span>
+                        <span className="text-amber-400 text-xs">{t.detail.conformDoc}</span>
                       </div>
                     </div>
                   </div>
@@ -1592,9 +1808,9 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
           {/* AI 보강 정보 */}
           {cert._llm_provider && (
             <section>
-              <h3 className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-2">{t.detail.aiEnhance}</h3>
+              <h3 className="text-sm font-semibold text-indigo-500 uppercase tracking-wide mb-2">{t.detail.aiEnhance}</h3>
               <div className="bg-indigo-50/50 rounded-lg p-3 border border-indigo-100">
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-3 text-sm">
                   <span className="text-indigo-400">{t.detail.aiAnalysis}</span>
                   <span className="font-medium text-indigo-600">KTL AI</span>
                   {cert._llm_보강.length > 0 && (
@@ -1611,8 +1827,8 @@ function CertDetailModal({ acptNo, cert, onClose }: { acptNo: string; cert: Cert
 
           {/* 메타 정보 */}
           <section>
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">{t.detail.meta}</h3>
-            <div className="flex items-center gap-4 text-xs text-slate-500">
+            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-2">{t.detail.meta}</h3>
+            <div className="flex items-center gap-4 text-sm text-slate-500">
               <span>{fmt(t.detail.sheetCount, cert.시트수)}</span>
               <span className="text-slate-300">|</span>
               <span className="truncate" title={cert.시트목록.join(', ')}>{cert.시트목록.join(', ')}</span>
@@ -1630,16 +1846,16 @@ function StabilityBadge({ level }: { level: 'safe' | 'warning' | 'danger' }) {
     : level === 'warning' ? 'bg-amber-100 text-amber-700'
     : 'bg-red-100 text-red-700'
   const label = level === 'safe' ? t.detail.safe : level === 'warning' ? t.detail.warning : t.detail.danger
-  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${style}`}>{label}</span>
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${style}`}>{label}</span>
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function TrendChartTooltip({ active, payload, label, yearLabels, unit }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-2.5 shadow-xl border border-slate-700 min-w-[160px]">
+    <div className="bg-slate-800 text-white text-sm rounded-lg px-3 py-2.5 shadow-xl border border-slate-700 min-w-[160px]">
       <p className="text-slate-300 font-medium mb-1.5">{label}</p>
-      {payload.filter((p: any) => p.value != null).map((p: any, i: number) => {
+      {payload.filter((p: any) => p.value != null && !['허용상한', '허용하한', '매뉴얼허용상한', '매뉴얼허용하한'].includes(p.dataKey)).map((p: any, i: number) => {
         const idx = yearLabels?.indexOf(p.dataKey) ?? -1
         return (
           <div key={i} className="flex items-center justify-between gap-3 py-0.5">
@@ -1669,12 +1885,12 @@ function AiPlaceholder({ icon, title, description }: { icon: ReactNode; title: s
           </svg>
         </div>
         <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
-        <span className="ml-auto px-2 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-500 rounded-full">
+        <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-500 rounded-full">
           {t.detail.aiReady}
         </span>
       </div>
       <div className="bg-slate-50 rounded-lg p-4 border border-dashed border-slate-200">
-        <p className="text-xs text-slate-400 leading-relaxed">{description}</p>
+        <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
       </div>
     </div>
   )

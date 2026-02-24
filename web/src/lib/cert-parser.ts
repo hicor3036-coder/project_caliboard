@@ -32,6 +32,9 @@ const HEADER_LABELS = new Set([
   'Manufacturer', 'Model', 'Description', 'Serial Number',
   'Certificate No.', 'Certificate No', 'Identification', 'Number',
   'Identification Number', 'Date of Calibration', 'Due date',
+  // 한국어 라벨
+  '제조사', '모델', '장비명', '제조사 일련번호', '관리번호',
+  '성적서번호', '교정일', '차기교정일', '작성자', '대상기기',
 ])
 
 function cellStr(value: CellValue): string {
@@ -108,7 +111,7 @@ export function findConformitySheet(wb: Workbook): Worksheet | null {
       const joined = row.values
         ? (row.values as CellValue[]).filter((v: CellValue) => v != null).map((v: CellValue) => cellStr(v)).join(' ').toUpperCase()
         : ''
-      if (joined.includes('CONFORMITY')) {
+      if (joined.includes('CONFORMITY') || joined.includes('적합성')) {
         ;(ws as unknown as { _isConformity: boolean })._isConformity = true
       }
     })
@@ -268,6 +271,36 @@ function parseCover(wb: Workbook): Record<string, string> {
   return info
 }
 
+// ─── 판정 유틸 ───
+// PASS/FAIL은 어디서든 판정으로 인식
+// O/X는 적합여부 열(verdictCol)이 확인된 경우 해당 열에서만 판정으로 인식
+function normalizeVerdict(v: string): 'PASS' | 'FAIL' {
+  return (v === 'FAIL' || v === 'X') ? 'FAIL' : 'PASS'
+}
+// PASS/FAIL만 검사 (1차 탐색용 — O/X 열 위치를 아직 모를 때)
+function hasPfInRow(vals: string[]): boolean {
+  return vals.includes('PASS') || vals.includes('FAIL')
+}
+// PASS/FAIL + O/X 검사 (2차 탐색용 — verdictCol이 확인된 후)
+function hasVerdictInRow(vals: string[], verdictCol: number): boolean {
+  if (vals.includes('PASS') || vals.includes('FAIL')) return true
+  const v = vals[verdictCol]
+  return v === 'O' || v === 'X'
+}
+function getRowVerdict(vals: string[], verdictCol: number): 'PASS' | 'FAIL' | '' {
+  if (vals.includes('FAIL')) return 'FAIL'
+  if (vals.includes('PASS')) return 'PASS'
+  const v = vals[verdictCol]
+  if (v === 'X') return 'FAIL'
+  if (v === 'O') return 'PASS'
+  return ''
+}
+function isVerdictAt(v: string, col: number, verdictCol: number): boolean {
+  if (v === 'PASS' || v === 'FAIL') return true
+  if (col === verdictCol && (v === 'O' || v === 'X')) return true
+  return false
+}
+
 // ─── 적합성검토서 파싱 ───
 function parseConformity(ws: Worksheet): {
   info: Record<string, string>
@@ -358,11 +391,40 @@ function parseConformity(ws: Worksheet): {
       }
     }
 
-    if (joined.includes('Serial Number')) {
+    // 한국어 패턴: 제조사 | GE DRUCK | 모델 | ADTS542F | 장비명 | 고도계
+    if (vals.includes('제조사') || vals.includes('모델') || vals.includes('장비명')) {
       for (let i = 0; i < vals.length; i++) {
-        if (vals[i].includes('Serial Number') || vals[i] === 'Serial Number') {
+        const v = vals[i]
+        if (v === '제조사' && !info['제조사']) {
           for (let j = i + 1; j < vals.length; j++) {
-            if (vals[j] && vals[j] !== 'Serial Number') {
+            if (vals[j] && !HEADER_LABELS.has(vals[j])) {
+              info['제조사'] = vals[j]; break
+            }
+          }
+        }
+        if (v === '모델' && !info['모델']) {
+          for (let j = i + 1; j < vals.length; j++) {
+            if (vals[j] && !HEADER_LABELS.has(vals[j])) {
+              info['모델'] = vals[j]; break
+            }
+          }
+        }
+        if (v === '장비명' && !info['장비명']) {
+          for (let j = i + 1; j < vals.length; j++) {
+            if (vals[j] && !HEADER_LABELS.has(vals[j])) {
+              info['장비명'] = vals[j]; break
+            }
+          }
+        }
+      }
+    }
+
+    if (joined.includes('Serial Number') || joined.includes('일련번호')) {
+      for (let i = 0; i < vals.length; i++) {
+        if (vals[i].includes('Serial Number') || vals[i] === 'Serial Number' ||
+            vals[i].includes('일련번호')) {
+          for (let j = i + 1; j < vals.length; j++) {
+            if (vals[j] && vals[j] !== 'Serial Number' && !vals[j].includes('일련번호')) {
               info['시리얼'] = vals[j]
               break
             }
@@ -372,9 +434,9 @@ function parseConformity(ws: Worksheet): {
       }
     }
 
-    if (joined.includes('Certificate No')) {
+    if (joined.includes('Certificate No') || joined.includes('성적서번호')) {
       for (let i = 0; i < vals.length; i++) {
-        if (vals[i].includes('Certificate No')) {
+        if (vals[i].includes('Certificate No') || vals[i].includes('성적서번호')) {
           if (vals[i].includes(':')) {
             const after = vals[i].split(':').pop()!.trim()
             if (after && !HEADER_LABELS.has(after)) info['성적서번호'] = after
@@ -391,12 +453,13 @@ function parseConformity(ws: Worksheet): {
       }
     }
 
-    if (joined.includes('Identification')) {
+    if (joined.includes('Identification') || joined.includes('관리번호')) {
       for (let i = 0; i < vals.length; i++) {
-        if (vals[i].includes('Identification')) {
+        if (vals[i].includes('Identification') || vals[i].includes('관리번호')) {
           for (let j = i + 1; j < vals.length; j++) {
-            if (vals[j] && vals[j] !== 'Number' && vals[j] !== 'Identification Number') {
-              info['관리번호'] = vals[j]
+            if (vals[j] && vals[j] !== 'Number' && vals[j] !== 'Identification Number' &&
+                !vals[j].includes('관리번호')) {
+              info['관리번호'] = vals[j].replace(/[\[\]]/g, '').trim()
               break
             }
           }
@@ -405,15 +468,38 @@ function parseConformity(ws: Worksheet): {
       }
     }
 
-    if (joined.includes('Date of Calibration') || (joined.includes('Calibration') && joined.includes('Date'))) {
+    if (joined.includes('Date of Calibration') || (joined.includes('Calibration') && joined.includes('Date')) ||
+        joined.includes('교정일')) {
+      // 한국어: 교정일 | 2023-03-17 | 차기교정일 | 2024-03-16
+      if (joined.includes('교정일')) {
+        for (let i = 0; i < vals.length; i++) {
+          if (vals[i] === '교정일' && !info['교정일']) {
+            for (let j = i + 1; j < vals.length; j++) {
+              if (vals[j] && /\d/.test(vals[j]) && !vals[j].includes('차기')) {
+                info['교정일'] = normalizeDate(vals[j]) || vals[j]
+                break
+              }
+            }
+          }
+          if ((vals[i] === '차기교정일' || vals[i].includes('차기교정')) && !info['차기교정일']) {
+            for (let j = i + 1; j < vals.length; j++) {
+              if (vals[j] && /\d/.test(vals[j])) {
+                info['차기교정일'] = normalizeDate(vals[j]) || vals[j]
+                break
+              }
+            }
+          }
+        }
+      }
+      // 영문
       for (let i = 0; i < vals.length; i++) {
         if (vals[i].includes('Calibration') && joined.includes('Date')) {
           for (let j = i + 1; j < vals.length; j++) {
             if (vals[j] && /\d/.test(vals[j])) {
-              info['교정일'] = normalizeDate(vals[j]) || vals[j]
+              if (!info['교정일']) info['교정일'] = normalizeDate(vals[j]) || vals[j]
               for (let k = j + 1; k < vals.length; k++) {
                 if (vals[k] && /\d/.test(vals[k])) {
-                  info['차기교정일'] = normalizeDate(vals[k]) || vals[k]
+                  if (!info['차기교정일']) info['차기교정일'] = normalizeDate(vals[k]) || vals[k]
                   break
                 }
               }
@@ -427,41 +513,33 @@ function parseConformity(ws: Worksheet): {
   }
 
   // ─── 측정 데이터 영역 파싱 ───
-  // 전략: PASS/FAIL이 있는 첫 행으로 헤더를 찾고, 헤더 아래 모든 데이터 행을 수집.
+  // 전략:
+  //  1차: PASS/FAIL 행을 찾아 헤더 탐색 (기존 영문 시트)
+  //  2차: 1차 실패 시, 헤더에서 "적합" 열을 찾고 해당 열의 O/X로 데이터 행 탐색 (한국어 시트)
   // PDF→Excel 변환 시 셀 병합이 풀리면 오차/허용오차/판정 열이 대표 행에만 남으므로,
-  // 빈 열은 동일 블록 내 PASS/FAIL 대표 행의 값을 전파한다.
+  // 빈 열은 동일 블록 내 판정 대표 행의 값을 전파한다.
 
-  let headers: string[] = []
-  let dataStartIdx = -1  // 헤더 바로 다음 행 인덱스
-
-  // 1단계: 첫 번째 PASS/FAIL 행을 기준으로 헤더 탐색
-  for (let idx = 0; idx < rows.length; idx++) {
-    const vals = rows[idx]
-    if (!vals.includes('PASS') && !vals.includes('FAIL')) continue
-
-    // 위로 최대 5행까지 후보 수집
+  // 헤더 탐색 공통 로직: anchorIdx(첫 판정 행)를 기준으로 위쪽 행에서 헤더 추출
+  function extractHeaders(anchorIdx: number): { headers: string[]; dataStartIdx: number } {
     const candidates: { idx: number; row: string[] }[] = []
-    for (let h = idx - 1; h >= Math.max(0, idx - 5); h--) {
+    for (let h = anchorIdx - 1; h >= Math.max(0, anchorIdx - 5); h--) {
       candidates.unshift({ idx: h, row: rows[h] })
     }
 
-    // 헤더 행 찾기: 숫자가 아닌 텍스트가 주로 있는 행
     const merged: string[][] = []
-
     for (let ci = candidates.length - 1; ci >= 0; ci--) {
       const row = candidates[ci].row
       const nonEmptyVals = row.filter(v => v.trim())
       if (nonEmptyVals.length === 0) break
-
       const allNumeric = nonEmptyVals.every(v => !isNaN(parseFloat(v.replace(/[\s,]/g, ''))))
       if (allNumeric) break
-
       merged.unshift(row)
     }
 
     if (merged.length > 0) {
-      const maxLen = Math.max(vals.length, ...merged.map(r => r.length))
-      headers = Array.from({ length: maxLen }, (_, i) => {
+      const anchorVals = rows[anchorIdx]
+      const maxLen = Math.max(anchorVals.length, ...merged.map(r => r.length))
+      const hdrs = Array.from({ length: maxLen }, (_, i) => {
         const parts: string[] = []
         for (const row of merged) {
           const v = (row[i] || '').trim()
@@ -469,17 +547,60 @@ function parseConformity(ws: Worksheet): {
         }
         return parts.join(' ')
       })
-      // 데이터 시작: 헤더 후보 중 마지막 행 바로 다음
-      dataStartIdx = candidates[candidates.length - merged.length].idx + merged.length
-    } else {
-      dataStartIdx = idx
+      const startIdx = candidates[candidates.length - merged.length].idx + merged.length
+      return { headers: hdrs, dataStartIdx: startIdx }
     }
+    return { headers: [], dataStartIdx: anchorIdx }
+  }
+
+  let headers: string[] = []
+  let dataStartIdx = -1
+  // verdictCol: O/X를 판정으로 인식할 열 인덱스 (-1이면 PASS/FAIL만 사용)
+  let verdictCol = -1
+
+  // 1차: PASS/FAIL 행으로 헤더 탐색
+  for (let idx = 0; idx < rows.length; idx++) {
+    if (!hasPfInRow(rows[idx])) continue
+    const result = extractHeaders(idx)
+    headers = result.headers
+    dataStartIdx = result.dataStartIdx
     break
   }
 
-  // 헤더를 못 찾은 경우 (PASS/FAIL 없는 시트) → 빈 결과 반환
+  // 2차: 1차 실패 시, 헤더 행에서 "적합" 열을 먼저 찾고 O/X 데이터 행 탐색
+  if (dataStartIdx < 0) {
+    // 모든 행에서 "적합" 키워드가 포함된 잠재 헤더 행을 찾기
+    for (let idx = 0; idx < rows.length; idx++) {
+      const vals = rows[idx]
+      const vColIdx = vals.findIndex(v => /적합/i.test(v))
+      if (vColIdx < 0) continue
+
+      // 이 행 아래에서 해당 열에 O/X가 있는 첫 데이터 행 찾기
+      for (let dIdx = idx + 1; dIdx < rows.length && dIdx <= idx + 5; dIdx++) {
+        const dVals = rows[dIdx]
+        const dv = dVals[vColIdx]
+        if (dv === 'O' || dv === 'X') {
+          // 찾음! 이 행을 기준으로 헤더 추출
+          verdictCol = vColIdx
+          const result = extractHeaders(dIdx)
+          headers = result.headers
+          dataStartIdx = result.dataStartIdx
+          break
+        }
+      }
+      if (dataStartIdx >= 0) break
+    }
+  }
+
+  // 헤더를 못 찾은 경우 (판정 없는 시트) → 빈 결과 반환
   if (dataStartIdx < 0) {
     return { info, measurements, headers }
+  }
+
+  // verdictCol이 아직 -1이면 헤더에서 적합 열을 다시 탐색 (PASS/FAIL 시트이지만 한국어 헤더일 수 있음)
+  if (verdictCol < 0) {
+    verdictCol = headers.findIndex(h => /conformity|pass.*fail|적합/i.test(h))
+    if (verdictCol < 0) verdictCol = headers.length - 1  // 마지막 열 fallback
   }
 
   // 2단계: 데이터 영역 전체 행 수집 (숫자가 있거나, "-"만 있는 특수행 포함)
@@ -492,8 +613,9 @@ function parseConformity(ws: Worksheet): {
     const vals = rows[idx]
     const joined = vals.join(' ')
 
-    // "The end" → 데이터 영역 종료
+    // "The end" / "보정값 =" 등 데이터 영역 종료 마커
     if (/the\s*end/i.test(joined)) break
+    if (/^\s*\*?\s*보정값\s*=/.test(joined)) break
 
     // 테이블 구분자 감지 (Clockwise, Counterclockwise 등)
     // 새 헤더가 시작되면 현재 블록 저장 후 새 블록, 헤더 행은 건너뜀
@@ -513,7 +635,7 @@ function parseConformity(ws: Worksheet): {
           const n = parseFloat(v.replace(/[\s,]/g, ''))
           return !isNaN(n)
         })
-        const hasPF = sVals.includes('PASS') || sVals.includes('FAIL')
+        const hasPF = hasVerdictInRow(sVals, verdictCol)
         const hasDash = sVals.includes('-')
         if (hasNumber || hasPF || (hasDash && sVals.filter(v => v.trim()).length >= 2)) {
           skipTo = s - 1
@@ -538,12 +660,12 @@ function parseConformity(ws: Worksheet): {
       return !isNaN(n)
     })
     const hasDash = vals.includes('-')
-    const hasPF = vals.includes('PASS') || vals.includes('FAIL')
+    const hasPF = hasVerdictInRow(vals, verdictCol)
 
     if (hasNumber || hasPF || (hasDash && nonEmptyVals.length >= 2)) {
       currentBlock.rows.push({ idx, vals })
       if (hasPF) {
-        currentBlock.conformity = vals.includes('FAIL') ? 'FAIL' : 'PASS'
+        currentBlock.conformity = getRowVerdict(vals, verdictCol)
       }
     }
   }
@@ -554,13 +676,9 @@ function parseConformity(ws: Worksheet): {
   }
 
   // 3단계: 각 블록 내에서 병합 열 전파 + MeasurementPoint 생성
-  // 판정 열 인덱스: 헤더에서 Conformity/PASS 포함하는 열
-  let conformityColIdx = headers.findIndex(h => /conformity|pass.*fail/i.test(h))
-  if (conformityColIdx < 0) conformityColIdx = headers.length - 1  // 마지막 열 fallback
-
   for (const block of blocks) {
-    // 블록 내 PASS/FAIL 대표 행 찾기
-    const repRow = block.rows.find(r => r.vals.includes('PASS') || r.vals.includes('FAIL'))
+    // 블록 내 판정 대표 행 찾기
+    const repRow = block.rows.find(r => hasVerdictInRow(r.vals, verdictCol))
     const blockConformity = block.conformity || ''
 
     for (const { vals } of block.rows) {
@@ -572,8 +690,8 @@ function parseConformity(ws: Worksheet): {
 
       for (let ci = 0; ci < vals.length; ci++) {
         const sv = vals[ci]
-        if (sv === 'PASS' || sv === 'FAIL') {
-          conformity = sv
+        if (isVerdictAt(sv, ci, verdictCol)) {
+          conformity = normalizeVerdict(sv)
         } else if (sv && sv !== '-' && sv !== 'None') {
           nonEmpty.push(sv)
           const num = parseFloat(sv.replace(/\s/g, '').replace(',', ''))
@@ -581,7 +699,7 @@ function parseConformity(ws: Worksheet): {
         }
       }
 
-      // 병합 전파: 이 행에 PASS/FAIL이 없으면 블록의 대표 값 사용
+      // 병합 전파: 이 행에 판정이 없으면 블록의 대표 값 사용
       // 단, 행 자체에 "-"가 판정 위치에 명시적으로 있으면 전파 안 함 (0점 기준 등)
       const hasExplicitDash = vals.some((v, ci) => v === '-' && ci >= Math.max(2, vals.length - 4))
       if (!conformity && blockConformity && !hasExplicitDash) {
@@ -590,7 +708,7 @@ function parseConformity(ws: Worksheet): {
         if (repRow) {
           for (let ci = 0; ci < repRow.vals.length; ci++) {
             const rv = repRow.vals[ci]
-            if (!rv || rv === 'PASS' || rv === 'FAIL') continue
+            if (!rv || isVerdictAt(rv, ci, verdictCol)) continue
             // 현재 행에서 해당 열이 비어있으면 전파
             if (!cells[ci] && rv !== '-') {
               cells[ci] = rv

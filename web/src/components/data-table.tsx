@@ -162,7 +162,7 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
       )}
 
       <div className="overflow-x-auto">
-        <table ref={tableRef} className="w-full text-xs" style={{ tableLayout: Object.keys(colWidths).length > 0 ? 'fixed' : 'auto' }}>
+        <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: Object.keys(colWidths).length > 0 ? 'fixed' : 'auto' }}>
           {/* colgroup: 리사이즈된 컬럼에 너비 적용 */}
           {Object.keys(colWidths).length > 0 && (
             <colgroup>

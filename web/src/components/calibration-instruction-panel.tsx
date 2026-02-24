@@ -96,7 +96,7 @@ function InstructionContent({ instruction }: { instruction: AiInstruction }) {
         if (group.level === 'observation') {
           return (
             <div key={group.level} className="mt-2">
-              <div className="flex items-start gap-2 px-1 py-2 text-[11px]">
+              <div className="flex items-start gap-2 px-1 py-2 text-sm">
                 <span className={`w-2 h-2 rounded-full ${group.dot} shrink-0 mt-0.5`} />
                 <p className="text-slate-500">
                   <span className="font-medium text-slate-600">
@@ -115,7 +115,7 @@ function InstructionContent({ instruction }: { instruction: AiInstruction }) {
             {/* 그룹 헤더 */}
             <div className="flex items-center gap-2 mb-2">
               <span className={`w-2 h-2 rounded-full ${group.dot} shrink-0`} />
-              <span className={`text-[11px] font-bold ${group.headerBg} px-2 py-0.5 rounded`}>
+              <span className={`text-xs font-bold ${group.headerBg} px-2 py-0.5 rounded`}>
                 {group.label} ({fmt(t.instruction.groupCount, group.points.length)})
               </span>
             </div>
@@ -129,17 +129,17 @@ function InstructionContent({ instruction }: { instruction: AiInstruction }) {
                   <div key={i} className={`rounded-lg ${group.bg} px-3 py-2.5 border border-transparent`}>
                     {/* 라벨 + headline */}
                     <div className="mb-1.5">
-                      <span className={`text-xs font-bold ${group.text}`}>{pt.label}</span>
+                      <span className={`text-sm font-bold ${group.text}`}>{pt.label}</span>
                       {headline && (
-                        <span className="text-[11px] text-slate-800 font-bold ml-2">— {headline}</span>
+                        <span className="text-sm text-slate-800 font-bold ml-2">— {headline}</span>
                       )}
                     </div>
                     {/* 수치 근거 */}
-                    {reason && <p className="text-[11px] text-slate-500 leading-snug">{reason}</p>}
+                    {reason && <p className="text-sm text-slate-500 leading-snug">{reason}</p>}
                     {/* 조치 — 시각적 분리 */}
                     <div className="mt-2 pt-1.5 border-t border-black/5 flex gap-1.5 items-start">
-                      <span className="text-[10px] font-bold text-slate-400 mt-px shrink-0">▶</span>
-                      <p className="text-[11px] text-slate-800 font-medium leading-snug">{pt.action}</p>
+                      <span className="text-xs font-bold text-slate-400 mt-px shrink-0">▶</span>
+                      <p className="text-sm text-slate-800 font-medium leading-snug">{pt.action}</p>
                     </div>
                   </div>
                 )
@@ -151,12 +151,12 @@ function InstructionContent({ instruction }: { instruction: AiInstruction }) {
 
       {/* 전 포인트 안정 메시지 */}
       {allStable && (
-        <p className="text-[11px] text-emerald-500 font-medium mt-1">{t.instruction.allStable}</p>
+        <p className="text-sm text-emerald-500 font-medium mt-1">{t.instruction.allStable}</p>
       )}
 
       {/* 재점검 + 주의사항 */}
       {(instruction.schedule.length > 0 || instruction.environmentNotes.length > 0) && (
-        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-1 text-[10px] text-slate-400">
+        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-400">
           {instruction.schedule.map((s, i) => (
             <span key={`s${i}`}>
               <span className="font-medium text-slate-500">{s.label}</span> {s.timing}
@@ -267,7 +267,7 @@ export default function CalibrationInstructionPanel({
           <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t.instruction.title}</span>
+          <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{t.instruction.title}</span>
         </div>
 
         {llmStatus === 'done' && (
@@ -276,7 +276,7 @@ export default function CalibrationInstructionPanel({
         {llmStatus === 'idle' && (
           <button
             onClick={requestAi}
-            className="flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -285,7 +285,7 @@ export default function CalibrationInstructionPanel({
           </button>
         )}
         {llmStatus === 'loading' && (
-          <div className="flex items-center gap-1.5 text-[10px] text-indigo-400">
+          <div className="flex items-center gap-1.5 text-xs text-indigo-400">
             <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
               <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -296,7 +296,7 @@ export default function CalibrationInstructionPanel({
         {llmStatus === 'error' && (
           <button
             onClick={requestAi}
-            className="flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -326,7 +326,7 @@ export default function CalibrationInstructionPanel({
       {/* AI 호출 전: 빈 상태 */}
       {!instruction && llmStatus !== 'loading' && (
         <div className="text-center py-6 text-slate-300">
-          <p className="text-xs">{t.instruction.emptyState}</p>
+          <p className="text-sm">{t.instruction.emptyState}</p>
         </div>
       )}
 
@@ -337,7 +337,7 @@ export default function CalibrationInstructionPanel({
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
             <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          <p className="text-xs">{t.instruction.aiLoading}</p>
+          <p className="text-sm">{t.instruction.aiLoading}</p>
         </div>
       )}
 
