@@ -310,7 +310,7 @@ function Dashboard() {
       case 'upcoming':
         return <UpcomingCalibration data={data.차기교정임박} onOpenDetail={openEquipmentDetail} />
       case 'search':
-        return <EquipmentSearch items={data.전체장비} onOpenDetail={openEquipmentDetail} searchParams={searchParams} />
+        return <EquipmentSearch items={data.전체장비} onOpenDetail={openEquipmentDetail} />
       case 'equipment-detail':
         if (selectedEquipment) {
           return (

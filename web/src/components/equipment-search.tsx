@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import DataTable, { type Column } from './data-table'
 import { useT } from '@/lib/i18n'
 
@@ -145,10 +145,11 @@ function FilterSelect({
 
 // === 메인 컴포넌트 (부모에서 items를 props로 전달받음) ===
 
-export default function EquipmentSearch({ items, onOpenDetail, searchParams }: { items: EquipmentItem[]; onOpenDetail: (groupNm: string, equipmentName: string) => void; searchParams: URLSearchParams }) {
+export default function EquipmentSearch({ items, onOpenDetail }: { items: EquipmentItem[]; onOpenDetail: (groupNm: string, equipmentName: string) => void }) {
   const { t } = useT()
   const columns = useColumns()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   // URL 파라미터에서 필터 상태 읽기 (드롭다운은 URL 직접 연동)
   const query = searchParams.get('q') ?? ''
@@ -156,7 +157,6 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
   const manufacturer = searchParams.get('mfr') ?? ''
   const manager = searchParams.get('mgr') ?? ''
   const urlPage = parseInt(searchParams.get('page') ?? '0', 10) || 0
-  const urlPageSize = parseInt(searchParams.get('size') ?? '30', 10) || 30
 
   // 텍스트 검색은 로컬 state → Enter/버튼 클릭 시에만 URL 반영
   const [inputValue, setInputValue] = useState(query)
@@ -187,8 +187,10 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
     updateFilter({ page: p > 0 ? String(p) : '' })
   }, [updateFilter])
 
+  const [pageSize, setPageSize] = useState(30)
   const handlePageSizeChange = useCallback((s: number) => {
-    updateFilter({ size: s !== 30 ? String(s) : '', page: '' })
+    setPageSize(s)
+    updateFilter({ page: '' })
   }, [updateFilter])
 
   // 필터 드롭다운 옵션 — items에서 고유값 추출
@@ -306,9 +308,9 @@ export default function EquipmentSearch({ items, onOpenDetail, searchParams }: {
             data={filtered}
             rowKey={i => i.acptNo}
             defaultSort={{ key: 'rcpnYmd', direction: 'desc' }}
-            defaultPageSize={30}
+            defaultPageSize={pageSize}
             controlledPage={urlPage}
-            controlledPageSize={urlPageSize}
+            controlledPageSize={pageSize}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}
             onRowClick={item => { if (item.groupNm) onOpenDetail(item.groupNm, item.entpPrdNm) }}

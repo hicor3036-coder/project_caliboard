@@ -22,6 +22,7 @@ interface Props {
   model: string
   byQuantity?: Map<string, QuantityTrend>
   quantityKeys?: string[]
+  embedded?: boolean
 }
 
 // ─── LLM 응답 타입 ───
@@ -177,6 +178,7 @@ export default function CalibrationInstructionPanel({
   series, calDates, certCount, affcCyclCd,
   equipmentName, manufacturer, model,
   byQuantity, quantityKeys,
+  embedded = false,
 }: Props) {
   const { t, lang } = useT()
   // 물리량 탭: '전체' 제외, 실제 물리량만
@@ -260,7 +262,7 @@ export default function CalibrationInstructionPanel({
   if (overallResult.prediction.direction === 'insufficient') return null
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div className={embedded ? '' : 'bg-white rounded-xl shadow-sm border border-gray-100 p-6'}>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">

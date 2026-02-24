@@ -363,6 +363,8 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
   const [selectedCert, setSelectedCert] = useState<{ acptNo: string; cert: CertResult } | null>(null)
   const [activeTrendQuantity, setActiveTrendQuantity] = useState<string | null>(null)
   const [hiddenYears, setHiddenYears] = useState<Set<string>>(new Set())
+  const [historyTableOpen, setHistoryTableOpen] = useState(false)
+  const [activeAiTab, setActiveAiTab] = useState<'instruction' | 'health'>('instruction')
   // 장비 사전정보 매뉴얼 허용오차
   const [manualTolerance, setManualTolerance] = useState<{
     value: number; unit: string; type: 'absolute' | 'percentage'
@@ -637,6 +639,157 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
     }
   }, [certs, t, manualTolerance])
 
+  // ─── 트렌드 테이블용 DataTable 데이터 ───
+
+  interface TrendRow {
+    key: string
+    label: string
+    unit: string
+    sortNum: number
+    errors: Record<string, number | null>
+    판정Map: Record<string, string>
+    hasFail: boolean
+    lastRatio: number | null
+    trend: 'up' | 'down' | 'stable'
+    level: 'safe' | 'warning' | 'danger'
+  }
+
+  // 현재 활성 탭(물리량) 기반 trendRows — IIFE 밖에서 계산
+  const trendRows = useMemo((): TrendRow[] => {
+    if (!conformityTrend) return []
+    const activeQ = activeTrendQuantity && conformityTrend.byQuantity.has(activeTrendQuantity)
+      ? activeTrendQuantity : null
+    const src = activeQ ? conformityTrend.byQuantity.get(activeQ)! : conformityTrend
+
+    return src.series.map(s => {
+      const errors = s.points.map(p => p.오차).filter((v): v is number => v != null)
+      const absErrors = errors.map(Math.abs)
+      const trend: 'up' | 'down' | 'stable' = absErrors.length >= 2
+        ? absErrors[absErrors.length - 1] > absErrors[0] * 1.1 ? 'up'
+        : absErrors[absErrors.length - 1] < absErrors[0] * 0.9 ? 'down'
+        : 'stable'
+        : 'stable'
+      const lastRatio = [...s.points].reverse().find(p => p.비율 != null)?.비율 ?? null
+      const hasFail = s.points.some(p => p.판정 === 'FAIL')
+      const hasChange = trend !== 'stable'
+      const level: 'safe' | 'warning' | 'danger' = hasFail || (lastRatio != null && lastRatio > 100) ? 'danger'
+        : (lastRatio != null && lastRatio > 80) || hasChange ? 'warning'
+        : 'safe'
+
+      const errorsMap: Record<string, number | null> = {}
+      const 판정Map: Record<string, string> = {}
+      s.points.forEach((p, pi) => {
+        const y = conformityTrend.yearLabels[pi]
+        errorsMap[y] = p.오차 ?? null
+        판정Map[y] = p.판정 ?? 'PASS'
+      })
+
+      // 기준값 숫자 추출 (정렬용)
+      const refNum = parseFloat(s.label.replace(/[^\d.-]/g, ''))
+
+      return {
+        key: s.key,
+        label: s.label,
+        unit: s.unit,
+        sortNum: isNaN(refNum) ? Infinity : refNum,
+        errors: errorsMap,
+        판정Map,
+        hasFail,
+        lastRatio,
+        trend,
+        level,
+      }
+    })
+  }, [conformityTrend, activeTrendQuantity])
+
+  // trendColumns — yearLabels + hiddenYears 기반 동적 컬럼
+  const trendColumns = useMemo((): Column<TrendRow>[] => {
+    if (!conformityTrend) return []
+    const isSingleCert = conformityTrend.certCount === 1
+    const totalYears = conformityTrend.yearLabels.length
+
+    const yearCols: Column<TrendRow>[] = conformityTrend.yearLabels
+      .filter(y => !hiddenYears.has(y))
+      .map((y, i) => {
+        const isLatest = conformityTrend.yearLabels.indexOf(y) === totalYears - 1
+        return {
+          key: y,
+          header: y,
+          align: 'center' as const,
+          headerClassName: isLatest ? 'text-slate-900 font-bold' : '',
+          sortValue: (r: TrendRow) => r.errors[y] ?? null,
+          render: (r: TrendRow) => {
+            const val = r.errors[y]
+            const 판정 = r.판정Map[y]
+            if (val == null) return <span className="text-slate-300">-</span>
+            if (판정 === 'FAIL') {
+              return (
+                <span className="inline-block px-1.5 py-0.5 bg-red-600 text-white font-bold rounded font-mono">
+                  {val > 0 ? '+' : ''}{val}
+                </span>
+              )
+            }
+            const color = val > 0 ? 'text-amber-700 font-medium' : val < 0 ? 'text-blue-700 font-medium' : 'text-slate-400'
+            return (
+              <span className={`font-mono ${color}`}>
+                {val > 0 ? '+' : ''}{val}
+                {r.unit && <span className="text-slate-300 text-[11px] ml-0.5">{r.unit}</span>}
+              </span>
+            )
+          },
+        }
+      })
+
+    return [
+      {
+        key: 'label',
+        header: t.detail.mpHeader,
+        sortValue: (r: TrendRow) => r.sortNum,
+        render: (r: TrendRow) => <span className="font-semibold text-slate-700 whitespace-nowrap">{r.label}</span>,
+      },
+      ...yearCols,
+      {
+        key: 'trend',
+        header: t.detail.trendCol,
+        align: 'center' as const,
+        sortValue: (r: TrendRow) => r.trend === 'up' ? 2 : r.trend === 'down' ? 1 : 0,
+        render: (r: TrendRow) => {
+          if (isSingleCert) return <span className="text-slate-300 text-xs">&mdash;</span>
+          if (r.trend === 'up') return (
+            <svg className="w-4 h-4 text-red-500 inline-block" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 12V4M8 4l3 3M8 4L5 7" />
+            </svg>
+          )
+          if (r.trend === 'down') return (
+            <svg className="w-4 h-4 text-amber-500 inline-block" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 4v8M8 12l3-3M8 12L5 9" />
+            </svg>
+          )
+          return (
+            <svg className="w-4 h-4 text-slate-400 inline-block" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8h10M13 8l-3-3M13 8l-3 3" />
+            </svg>
+          )
+        },
+      },
+      {
+        key: '상태',
+        header: t.detail.statusCol,
+        align: 'center' as const,
+        sortValue: (r: TrendRow) => r.level === 'danger' ? 2 : r.level === 'warning' ? 1 : 0,
+        render: (r: TrendRow) => (
+          <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
+            r.level === 'safe' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : r.level === 'warning' ? 'bg-amber-50 text-amber-700 border border-amber-200'
+            : 'bg-red-50 text-red-700 border border-red-200'
+          }`}>
+            {r.level === 'safe' ? t.detail.safe : r.level === 'warning' ? t.detail.warning : t.detail.danger}
+          </span>
+        ),
+      },
+    ]
+  }, [conformityTrend, activeTrendQuantity, hiddenYears, t])
+
   // D-day 계산
   const dday = useMemo(() => {
     if (!info?.nxtrExrsYmd || info.nxtrExrsYmd.length < 8) return null
@@ -784,10 +937,26 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         </div>
       </div>
 
-      {/* ===== 교정 이력 타임라인 ===== */}
+      {/* ===== 교정 이력 (타임라인 + 상세 테이블 통합) ===== */}
       {timelineData.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-5">{t.detail.calTimeline}</h3>
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-sm font-semibold text-slate-700">{t.detail.calTimeline}</h3>
+            <button
+              onClick={() => setHistoryTableOpen(v => !v)}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              {historyTableOpen ? t.detail.hideDetail : t.detail.showDetail}
+              <svg
+                className={`w-3.5 h-3.5 transition-transform ${historyTableOpen ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* 타임라인 */}
           <div className="overflow-x-auto">
             <div className="flex items-start gap-0 min-w-max px-4 pb-2">
               {timelineData.map((item, idx) => {
@@ -836,6 +1005,22 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               })}
             </div>
           </div>
+
+          {/* 상세 테이블 (접이식) */}
+          {historyTableOpen && (
+            <div className="mt-5 border-t border-gray-100 pt-5">
+              {tableData.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">{t.detail.noHistory}</div>
+              ) : (
+                <DataTable
+                  columns={columns}
+                  data={tableData}
+                  rowKey={i => `${i.acptNo}-${i.no}`}
+                  defaultSort={{ key: 'no', direction: 'asc' }}
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -993,6 +1178,67 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           </div>
         )}
       </div>
+
+      {/* ===== 핵심 요약 (성적서 로드 완료 후) ===== */}
+      {certDone && conformityTrend && (() => {
+        const eval_ = conformityTrend.evaluation
+        const latestYear = conformityTrend.yearLabels[conformityTrend.yearLabels.length - 1]
+        const latestDate = conformityTrend.calDates[conformityTrend.calDates.length - 1]
+        const failCount = conformityTrend.series.filter(s => s.points.some(p => p.판정 === 'FAIL')).length
+        const warnCount = conformityTrend.series.filter(s => {
+          const r = [...s.points].reverse().find(p => p.비율 != null)?.비율
+          return r != null && r > 80 && r <= 100
+        }).length
+
+        const stability = eval_.stability
+        const stabilityColor = stability === 'safe'
+          ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+          : stability === 'warning'
+          ? 'text-amber-600 bg-amber-50 border-amber-200'
+          : 'text-red-600 bg-red-50 border-red-200'
+        const stabilityLabel = stability === 'safe' ? t.detail.safe : stability === 'warning' ? t.detail.warning : t.detail.danger
+
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 종합 안정성 */}
+            <div className={`rounded-xl border px-4 py-3 ${stabilityColor}`}>
+              <p className="text-[11px] font-medium opacity-70 mb-1">{t.detail.stabilityEval}</p>
+              <p className="text-lg font-bold">{stabilityLabel}</p>
+              <p className="text-[11px] opacity-60 mt-0.5">
+                {fmt(t.detail.trendCount, conformityTrend.certCount)}
+              </p>
+            </div>
+            {/* 최신 교정 */}
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <p className="text-[11px] font-medium text-slate-400 mb-1">{t.detail.calDate}</p>
+              <p className="text-base font-bold text-slate-700">{latestDate || latestYear}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {fmt(t.detail.trendCount, conformityTrend.certCount)}
+              </p>
+            </div>
+            {/* FAIL 포인트 */}
+            <div className={`rounded-xl border px-4 py-3 ${failCount > 0 ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-white'}`}>
+              <p className={`text-[11px] font-medium mb-1 ${failCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>{t.detail.verdict} FAIL</p>
+              <p className={`text-lg font-bold ${failCount > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                {failCount > 0 ? fmt('{0}개 포인트', failCount) : '없음'}
+              </p>
+              <p className={`text-[11px] mt-0.5 ${failCount > 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                {t.detail.mpHeader}
+              </p>
+            </div>
+            {/* 주의 포인트 */}
+            <div className={`rounded-xl border px-4 py-3 ${warnCount > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'}`}>
+              <p className={`text-[11px] font-medium mb-1 ${warnCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{t.detail.warning} ({'>'}80%)</p>
+              <p className={`text-lg font-bold ${warnCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                {warnCount > 0 ? fmt('{0}개 포인트', warnCount) : '없음'}
+              </p>
+              <p className={`text-[11px] mt-0.5 ${warnCount > 0 ? 'text-amber-400' : 'text-slate-300'}`}>
+                {t.detail.mpHeader}
+              </p>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ===== 연차별 적합성검토 트렌드 ===== */}
       {conformityTrend && (() => {
@@ -1317,99 +1563,13 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           )}
 
           {/* 트렌드 요약 테이블 */}
-          <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200 shadow-sm">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-slate-800">
-                  <th className="text-left py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap">{t.detail.mpHeader}</th>
-                  {conformityTrend.yearLabels.map(y => (
-                    !hiddenYears.has(y) && <th key={y} className="text-center py-2 px-2.5 text-slate-300 font-semibold whitespace-nowrap">{y}</th>
-                  ))}
-                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold">{t.detail.trendCol}</th>
-                  <th className="text-center py-2 px-2.5 text-slate-300 font-semibold">{t.detail.statusCol}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentTrend.series.map((s, si) => {
-                  const errors = s.points.map(p => p.오차).filter((v): v is number => v != null)
-                  const absErrors = errors.map(Math.abs)
-                  // 추세: 증가/감소 모두 "변화"로 표시 (교정 관점: 변화 자체가 위험)
-                  const trend = absErrors.length >= 2
-                    ? absErrors[absErrors.length - 1] > absErrors[0] * 1.1 ? 'up'
-                    : absErrors[absErrors.length - 1] < absErrors[0] * 0.9 ? 'down'
-                    : 'stable'
-                    : 'stable'
-
-                  const lastRatio = [...s.points].reverse().find(p => p.비율 != null)?.비율
-                  const hasFail = s.points.some(p => p.판정 === 'FAIL')
-                  // 상태: 증가든 감소든 변화가 있으면 주의 (안정만 양호)
-                  const hasChange = trend !== 'stable'
-                  const level = hasFail || (lastRatio != null && lastRatio > 100) ? 'danger'
-                    : (lastRatio != null && lastRatio > 80) || hasChange ? 'warning'
-                    : 'safe'
-
-                  return (
-                    <tr key={s.key} className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${si % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
-                      <td className="py-2 px-2.5 font-semibold text-slate-700 whitespace-nowrap">{s.label}</td>
-                      {s.points.map((p, pi) => {
-                        if (hiddenYears.has(conformityTrend.yearLabels[pi])) return null
-                        // 오차 색상: FAIL=빨간배경, 음수=파랑, 양수=주황, 0=회색
-                        let cellStyle = 'text-slate-500'
-                        let cellBg = ''
-                        if (p.오차 != null) {
-                          if (p.판정 === 'FAIL') {
-                            cellBg = 'bg-red-600 text-white font-bold rounded'
-                            cellStyle = ''
-                          } else if (p.오차 > 0) {
-                            cellStyle = 'text-amber-700 font-medium'
-                          } else if (p.오차 < 0) {
-                            cellStyle = 'text-blue-700 font-medium'
-                          } else {
-                            cellStyle = 'text-slate-400'
-                          }
-                        }
-                        return (
-                          <td key={conformityTrend.yearLabels[pi]} className="py-2 px-2.5 text-center font-mono whitespace-nowrap">
-                            {p.오차 != null ? (
-                              <span className={`${cellStyle} ${cellBg ? `inline-block px-1.5 py-0.5 ${cellBg}` : ''}`}>
-                                {p.오차 > 0 ? '+' : ''}{p.오차}
-                                {s.unit && !cellBg && <span className="text-slate-300 text-[11px] ml-0.5">{s.unit}</span>}
-                              </span>
-                            ) : <span className="text-slate-300">-</span>}
-                          </td>
-                        )
-                      })}
-                      <td className="py-2 px-2.5 text-center">
-                        {isSingleCert
-                          ? <span className="text-slate-300 text-xs" title="데이터 부족">&mdash;</span>
-                          : trend === 'up' ? (
-                            <svg className="w-4 h-4 text-red-500 inline-block" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M8 12V4M8 4l3 3M8 4L5 7" />
-                            </svg>
-                          ) : trend === 'down' ? (
-                            <svg className="w-4 h-4 text-amber-500 inline-block" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M8 4v8M8 12l3-3M8 12L5 9" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4 text-slate-400 inline-block" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M3 8h10M13 8l-3-3M13 8l-3 3" />
-                            </svg>
-                          )}
-                      </td>
-                      <td className="py-2 px-2.5 text-center">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
-                          level === 'safe' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : level === 'warning' ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-red-50 text-red-700 border border-red-200'
-                        }`}>
-                          {level === 'safe' ? t.detail.safe : level === 'warning' ? t.detail.warning : t.detail.danger}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="mt-5">
+            <DataTable
+              columns={trendColumns}
+              data={trendRows}
+              rowKey={r => r.key}
+              defaultSort={{ key: '상태', direction: 'desc' }}
+            />
           </div>
 
           {/* 종합 평가 */}
@@ -1450,58 +1610,73 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         )
       })()}
 
-      {/* ===== AI 교정 지시서 ===== */}
-      {conformityTrend && (
-        <CalibrationInstructionPanel
-          series={conformityTrend.series}
-          calDates={conformityTrend.calDates}
-          certCount={conformityTrend.certCount}
-          affcCyclCd={info.affcCyclCd}
-          equipmentName={equipmentName}
-          manufacturer={info.prdnCmpnNm || ''}
-          model={info.stszNm || ''}
-          byQuantity={conformityTrend.byQuantity}
-          quantityKeys={conformityTrend.quantityKeys}
-        />
-      )}
-
-      {/* ===== 장비 건강검진 AI ===== */}
+      {/* ===== AI 분석 (교정 지시서 + 건강검진 탭) ===== */}
       {conformityTrend ? (
-        <EquipmentHealthPanel
-          series={conformityTrend.series}
-          calDates={conformityTrend.calDates}
-          certCount={conformityTrend.certCount}
-          affcCyclCd={info.affcCyclCd}
-        />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          {/* 탭 헤더 */}
+          <div className="flex border-b border-gray-100 px-6 pt-4">
+            <button
+              onClick={() => setActiveAiTab('instruction')}
+              className={`pb-3 px-1 mr-6 text-sm font-medium border-b-2 transition-colors ${
+                activeAiTab === 'instruction'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {t.detail.aiInstructionTab}
+            </button>
+            <button
+              onClick={() => setActiveAiTab('health')}
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                activeAiTab === 'health'
+                  ? 'border-emerald-500 text-emerald-600'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {t.detail.aiHealthTab}
+            </button>
+          </div>
+
+          {/* 탭 콘텐츠 */}
+          <div className="p-6">
+            {activeAiTab === 'instruction' ? (
+              <CalibrationInstructionPanel
+                series={conformityTrend.series}
+                calDates={conformityTrend.calDates}
+                certCount={conformityTrend.certCount}
+                affcCyclCd={info.affcCyclCd}
+                equipmentName={equipmentName}
+                manufacturer={info.prdnCmpnNm || ''}
+                model={info.stszNm || ''}
+                byQuantity={conformityTrend.byQuantity}
+                quantityKeys={conformityTrend.quantityKeys}
+                embedded
+              />
+            ) : (
+              <EquipmentHealthPanel
+                series={conformityTrend.series}
+                calDates={conformityTrend.calDates}
+                certCount={conformityTrend.certCount}
+                affcCyclCd={info.affcCyclCd}
+                embedded
+              />
+            )}
+          </div>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <AiPlaceholder
-            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />}
-            title={t.detail.aiHealthTitle}
-            description={t.detail.aiHealthDesc}
-          />
-          <AiPlaceholder
-            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}
-            title={t.detail.aiCycleTitle}
-            description={t.detail.aiCycleDesc}
-          />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex gap-6">
+            <div className="flex-1 text-center py-8">
+              <svg className="w-8 h-8 text-slate-200 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <p className="text-sm text-slate-400">{t.detail.aiHealthTitle}</p>
+              <p className="text-xs text-slate-300 mt-1">{t.detail.aiHealthDesc}</p>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* ===== 교정 이력 상세 테이블 ===== */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">{t.detail.historyDetail}</h3>
-        {tableData.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">{t.detail.noHistory}</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            data={tableData}
-            rowKey={i => `${i.acptNo}-${i.no}`}
-            defaultSort={{ key: 'no', direction: 'asc' }}
-          />
-        )}
-      </div>
 
       {/* ===== 성적서 파싱 결과 모달 ===== */}
       {selectedCert && (

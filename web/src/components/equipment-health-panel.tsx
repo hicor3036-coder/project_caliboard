@@ -13,6 +13,7 @@ interface Props {
   calDates: string[]
   certCount: number
   affcCyclCd: string | null
+  embedded?: boolean
 }
 
 // ─── 등급 색상 ───
@@ -505,6 +506,7 @@ function useCategoryLabels() {
 // ─── 메인 패널 ───
 
 export default function EquipmentHealthPanel({ series, calDates, certCount, affcCyclCd }: Props) {
+  // embedded prop은 현재 사용 안 함 (Props에만 선언)
   const categoryLabels = useCategoryLabels()
   // 1. 규칙 기반 결과 즉시 계산
   const result = useMemo(

@@ -172,7 +172,7 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
             </colgroup>
           )}
           <thead>
-            <tr className="border-b-2 border-gray-200 bg-gray-50 text-left">
+            <tr className="border-b border-slate-600 bg-slate-700 text-left [&>th:first-child]:rounded-tl-lg [&>th:last-child]:rounded-tr-lg">
               {columns.map((col, i) => {
                 const sortable = !!col.sortValue
                 const isActive = sort?.key === col.key
@@ -185,19 +185,19 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
                     } ${
                       col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''
                     } ${
-                      isActive ? 'text-gray-900' : 'text-gray-600'
+                      isActive ? 'text-white' : 'text-white'
                     } ${
-                      sortable ? 'cursor-pointer select-none hover:text-gray-900 hover:bg-gray-100 transition-colors' : ''
+                      sortable ? 'cursor-pointer select-none hover:text-white hover:bg-slate-600 transition-colors' : ''
                     } ${col.headerClassName ?? ''}`}
                   >
                     <span className="inline-flex items-center gap-1.5">
                       {col.header}
                       {sortable && (
                         <span className="inline-flex flex-col -space-y-1">
-                          <svg className={`w-3 h-3 ${isActive && sort.direction === 'asc' ? 'text-slate-800' : 'text-gray-300'}`} viewBox="0 0 12 12" fill="currentColor">
+                          <svg className={`w-3 h-3 ${isActive && sort.direction === 'asc' ? 'text-white' : 'text-slate-500'}`} viewBox="0 0 12 12" fill="currentColor">
                             <path d="M6 2L10 7H2L6 2Z" />
                           </svg>
-                          <svg className={`w-3 h-3 ${isActive && sort.direction === 'desc' ? 'text-slate-800' : 'text-gray-300'}`} viewBox="0 0 12 12" fill="currentColor">
+                          <svg className={`w-3 h-3 ${isActive && sort.direction === 'desc' ? 'text-white' : 'text-slate-500'}`} viewBox="0 0 12 12" fill="currentColor">
                             <path d="M6 10L2 5H10L6 10Z" />
                           </svg>
                         </span>

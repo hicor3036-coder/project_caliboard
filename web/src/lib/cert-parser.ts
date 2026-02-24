@@ -9,7 +9,7 @@
 // ※ 라벨(영문) 기반으로 값을 찾는 방식 → 100% 정확할 필요 없음 (LLM fallback이 보완)
 // ※ exceljs를 동적 import (Turbopack junction point 에러 회피)
 
-import type { CertResult, MeasurementPoint } from './cert-cache'
+import type { CertResult, MeasurementPoint, ReferenceStandard } from './cert-cache'
 
 import ExcelJS from 'exceljs'
 
@@ -148,10 +148,16 @@ export function calibrationResultsToText(sheets: Worksheet[]): string {
 }
 
 // ─── 갑지 (Page 1) 파싱 ───
-function parseCover(wb: Workbook): Record<string, string> {
+interface CoverParseResult {
+  info: Record<string, string>
+  기준기: ReferenceStandard[]
+}
+
+function parseCover(wb: Workbook): CoverParseResult {
   const info: Record<string, string> = {}
+  const standards: ReferenceStandard[] = []
   const ws = wb.getWorksheet('Page 1') ?? wb.worksheets[0]
-  if (!ws) return info
+  if (!ws) return { info, 기준기: standards }
 
   // 모든 셀을 (행, 열) → 값 딕셔너리로 변환
   const cells = new Map<string, string>()
@@ -166,6 +172,16 @@ function parseCover(wb: Workbook): Record<string, string> {
 
   const getCell = (r: number, c: number) => cells.get(`${r},${c}`) || ''
 
+  // 한 행의 모든 셀 텍스트를 합쳐서 반환
+  const getRowText = (r: number) => {
+    const parts: string[] = []
+    for (let c = 1; c <= 12; c++) {
+      const v = getCell(r, c)
+      if (v) parts.push(v)
+    }
+    return parts.join(' ')
+  }
+
   let foundClient = false
   const sortedEntries = [...cells.entries()].sort((a, b) => {
     const [ar, ac] = a[0].split(',').map(Number)
@@ -173,6 +189,7 @@ function parseCover(wb: Workbook): Record<string, string> {
     return ar !== br ? ar - br : ac - bc
   })
 
+  // ─── 메인 라벨 탐색 루프 ───
   for (const [key, val] of sortedEntries) {
     const [r, c] = key.split(',').map(Number)
 
@@ -206,8 +223,8 @@ function parseCover(wb: Workbook): Record<string, string> {
     }
 
     // 제조사/모델
-    if (val.includes('Manufacturer and Model')) {
-      const modelVal = getCell(r, c + 4) || getCell(r, c + 3) || getCell(r, c + 2)
+    if (val.includes('Manufacturer and Model') || val.includes('제작회사 및 형식')) {
+      const modelVal = getCell(r, c + 4) || getCell(r, c + 3) || getCell(r, c + 2) || getCell(r, c + 1)
       if (modelVal) {
         const parts = modelVal.split('/')
         info['제조사'] = parts[0].trim()
@@ -216,7 +233,7 @@ function parseCover(wb: Workbook): Record<string, string> {
     }
 
     // 시리얼
-    if (val.startsWith('Serial Number') || val.startsWith('시리얼') || val.includes('일련번호')) {
+    if (val.startsWith('Serial Number') || val.includes('기기번호') || val.startsWith('시리얼') || val.includes('일련번호')) {
       const snVal = getCell(r, c + 2) || getCell(r, c + 1)
       if (snVal && !info['시리얼']) {
         info['시리얼'] = snVal.split('[')[0].trim()
@@ -227,14 +244,12 @@ function parseCover(wb: Workbook): Record<string, string> {
     }
 
     // 교정일
-    if (val.includes('Date of Calibration') || val.includes('교정일자')) {
+    if (val.includes('Date of Calibration') || val.includes('교정일자') || val.includes('교 정 일 자')) {
       if (!info['교정일']) {
-        // 1) 현재 셀 자체에 날짜가 포함된 경우 (라벨+값 합쳐짐)
         const fromSelf = extractDateFromCell(val)
         if (fromSelf) {
           info['교정일'] = fromSelf
         } else {
-          // 2) 우측 셀에서 날짜 찾기
           const dateVal = getCell(r, c + 3) || getCell(r, c + 2) || getCell(r, c + 1)
           if (dateVal) {
             const normalized = extractDateFromCell(dateVal)
@@ -259,16 +274,214 @@ function parseCover(wb: Workbook): Record<string, string> {
         }
       }
     }
+
+    // ─── 환경조건: 온도 ───
+    if ((val.includes('Temperature') || val.includes('온도') || val.includes('온 도')) && r >= 15 && r <= 22 && !info['온도']) {
+      // 같은 셀에 값 포함 (한/영 혼용 서식)
+      const tempMatch = val.match(/\([^)]*℃\)|\([^)]*°C\)|\(\s*[\d.]+\s*[±+-]\s*[\d.]+\s*\)\s*℃/)
+      if (tempMatch) {
+        info['온도'] = tempMatch[0]
+      } else {
+        // 우측 셀 탐색
+        for (let dc = 1; dc <= 4; dc++) {
+          const v = getCell(r, c + dc)
+          if (v && (v.includes('℃') || v.includes('°C'))) {
+            info['온도'] = v.trim()
+            break
+          }
+        }
+      }
+    }
+
+    // ─── 환경조건: 습도 ───
+    if ((val.includes('Humidity') || val.includes('습도') || val.includes('습 도')) && r >= 15 && r <= 22 && !info['습도']) {
+      // 같은 셀에 값 포함: "습 도 ( Humidity ) : (47 ± 1) % R.H." → 괄호+% 패턴 추출
+      const humMatch = val.match(/\(\s*[\d.]+\s*[±+-]\s*[\d.]+\s*\)\s*%\s*R\.?H\.?/)
+      if (humMatch) {
+        info['습도'] = humMatch[0].trim()
+      } else {
+        // 우측 셀에서 찾기
+        for (let dc = 1; dc <= 4; dc++) {
+          const v = getCell(r, c + dc)
+          if (v && (v.includes('R.H') || v.includes('% R'))) {
+            info['습도'] = v.trim()
+            break
+          }
+        }
+      }
+    }
+
+    // ─── 환경조건: 교정장소 ───
+    if ((val.includes('Location') || val.includes('교정장소')) && r >= 15 && r <= 22 && !info['교정장소']) {
+      // ▣ 체크된 항목 찾기 (같은 행 전체 스캔)
+      const rowText = getRowText(r)
+      if (rowText.includes('▣')) {
+        const checked = rowText.match(/▣\s*([^□▣]+)/)
+        if (checked) {
+          // "▣ KTL Lab." 또는 "▣ 고정표준실 (KTL Lab.)" → 깔끔하게 추출
+          let loc = checked[1].trim()
+          // 괄호 안 영문 추출 (한/영 혼용 서식)
+          const paren = loc.match(/\(([^)]+)\)/)
+          if (paren) loc = paren[1].trim()
+          info['교정장소'] = loc
+        }
+      }
+    }
+
+    // ─── 교정자/승인자 ───
+    // "Measurements performed by" / "작성자" 행의 열 위치를 기록
+    if ((val.includes('performed by') || val.includes('작성자')) && r >= 35 && !info['_performerCol']) {
+      info['_performerCol'] = String(c)
+      info['_performerRow'] = String(r)
+    }
+    if ((val.includes('Approved by') || val.includes('승인자')) && r >= 35 && !info['_approverCol']) {
+      info['_approverCol'] = String(c)
+      info['_approverRow'] = String(r)
+    }
+
+    // 승인자 직위: "Technical Supervisor" / "기술책임자"
+    if ((val.includes('Supervisor') || val.includes('책임자') || val.includes('Manager')) && r >= 35 && !info['승인자직위']) {
+      info['승인자직위'] = val.trim()
+    }
   }
 
-  // 후처리: 영문 라벨이 값으로 잘못 파싱된 경우 제거
+  // ─── 교정자/승인자 이름 추출 (Name/성명 행에서) ───
+  // 병합 셀이 있으므로 Name 라벨과 **다른 값**인 셀을 우측으로 탐색
+  const performerCol = parseInt(info['_performerCol'] || '0')
+  const approverCol = parseInt(info['_approverCol'] || '0')
+  if (performerCol > 0 || approverCol > 0) {
+    for (const [key, val] of sortedEntries) {
+      const [r, c] = key.split(',').map(Number)
+      if (r < 35 || r > 48) continue
+      if (val.includes('Name') || val.includes('성명') || val.includes('성  명')) {
+        // Name 라벨 우측에서 **라벨과 다른 값**인 셀을 찾기 (병합 셀 대응)
+        let nameVal = ''
+        for (let dc = 1; dc <= 6; dc++) {
+          const v = getCell(r, c + dc)
+          if (v && !v.includes('Name') && !v.includes('성명') && !v.includes('성  명') && !v.includes(':')) {
+            nameVal = v.trim()
+            break
+          }
+        }
+        if (!nameVal || nameVal.length < 2) continue
+
+        // performer 영역(왼쪽)인지 approver 영역(오른쪽)인지 판단
+        if (approverCol > 0 && c >= approverCol && !info['승인자']) {
+          info['승인자'] = nameVal
+        } else if (performerCol > 0 && c < (approverCol || 99) && !info['교정자']) {
+          info['교정자'] = nameVal
+        }
+      }
+    }
+  }
+  // 임시 키 제거
+  delete info['_performerCol']; delete info['_performerRow']
+  delete info['_approverCol']; delete info['_approverRow']
+
+  // ─── 소급성: 교정방법 + 기술지원코드 (Row 20~28) ───
+  const traceTexts: string[] = []
+  for (const [key, val] of sortedEntries) {
+    const [r] = key.split(',').map(Number)
+    if (r >= 20 && r <= 28) {
+      if (val.includes('CP801') || val.includes('교정업무기준') || val.includes('calibration work standard') ||
+          val.includes('calibrated as per') || val.includes('에 따라')) {
+        traceTexts.push(val)
+      }
+    }
+  }
+  if (traceTexts.length > 0) {
+    info['교정방법'] = traceTexts.join(' ')
+    // 기술지원코드: (CP801-40508-1) → 전체 + 숫자만
+    const cpMatch = info['교정방법'].match(/\(?(CP801-(\d+)-\d+)\)?/)
+    if (cpMatch) {
+      info['기술지원코드원본'] = cpMatch[1]
+      info['기술지원코드'] = cpMatch[2]
+    }
+  }
+
+  // ─── 기준기 목록 파싱 (Row 25~부터 동적) ───
+  // Step A: 헤더 영역(Row 25~28)에서 기준기 테이블 존재 여부 확인
+  let hasRefTable = false
+  let refHeaderEndRow = 28 // 기본값
+
+  for (const [key, val] of sortedEntries) {
+    const [r] = key.split(',').map(Number)
+    if (r < 25 || r > 28) continue
+    const v = val.toLowerCase()
+    if (v.includes('description') || v.includes('기기명') || v.includes('manufacturer') ||
+        v.includes('제작회사') || v.includes('serial') || v.includes('기기번호') ||
+        v.includes('laboratory') || v.includes('교정기관')) {
+      hasRefTable = true
+      refHeaderEndRow = Math.max(refHeaderEndRow, r)
+    }
+  }
+
+  // Step B: 데이터 행에서 병합 그룹별로 값을 추출
+  // ExcelJS getCell은 병합 셀에도 원본 값을 전파 → 연속 동일값 = 하나의 병합 그룹
+  // 기준기 테이블은 항상 5컬럼 (장비명, 제조사/모델, S/N, 유효일, 교정기관) 순서
+  if (hasRefTable) {
+    const dataStartRow = refHeaderEndRow + 1
+    let emptyCount = 0
+
+    // 병합 그룹 추출: 연속 동일값을 하나로 묶음
+    const dedupeRow = (r: number): string[] => {
+      const groups: string[] = []
+      let prev = ''
+      for (let c = 1; c <= 12; c++) {
+        const v = getCell(r, c)
+        if (v && v !== prev) {
+          groups.push(v)
+          prev = v
+        } else if (!v) {
+          prev = ''  // 빈 셀이 있으면 그룹 끊기
+        }
+      }
+      return groups
+    }
+
+    for (let r = dataStartRow; r <= dataStartRow + 20; r++) {
+      const rowText = getRowText(r)
+
+      // 종료: "Calibration Results" / "교정결과" / "6." / "7." 섹션
+      if (/calibration\s*results|교정\s*결과|measurement\s*uncertainty|측정\s*불확도/i.test(rowText)) break
+      if (/^6\.\s|^7\.\s/.test(rowText.trim())) break
+
+      // 빈 행 카운트
+      if (!rowText.trim()) { emptyCount++; if (emptyCount >= 2) break; continue }
+      emptyCount = 0
+
+      // 병합 그룹별 고유 값 추출
+      const groups = dedupeRow(r)
+
+      // 최소 2개 그룹이 있어야 기준기 행으로 인식
+      if (groups.length < 2) continue
+
+      // 순서 매핑: [0]=장비명, [1]=제조사/모델, [2]=S/N, [3]=유효일, [4]=교정기관
+      const std: ReferenceStandard = {
+        장비명: groups[0] || null,
+        제조사모델: groups[1] || null,
+        시리얼: groups[2] || null,
+        유효일: null,
+        교정기관: groups[4] || null,
+      }
+
+      // 유효일: 날짜 정규화
+      if (groups[3]) {
+        std.유효일 = normalizeDate(groups[3]) || groups[3].trim()
+      }
+
+      standards.push(std)
+    }
+  }
+
+  // ─── 후처리: 잘못 파싱된 라벨 제거 ───
   for (const key of Object.keys(info)) {
     if (BAD_VALUES.has(info[key])) {
       delete info[key]
     }
   }
 
-  return info
+  return { info, 기준기: standards }
 }
 
 // ─── 판정 유틸 ───
@@ -785,13 +998,25 @@ export async function parseCertExcel(buffer: Buffer | Uint8Array): Promise<CertR
     _llm_provider: null,
     시트수: wb.worksheets.length,
     시트목록: wb.worksheets.map((ws: Worksheet) => ws.name),
+    // 갑지 확장 (ISO 10012)
+    온도: null,
+    습도: null,
+    교정장소: null,
+    교정방법: null,
+    기술지원코드: null,
+    기술지원코드원본: null,
+    기준기: [],
+    교정자: null,
+    승인자: null,
+    승인자직위: null,
   }
 
   // 갑지 파싱
-  const cover = parseCover(wb)
+  const { info: cover, 기준기 } = parseCover(wb)
   for (const [k, v] of Object.entries(cover)) {
     if (v) (result as unknown as Record<string, unknown>)[k] = v
   }
+  result.기준기 = 기준기
 
   // 적합성검토서 파싱
   const confWs = findConformitySheet(wb)

@@ -24,6 +24,15 @@ export interface MeasurementPoint {
   물리량?: string | null
 }
 
+// 기준기 (Reference Standard) 1건
+export interface ReferenceStandard {
+  장비명: string | null
+  제조사모델: string | null
+  시리얼: string | null
+  유효일: string | null       // 정규화된 날짜
+  교정기관: string | null
+}
+
 export interface CertResult {
   성적서번호: string | null
   고객명: string | null
@@ -45,6 +54,18 @@ export interface CertResult {
   _llm_provider: string | null
   시트수: number
   시트목록: string[]
+
+  // 갑지 확장 (ISO 10012 소급성/환경/기준기)
+  온도: string | null
+  습도: string | null
+  교정장소: string | null
+  교정방법: string | null
+  기술지원코드: string | null       // "40508" (숫자만)
+  기술지원코드원본: string | null   // "CP801-40508-1"
+  기준기: ReferenceStandard[]
+  교정자: string | null
+  승인자: string | null
+  승인자직위: string | null
 }
 
 interface CertCacheEntry {
