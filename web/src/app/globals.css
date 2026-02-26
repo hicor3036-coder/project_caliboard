@@ -2,54 +2,153 @@
 
 /* ── 인쇄 전용 스타일 (ISO 10012 보고서 PDF 내보내기) ── */
 @media print {
-  /* 사이드바, 버튼, 고정 요소 숨김 */
+  /* ── 1. 사이드바·버튼·고정 요소 숨김 ── */
   nav, aside,
   .no-print,
-  .fixed { display: none !important; }
+  .fixed,
+  .sticky { display: none !important; }
 
-  /* 메인 영역 전체 폭 */
-  main {
+  /* ── 2. 전역 리셋 ── */
+  * {
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    background: white !important;
+    font-size: 9pt;
+    line-height: 1.35;
+    color: black !important;
+  }
+
+  /* ── 3. 최상위 레이아웃 — flex 해제 + 사이드바 공간 제거 ── */
+  body > div,
+  body > div > div {
+    display: block !important;
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
   }
-
-  body {
-    background: white !important;
-    font-size: 10pt;
-    color: black !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
   }
 
-  /* A4 페이지 설정 */
+  /* ── 4. A4 페이지 설정 ── */
   @page {
     size: A4 portrait;
-    margin: 15mm 12mm;
+    margin: 12mm 10mm;
   }
 
-  /* 조항 그룹 헤더 전에 페이지 브레이크 */
+  /* ── 5. 그리드 기본 → 단일 컬럼 강제 (print-grid-N 제외) ── */
+  .grid:not(.print-grid-2):not(.print-grid-3):not(.print-grid-4) {
+    display: block !important;
+  }
+  .grid:not(.print-grid-2):not(.print-grid-3):not(.print-grid-4) > * {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* ── 6. 인쇄 시 멀티 컬럼 유지할 옵트인 클래스 ── */
+  .print-grid-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .print-grid-2 > * {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  .print-grid-3 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 6px !important;
+  }
+  .print-grid-3 > * {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  .print-grid-4 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr 1fr !important;
+    gap: 6px !important;
+  }
+  .print-grid-4 > * {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+
+  /* ── 7. 간격 축소 ── */
+  .space-y-6 > * + * { margin-top: 6px !important; }
+  .space-y-4 > * + * { margin-top: 4px !important; }
+  .gap-6 { gap: 6px !important; }
+  .gap-4 { gap: 4px !important; }
+  .gap-3 { gap: 3px !important; }
+
+  /* ── 8. 카드 패딩 축소 ── */
+  .p-6 { padding: 8px !important; }
+  .p-5 { padding: 6px !important; }
+  .p-4 { padding: 6px !important; }
+  .p-3 { padding: 4px !important; }
+
+  /* ── 9. 라운드/테두리 ── */
+  .rounded-xl { border-radius: 4px !important; }
+  .rounded-lg { border-radius: 3px !important; }
+
+  /* ── 10. 카드 잘림 방지 + 페이지 브레이크 ── */
+  .print-avoid-break { page-break-inside: avoid; }
   .print-break-before { page-break-before: always; }
 
-  /* 카드가 페이지 중간에 잘리지 않도록 */
-  .print-avoid-break { page-break-inside: avoid; }
+  /* ── 11. 차트 — 높이는 건드리지 않고 오버플로우만 관리 ── */
+  /* Recharts ResponsiveContainer는 inline style로 height를 설정하므로
+     CSS로 강제하면 SVG가 사라질 수 있음. 대신 래퍼 카드 높이만 제한 */
 
-  /* 그림자/라운드 제거로 깔끔한 인쇄 */
-  .shadow-sm { box-shadow: none !important; }
-  .rounded-xl { border-radius: 4px !important; }
-
-  /* Recharts SVG 차트 색상 보존 */
+  /* ── 12. SVG 색상 보존 ── */
   svg { print-color-adjust: exact; }
 
-  /* ResponsiveContainer 인쇄 시 크기 보존 */
-  .recharts-responsive-container {
-    width: 100% !important;
-    min-height: 200px;
+  /* ── 13. Placeholder 카드 한 줄 축소 ── */
+  .print-compact-placeholder {
+    padding: 4px 8px !important;
+    border-style: dashed !important;
+  }
+  .print-compact-placeholder .print-hide-in-placeholder {
+    display: none !important;
   }
 
-  /* 인쇄 전용 헤더 표시 */
+  /* ── 14. 텍스트 크기 축소 ── */
+  .text-3xl { font-size: 16pt !important; }
+  .text-2xl { font-size: 12pt !important; }
+  .text-xl { font-size: 11pt !important; }
+  .text-lg { font-size: 10pt !important; }
+  .text-base { font-size: 9pt !important; }
+  .text-sm { font-size: 8pt !important; }
+
+  /* ── 15. 인쇄 전용 요소 ── */
   .print-only { display: block !important; }
+
+  /* ── 16. 인쇄에서 숨길 요소 ── */
+  .print-hidden { display: none !important; }
+
+  /* ── 17. 테이블 인쇄 최적화 ── */
+  table { font-size: 7.5pt !important; }
+  th, td { padding: 2px 4px !important; }
+
+  /* ── 18. 차트 컴포넌트 래퍼 카드 — 자체 패딩/마진 축소 ── */
+  .print-chart-compact {
+    padding: 6px !important;
+  }
+  .print-chart-compact h2 {
+    margin-bottom: 4px !important;
+    font-size: 8pt !important;
+  }
 }
 
 /* 화면에서는 인쇄 전용 요소 숨김 */

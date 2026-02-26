@@ -121,7 +121,7 @@ export function StatusPieChart({ data }: { data: { label: string; value: number 
   }, [labelLayout, unit])
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 print-chart-compact">
       <h2 className="text-sm font-semibold text-slate-700 mb-4">{t.chart.statusDist}</h2>
       <ResponsiveContainer width="100%" height={320}>
         <PieChart margin={{ left: 100, right: 100 }}>
@@ -162,7 +162,7 @@ export function MonthlyBarChart({ data }: { data: { month: string; 건수: numbe
   const unit = t.chart.unit
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 print-chart-compact">
       <h2 className="text-sm font-semibold text-slate-700 mb-4">{t.chart.monthlyTrend}</h2>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={recent} barCategoryGap="20%">

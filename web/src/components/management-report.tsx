@@ -120,7 +120,7 @@ function MiniDonut({ data, colors, centerLabel }: {
   const filtered = data.filter(d => d.value > 0)
   if (filtered.length === 0) return <div className="flex items-center justify-center h-full text-slate-400 text-sm">No Data</div>
   return (
-    <ResponsiveContainer width="100%" height={220}>
+    <ResponsiveContainer width="100%" height={180}>
       <PieChart>
         <Pie
           data={filtered}
@@ -128,8 +128,8 @@ function MiniDonut({ data, colors, centerLabel }: {
           nameKey="name"
           cx="50%"
           cy="50%"
-          innerRadius={50}
-          outerRadius={80}
+          innerRadius={40}
+          outerRadius={65}
           paddingAngle={2}
           strokeWidth={0}
         >
@@ -388,7 +388,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
       </div>
 
       {/* ── 요약 KPI 카드 4개 ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print-grid-4">
         <SummaryCard label={t.report.totalEquip} value={totalEquip.toLocaleString()} color="bg-blue-500" />
         <SummaryCard label={t.report.analyzed} value={analyzed.toLocaleString()} color="bg-indigo-500" sub={`${coveragePct}%`} />
         <SummaryCard label={t.report.passRate} value={passRate} color={passRate === '-' ? 'bg-slate-400' : 'bg-green-500'} />
@@ -400,7 +400,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <ClauseGroup clause="§5" title={t.report.clauseS5}>
         {/* §5.1~5.3 placeholder */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 print-grid-3">
           <PlaceholderCard clause="§5.1" title={t.report.s51Title} requirement={t.report.s51Req} />
           <PlaceholderCard clause="§5.2" title={t.report.s52Title} requirement={t.report.s52Req} />
           <PlaceholderCard clause="§5.3" title={t.report.s53Title} requirement={t.report.s53Req} />
@@ -410,7 +410,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
         <Card>
           <SectionHeader title={t.report.sectionConformity} sub={t.report.sectionConformitySub} requirement={t.report.sectionConformityReq} />
           {hasCertData ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print-grid-2">
               {/* 적합/부적합 도넛 */}
               <div>
                 <p className="text-sm font-medium text-slate-600 mb-2">{t.report.conformityChart}</p>
@@ -419,10 +419,10 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
                   colors={[PASS_COLOR, FAIL_COLOR, NOJUDGE_COLOR]}
                   centerLabel={passRate}
                 />
-                <div className="flex justify-center gap-4 mt-2">
+                <div className="flex justify-center gap-3 mt-1">
                   {conformityChartData.filter(d => d.value > 0).map((d, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: [PASS_COLOR, FAIL_COLOR, NOJUDGE_COLOR][i] }} />
+                    <div key={i} className="flex items-center gap-1 text-[11px] text-slate-600">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: [PASS_COLOR, FAIL_COLOR, NOJUDGE_COLOR][i] }} />
                       {d.name} {d.value}
                     </div>
                   ))}
@@ -434,13 +434,13 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
                 <p className="text-sm font-medium text-slate-600 mb-2">{t.report.guardBandDist}</p>
                 {gbChartData.length > 0 ? (
                   <>
-                    <ResponsiveContainer width="100%" height={220}>
+                    <ResponsiveContainer width="100%" height={100}>
                       <BarChart data={[{ name: 'GB', ...Object.fromEntries(gbChartData.map(d => [d.name, d.value])) }]} layout="vertical" margin={{ left: 0, right: 20 }}>
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="name" hide />
                         <Tooltip content={<ChartTooltip />} />
                         {gbChartData.map((d) => (
-                          <Bar key={d.name} dataKey={d.name} stackId="gb" fill={d.fill} radius={0} barSize={32} />
+                          <Bar key={d.name} dataKey={d.name} stackId="gb" fill={d.fill} radius={0} barSize={28} />
                         ))}
                       </BarChart>
                     </ResponsiveContainer>
@@ -454,7 +454,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center justify-center h-[220px] text-slate-400 text-sm">{t.report.gbNoData}</div>
+                  <div className="flex items-center justify-center h-[100px] text-slate-400 text-sm">{t.report.gbNoData}</div>
                 )}
               </div>
             </div>
@@ -464,7 +464,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
         </Card>
 
         {/* §5.4(b) 시정조치 실제 데이터 + §5.4(d,g) placeholder */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 print-grid-3">
           {/* §5.4(b) 시정/예방조치 — 실제 데이터 */}
           <Card className="!p-4">
             <div className="flex items-start gap-2 mb-3">
@@ -499,15 +499,15 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
         </div>
 
         {/* §5.4(h) 측정 프로세스 성과 */}
-        <Card>
+        <div>
           <SectionHeader title={t.report.sectionPerformance} sub={t.report.sectionPerformanceSub} requirement={t.report.sectionPerformanceReq} />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print-grid-2">
             <MonthlyBarChart data={analysisData.월별접수추이} />
             <StatusPieChart data={analysisData.진행상태분포} />
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4 print-grid-2">
             {/* 차기교정 임박 요약 */}
-            <div className="bg-slate-50 rounded-lg p-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
               <p className="text-sm font-semibold text-slate-700 mb-2">{t.report.upcomingSummary}</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(upcomingByZone).map(([zone, count]) => (
@@ -521,7 +521,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
               </div>
             </div>
             {/* 미처리 현황 요약 */}
-            <div className="bg-slate-50 rounded-lg p-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
               <p className="text-sm font-semibold text-slate-700 mb-2">{t.report.unprocessedSummary}</p>
               <div className="flex items-baseline gap-4">
                 <span className="text-2xl font-bold text-slate-800">{analysisData.summary.미처리건수}</span>
@@ -529,7 +529,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
               </div>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* §5.4(i) 교정기관 품질평가 */}
         <Card>
@@ -586,16 +586,14 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* §6 자원 관리                                     */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="print-break-before">
       <ClauseGroup clause="§6" title={t.report.clauseS6}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print-grid-2">
           <PlaceholderCard clause="§6.1" title={t.report.s61Title} requirement={t.report.s61Req} />
           <PlaceholderCard clause="§6.2" title={t.report.s62Title} requirement={t.report.s62Req} />
           <PlaceholderCard clause="§6.3" title={t.report.s63Title} requirement={t.report.s63Req} />
           <PlaceholderCard clause="§6.4" title={t.report.s64Title} requirement={t.report.s64Req} />
         </div>
       </ClauseGroup>
-      </div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* §7 계량 확인 및 측정 프로세스                      */}
@@ -605,11 +603,11 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
         {/* §7.1 계량 확인 — 장비 식별 + 교정 주기 현황 */}
         <Card>
           <SectionHeader title={`§7.1 ${t.report.s71Title}`} sub={t.report.s71Req} />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print-grid-2">
             {/* 장비 식별 현황 */}
             <div>
               <p className="text-sm font-medium text-slate-600 mb-3">{t.report.s71EquipSummary}</p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-3 print-grid-3">
                 <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-100">
                   <p className="text-2xl font-bold text-blue-700">{totalEquip.toLocaleString()}</p>
                   <p className="text-[11px] text-blue-500 mt-0.5">{t.report.totalEquip}</p>
@@ -643,7 +641,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
         <Card>
           <SectionHeader title={`§7.2 ${t.report.s72Title}`} sub={t.report.s72Req} />
           {hasCertData && traceabilityStats ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 print-grid-2">
               <div className="bg-indigo-50 rounded-lg p-4 text-center border border-indigo-100">
                 <p className="text-3xl font-bold text-indigo-700">{traceabilityStats.refStdCount}</p>
                 <p className="text-xs text-indigo-500 mt-1">{t.report.s72RefStdCount}</p>
@@ -662,18 +660,18 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
         <Card>
           <SectionHeader title={t.report.sectionUncertainty} sub={t.report.sectionUncertaintySub} requirement={t.report.sectionUncertaintyReq} />
           {hasCertData ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print-grid-2">
               {/* U/T 도넛 */}
-              <div>
+              <div className="overflow-hidden">
                 <p className="text-sm font-medium text-slate-600 mb-2">{t.report.utDistribution}</p>
                 <MiniDonut
                   data={utChartData}
                   colors={[UT_COLORS.safe, UT_COLORS.warning, UT_COLORS.danger, UT_COLORS.noData]}
                 />
-                <div className="flex flex-wrap justify-center gap-3 mt-2">
+                <div className="flex flex-wrap justify-center gap-2 mt-1">
                   {utChartData.filter(d => d.value > 0).map((d, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: [UT_COLORS.safe, UT_COLORS.warning, UT_COLORS.danger, UT_COLORS.noData][i] }} />
+                    <div key={i} className="flex items-center gap-1 text-[11px] text-slate-600">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: [UT_COLORS.safe, UT_COLORS.warning, UT_COLORS.danger, UT_COLORS.noData][i] }} />
                       {d.name} {d.value}
                     </div>
                   ))}
@@ -682,7 +680,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
               {/* 위험 등급별 카드 */}
               <div>
                 <p className="text-sm font-medium text-slate-600 mb-2">{t.report.riskLevel}</p>
-                <div className="grid grid-cols-2 gap-3 mt-4">
+                <div className="grid grid-cols-2 gap-3 mt-4 print-grid-2">
                   <RiskCard label={t.report.utSafe} value={reportData!.utRatioDistribution.safe} color="bg-green-50 text-green-700 border-green-200" dot="bg-green-500" />
                   <RiskCard label={t.report.utWarning} value={reportData!.utRatioDistribution.warning} color="bg-amber-50 text-amber-700 border-amber-200" dot="bg-amber-500" />
                   <RiskCard label={t.report.utDanger} value={reportData!.utRatioDistribution.danger} color="bg-red-50 text-red-700 border-red-200" dot="bg-red-500" />
@@ -702,7 +700,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div className="print-break-before">
       <ClauseGroup clause="§8" title={t.report.clauseS8}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print-grid-2">
           <PlaceholderCard clause="§8.1" title={t.report.s81Title} requirement={t.report.s81Req} />
           <PlaceholderCard clause="§8.2" title={t.report.s82Title} requirement={t.report.s82Req} />
         </div>
@@ -711,7 +709,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
         <Card>
           <SectionHeader title={`§8.3 ${t.report.s83Title}`} sub={t.report.s83Req} />
           {/* 격리 장비 + 영향평가 KPI */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4 print-grid-3">
             <div className={`rounded-lg p-3 text-center border ${quarantineCount > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
               <p className={`text-2xl font-bold ${quarantineCount > 0 ? 'text-red-700' : 'text-green-700'}`}>{quarantineCount}</p>
               <p className={`text-[11px] ${quarantineCount > 0 ? 'text-red-500' : 'text-green-500'}`}>{t.report.quarantineCount}</p>
@@ -796,12 +794,12 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
 
 function SummaryCard({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <div className={`inline-block w-2 h-2 rounded-full ${color} mb-2`} />
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-3xl font-bold mt-1">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div className={`inline-block w-2 h-2 rounded-full ${color} mb-1`} />
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-2xl font-bold mt-0.5">
         {value}
-        {sub && <span className="text-sm font-normal text-slate-400 ml-1">{sub}</span>}
+        {sub && <span className="text-xs font-normal text-slate-400 ml-1">{sub}</span>}
       </p>
     </div>
   )
@@ -834,13 +832,13 @@ function EmptyState({ message, desc }: { message: string; desc: string }) {
 function PlaceholderCard({ clause, title, requirement }: { clause: string; title: string; requirement: string }) {
   const { t } = useT()
   return (
-    <div className="bg-slate-50 rounded-lg border border-dashed border-slate-300 p-5">
+    <div className="bg-slate-50 rounded-lg border border-dashed border-slate-300 p-5 print-compact-placeholder">
       <div className="flex items-start gap-3">
         <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-200 text-slate-600 rounded shrink-0 mt-0.5">{clause}</span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-600">{title}</p>
-          <p className="text-xs text-slate-400 mt-1 leading-relaxed">{requirement}</p>
-          <p className="text-[10px] text-slate-300 mt-2 italic">{t.report.comingSoon}</p>
+          <p className="text-xs text-slate-400 mt-1 leading-relaxed print-hide-in-placeholder">{requirement}</p>
+          <p className="text-[10px] text-slate-300 mt-2 italic print-hide-in-placeholder">{t.report.comingSoon}</p>
         </div>
       </div>
     </div>

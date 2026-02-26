@@ -130,6 +130,7 @@ export default function TabTraceability({ certs, certDone, onGoOverview }: Props
             title={t.detail.traceEnvTitle}
             color="text-cyan-500"
             clause="ISO 10012 §7.4 : 환경조건"
+            requirement={t.detail.reqS74}
           />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
             {latestCert.온도 && (
@@ -162,6 +163,7 @@ export default function TabTraceability({ certs, certDone, onGoOverview }: Props
             title="소급성 (Traceability)"
             color="text-violet-500"
             clause="ISO 10012 §7.2 : 소급성"
+            requirement={t.detail.reqS72}
           />
           <div className="space-y-3 mt-3">
             {latestCert.교정방법 && (
@@ -182,6 +184,7 @@ export default function TabTraceability({ certs, certDone, onGoOverview }: Props
             title={t.detail.traceRefStd}
             color="text-emerald-500"
             clause="ISO 10012 §7.2 : 소급성"
+            requirement={t.detail.reqS72}
           />
           <div className="overflow-x-auto mt-3">
             <table className="w-full text-sm">
@@ -219,6 +222,8 @@ export default function TabTraceability({ certs, certDone, onGoOverview }: Props
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />}
             title="교정 인력"
             color="text-slate-400"
+            clause="ISO 10012 §6.1 : 인적 자원"
+            requirement={t.detail.reqS61}
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
             {latestCert.교정자 && (

@@ -292,105 +292,113 @@ export default function TabMeasurement({ conformityTrend, tolerance, mpePercent,
     ]
   }, [conformityTrend, activeQ, hiddenYears, t, showMpe, effectiveMpe, isSingleCert, guardBandMode, hasUncData])
 
-  // 카드 수 계산
-  const cardCount = 4 + (showMpe ? 1 : 0) + (guardBandMode && utStats ? 1 : 0) + (guardBandMode && gbStats ? 1 : 0)
-  const gridCols = cardCount <= 4 ? 'lg:grid-cols-4' : cardCount === 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-6'
-
   return (
     <div className="space-y-6">
-      {/* 요약 카드 */}
-      <div className={`grid gap-3 grid-cols-2 ${gridCols}`}>
-        {/* 종합 안정성 */}
-        <div className={`rounded-xl border px-4 py-3 ${stabilityColor}`}>
-          <p className="text-[11px] font-medium opacity-70 mb-1">{t.detail.stabilityEval}</p>
-          <p className="text-lg font-bold">{stabilityLabel}</p>
-          <p className="text-[11px] opacity-60 mt-0.5">{fmt(t.detail.trendCount, conformityTrend.certCount)}</p>
+      {/* 요약 패널 — 3-그룹 */}
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
+        {/* A. 교정 요약 — 강조 패널 */}
+        <div className={`rounded-xl border-2 p-4 ${stabilityColor}`}>
+          <p className="text-xs font-semibold opacity-70 mb-3">{t.detail.calSummary}</p>
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <p className="text-2xl font-bold">{stabilityLabel}</p>
+              <p className="text-[11px] opacity-60 mt-1">{t.detail.stabilityEval}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-bold text-slate-700">{latestDate || latestYear}</p>
+              <p className="text-[11px] text-slate-400">{fmt(t.detail.trendCount, conformityTrend.certCount)}</p>
+            </div>
+          </div>
         </div>
-        {/* 최신 교정 */}
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-          <p className="text-[11px] font-medium text-slate-400 mb-1">{t.detail.calDate}</p>
-          <p className="text-base font-bold text-slate-700">{latestDate || latestYear}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{fmt(t.detail.trendCount, conformityTrend.certCount)}</p>
+
+        {/* B. 허용오차 판정 */}
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold text-slate-400 mb-3">{t.detail.tolVerdict}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {/* FAIL */}
+            <div className={`rounded-lg px-3 py-2 ${failCount > 0 ? 'bg-red-50 border border-red-200' : 'bg-slate-50'}`}>
+              <p className={`text-[11px] font-medium mb-0.5 ${failCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>{t.detail.verdict} FAIL</p>
+              <p className={`text-lg font-bold ${failCount > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                {failCount > 0 ? fmt('{0}개', failCount) : '없음'}
+              </p>
+            </div>
+            {/* >80% 주의 */}
+            <div className={`rounded-lg px-3 py-2 ${warnCount > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'}`}>
+              <p className={`text-[11px] font-medium mb-0.5 ${warnCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{t.detail.warning} ({'>'}80%)</p>
+              <p className={`text-lg font-bold ${warnCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                {warnCount > 0 ? fmt('{0}개', warnCount) : '없음'}
+              </p>
+            </div>
+          </div>
+          {/* MPE 초과 (조건부) */}
+          {showMpe && mpeStats && (
+            <div className={`mt-2 rounded-lg px-3 py-2 ${mpeStats.exceedCount > 0 ? 'bg-orange-50 border border-orange-200' : 'bg-slate-50'}`}>
+              <div className="flex justify-between items-center">
+                <span className={`text-[11px] font-medium ${mpeStats.exceedCount > 0 ? 'text-orange-600' : 'text-slate-400'}`}>{t.detail.mpeExceed}</span>
+                <span className={`text-sm font-bold ${mpeStats.exceedCount > 0 ? 'text-orange-700' : 'text-slate-400'}`}>
+                  {mpeStats.exceedCount > 0 ? fmt('{0}개', mpeStats.exceedCount) : '없음'}
+                </span>
+              </div>
+              <p className={`text-[10px] mt-0.5 ${mpeStats.exceedCount > 0 ? 'text-orange-400' : 'text-slate-300'}`}>
+                {fmt(t.detail.mpePercent, effectiveMpe)}
+              </p>
+            </div>
+          )}
         </div>
-        {/* FAIL 포인트 */}
-        <div className={`rounded-xl border px-4 py-3 ${failCount > 0 ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-white'}`}>
-          <p className={`text-[11px] font-medium mb-1 ${failCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>{t.detail.verdict} FAIL</p>
-          <p className={`text-lg font-bold ${failCount > 0 ? 'text-red-600' : 'text-slate-400'}`}>
-            {failCount > 0 ? fmt('{0}개 포인트', failCount) : '없음'}
-          </p>
-          <p className={`text-[11px] mt-0.5 ${failCount > 0 ? 'text-red-400' : 'text-slate-300'}`}>{t.detail.mpHeader}</p>
-        </div>
-        {/* 주의 포인트 */}
-        <div className={`rounded-xl border px-4 py-3 ${warnCount > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'}`}>
-          <p className={`text-[11px] font-medium mb-1 ${warnCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{t.detail.warning} ({'>'}80%)</p>
-          <p className={`text-lg font-bold ${warnCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-            {warnCount > 0 ? fmt('{0}개 포인트', warnCount) : '없음'}
-          </p>
-          <p className={`text-[11px] mt-0.5 ${warnCount > 0 ? 'text-amber-400' : 'text-slate-300'}`}>{t.detail.mpHeader}</p>
-        </div>
-        {/* MPE 초과 카드 (100% 미만일 때만 표시) */}
-        {showMpe && mpeStats && (
-          <div className={`rounded-xl border px-4 py-3 ${mpeStats.exceedCount > 0 ? 'border-orange-200 bg-orange-50' : 'border-slate-200 bg-white'}`}>
-            <p className={`text-[11px] font-medium mb-1 ${mpeStats.exceedCount > 0 ? 'text-orange-600' : 'text-slate-400'}`}>{t.detail.mpeExceed}</p>
-            <p className={`text-lg font-bold ${mpeStats.exceedCount > 0 ? 'text-orange-700' : 'text-slate-400'}`}>
-              {mpeStats.exceedCount > 0 ? fmt('{0}개 포인트', mpeStats.exceedCount) : '없음'}
-            </p>
-            <p className={`text-[11px] mt-0.5 ${mpeStats.exceedCount > 0 ? 'text-orange-400' : 'text-slate-300'}`}>
-              {fmt(t.detail.mpePercent, effectiveMpe)}
+
+        {/* C. 불확도 분석 */}
+        {guardBandMode && (utStats || gbStats) ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold text-slate-400 mb-3">{t.detail.uncAnalysis}</p>
+            <div className="space-y-2">
+              {utStats && (
+                <div className={`rounded-lg px-3 py-2 border ${
+                  utStats.avgUt >= 50 ? 'bg-red-50 border-red-200'
+                    : utStats.avgUt > 33 ? 'bg-amber-50 border-amber-200'
+                    : 'bg-emerald-50 border-emerald-200'
+                }`}>
+                  <p className={`text-[11px] font-medium mb-0.5 ${
+                    utStats.avgUt >= 50 ? 'text-red-500' : utStats.avgUt > 33 ? 'text-amber-600' : 'text-emerald-600'
+                  }`} title={t.detail.utHint}>{t.detail.utRatio}</p>
+                  <p className={`text-lg font-bold ${
+                    utStats.avgUt >= 50 ? 'text-red-600' : utStats.avgUt > 33 ? 'text-amber-600' : 'text-emerald-600'
+                  }`}>
+                    {t.detail.utAvg} {utStats.avgUt}%
+                  </p>
+                  <p className={`text-[10px] mt-0.5 ${utStats.cautionCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {utStats.cautionCount > 0 ? fmt(t.detail.utCaution, utStats.cautionCount) : t.detail.utSafe}
+                  </p>
+                </div>
+              )}
+              {gbStats && (
+                <div className={`rounded-lg px-3 py-2 border ${
+                  gbStats.suspectCount > 0 ? 'bg-violet-50 border-violet-200' : 'bg-emerald-50 border-emerald-200'
+                }`}>
+                  <p className={`text-[11px] font-medium mb-0.5 ${
+                    gbStats.suspectCount > 0 ? 'text-violet-600' : 'text-emerald-600'
+                  }`}>{t.detail.guardBand}</p>
+                  <p className={`text-sm font-bold ${
+                    gbStats.nonConformant > 0 ? 'text-red-600'
+                      : gbStats.suspectCount > 0 ? 'text-violet-600'
+                      : 'text-emerald-600'
+                  }`}>
+                    {gbStats.suspectCount > 0
+                      ? fmt(t.detail.gbSuspectCount, gbStats.suspectCount)
+                      : fmt(t.detail.gbConformantCount, gbStats.conformant)}
+                  </p>
+                </div>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2">ISO 10012 §7.3.1 / ILAC-G8</p>
+          </div>
+        ) : !guardBandMode && hasUncData ? (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-4 flex items-center justify-center">
+            <p className="text-xs text-slate-400 text-center">
+              <span className="block mb-1">{t.detail.uncAnalysis}</span>
+              &ldquo;{t.detail.guardBandToggle}&rdquo; {lang === 'ko' ? '활성화 시 표시' : 'shown when enabled'}
             </p>
           </div>
-        )}
-        {/* U/T 비율 카드 (토글 ON + 불확도 데이터 있을 때만) */}
-        {guardBandMode && utStats && (
-          <div className={`rounded-xl border px-4 py-3 ${
-            utStats.cautionCount > 0
-              ? utStats.avgUt >= 50 ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'
-              : 'border-emerald-200 bg-emerald-50'
-          }`}>
-            <p className={`text-[11px] font-medium mb-1 ${
-              utStats.cautionCount > 0
-                ? utStats.avgUt >= 50 ? 'text-red-500' : 'text-amber-600'
-                : 'text-emerald-600'
-            }`} title={t.detail.utHint}>{t.detail.utRatio}</p>
-            <p className={`text-lg font-bold ${
-              utStats.avgUt >= 50 ? 'text-red-600'
-                : utStats.avgUt > 33 ? 'text-amber-600'
-                : 'text-emerald-600'
-            }`}>
-              {t.detail.utAvg} {utStats.avgUt}%
-            </p>
-            <p className={`text-[11px] mt-0.5 ${utStats.cautionCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {utStats.cautionCount > 0
-                ? fmt(t.detail.utCaution, utStats.cautionCount)
-                : t.detail.utSafe}
-            </p>
-            <p className="text-[10px] mt-1.5 text-slate-400">{t.detail.utCardRef}</p>
-          </div>
-        )}
-        {/* Guard Band 카드 (토글 ON + Guard Band 데이터 있을 때만) */}
-        {guardBandMode && gbStats && (
-          <div className={`rounded-xl border px-4 py-3 ${
-            gbStats.suspectCount > 0
-              ? 'border-violet-200 bg-violet-50'
-              : 'border-emerald-200 bg-emerald-50'
-          }`}>
-            <p className={`text-[11px] font-medium mb-1 ${
-              gbStats.suspectCount > 0 ? 'text-violet-600' : 'text-emerald-600'
-            }`}>{t.detail.guardBand}</p>
-            <p className={`text-lg font-bold ${
-              gbStats.nonConformant > 0 ? 'text-red-600'
-                : gbStats.suspectCount > 0 ? 'text-violet-600'
-                : 'text-emerald-600'
-            }`}>
-              {gbStats.suspectCount > 0
-                ? fmt(t.detail.gbSuspectCount, gbStats.suspectCount)
-                : fmt(t.detail.gbConformantCount, gbStats.conformant)}
-            </p>
-            <p className={`text-[11px] mt-0.5 ${gbStats.suspectCount > 0 ? 'text-violet-400' : 'text-emerald-400'}`}>
-              ISO 10012 §7.3.1 / ILAC-G8
-            </p>
-          </div>
-        )}
+        ) : null}
       </div>
 
       {/* 트렌드 차트 */}
@@ -407,6 +415,7 @@ export default function TabMeasurement({ conformityTrend, tolerance, mpePercent,
               <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §7.3 : 검증</span>
             </div>
             <span className="text-xs text-slate-400 tracking-wide">{t.detail.trendSub}</span>
+            <span className="text-[11px] text-slate-400">{t.detail.reqS73}</span>
           </div>
           <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200">
             {fmt(t.detail.trendCount, conformityTrend.certCount)}

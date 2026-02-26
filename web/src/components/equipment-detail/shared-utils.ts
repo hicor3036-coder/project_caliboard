@@ -140,12 +140,32 @@ export function inferQuantityFromUnit(unit: string | null): string | null {
   return null
 }
 
+/** 대소문자·하이픈·공백 차이를 모두 무시하여 같은 물리량을 하나로 묶는 정규화 */
+function normalizeQuantity(q: string | null): string | null {
+  if (!q) return null
+  return q.replace(/[-_\s]+/g, '').toLowerCase()
+  // "Torque Counter-Clockwise" → "torquecounterclockwise"
+  // "Torque Counterclockwise"  → "torquecounterclockwise"  ← 동일
+}
+
+/** 정규화 키 → 표시용 원본 라벨 (첫 등장 값 유지) */
+const _qDisplayCache = new Map<string, string>()
+function quantityDisplayName(raw: string): string {
+  const key = normalizeQuantity(raw) ?? raw
+  if (!_qDisplayCache.has(key)) _qDisplayCache.set(key, raw)
+  return _qDisplayCache.get(key)!
+}
+
+function resolveQuantityKey(mp: MeasurementPoint): string {
+  const raw = mp.물리량 ?? inferQuantityFromUnit(mp.기준단위 || mp.오차단위 || mp.지시단위 || null)
+  if (raw) quantityDisplayName(raw) // 표시용 캐시 등록
+  return normalizeQuantity(raw) || '전체'
+}
+
 export function groupByQuantity(measurements: MeasurementPoint[]): Map<string, MeasurementPoint[]> {
   const groups = new Map<string, MeasurementPoint[]>()
   for (const mp of measurements) {
-    let key = mp.물리량 ?? null
-    if (!key) key = inferQuantityFromUnit(mp.기준단위 || mp.오차단위 || mp.지시단위 || null)
-    const groupName = key || '전체'
+    const groupName = resolveQuantityKey(mp)
     if (!groups.has(groupName)) groups.set(groupName, [])
     groups.get(groupName)!.push(mp)
   }
@@ -153,15 +173,16 @@ export function groupByQuantity(measurements: MeasurementPoint[]): Map<string, M
 }
 
 const QUANTITY_LABELS_KO: Record<string, string> = {
-  Temperature: '온도', Humidity: '습도', Pressure: '압력',
-  Vibration: '진동', Frequency: '주파수', 'Sound Level': '소음',
-  Voltage: '전압', Current: '전류', Resistance: '저항',
+  temperature: '온도', humidity: '습도', pressure: '압력',
+  vibration: '진동', frequency: '주파수', soundlevel: '소음',
+  voltage: '전압', current: '전류', resistance: '저항',
 }
 
 export function quantityLabel(q: string, lang: Lang, allLabel: string): string {
   if (q === '전체') return allLabel
-  if (lang === 'ko') return QUANTITY_LABELS_KO[q] || q
-  return q
+  if (lang === 'ko') return QUANTITY_LABELS_KO[q] || _qDisplayCache.get(q) || q
+  // 영문: 원본 라벨 (Title Case 유지) 반환
+  return _qDisplayCache.get(q) || q
 }
 
 // ──────────────────────────── 트렌드 평가 ────────────────────────────
@@ -464,10 +485,7 @@ export function computeConformityTrend(
 
   const byQuantity = new Map<string, TrendData>()
   for (const q of quantityKeys) {
-    const trend = buildTrendForMeasurements((mp) => {
-      const qKey = mp.물리량 ?? inferQuantityFromUnit(mp.기준단위 || mp.오차단위 || mp.지시단위 || null) ?? '전체'
-      return qKey === q
-    })
+    const trend = buildTrendForMeasurements((mp) => resolveQuantityKey(mp) === q)
     if (trend) byQuantity.set(q, trend)
   }
 

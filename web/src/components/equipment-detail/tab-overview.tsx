@@ -279,6 +279,7 @@ export default function TabOverview({
               title={t.detail.equipmentInfo}
               color="text-slate-400"
               clause="ISO 10012 §7.1 : 계량 요구사항"
+              requirement={t.detail.reqS71}
             />
             <div className="space-y-2.5">
               {/* 장비 상태 (§8.3 부적합 관리) */}
@@ -442,6 +443,7 @@ export default function TabOverview({
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §7.1 : 계량 요구사항</span>
               </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS71}</p>
             </div>
           </div>
           <button
@@ -551,9 +553,12 @@ export default function TabOverview({
       {timelineData.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-slate-700">{t.detail.calTimeline}</h3>
-              <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §8 : 기록관리</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-700">{t.detail.calTimeline}</h3>
+                <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §8 : 기록관리</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS8}</p>
             </div>
             <button
               onClick={() => setHistoryTableOpen(v => !v)}

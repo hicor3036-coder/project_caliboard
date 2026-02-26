@@ -18,6 +18,8 @@ export interface ReportData {
   calibrationLabStats: {
     name: string
     certCount: number
+    passRate: number    // 적합률 (%)
+    avgUtRatio: number  // 평균 U/T 비율 (%)
   }[]
   utRatioDistribution: {
     safe: number
@@ -45,8 +47,8 @@ export async function GET() {
   // Guard Band 집계 (측정포인트 단위)
   const gb = { conformant: 0, conditionalPass: 0, conditionalFail: 0, nonConformant: 0, noData: 0 }
 
-  // 교정기관 집계
-  const labMap = new Map<string, number>()
+  // 교정기관 집계 (적합률 + U/T 비율 포함)
+  const labMap = new Map<string, { certCount: number; passCount: number; utRatios: number[] }>()
 
   // U/T 비율 분포 (측정포인트 단위)
   const ut = { safe: 0, warning: 0, danger: 0, noData: 0 }
@@ -60,11 +62,13 @@ export async function GET() {
     else if (cert.전체판정 === 'FAIL') failCount++
     else noJudgment++
 
-    // 교정기관 (기준기에서 추출)
-    for (const ref of cert.기준기 ?? []) {
-      if (ref.교정기관) {
-        labMap.set(ref.교정기관, (labMap.get(ref.교정기관) ?? 0) + 1)
-      }
+    // 교정기관 (교정장소 또는 기준기에서 추출)
+    const labName = cert.교정장소 || (cert.기준기?.[0]?.교정기관) || null
+    if (labName) {
+      const entry = labMap.get(labName) || { certCount: 0, passCount: 0, utRatios: [] }
+      entry.certCount++
+      if (cert.전체판정 === 'PASS') entry.passCount++
+      labMap.set(labName, entry)
     }
 
     // 측정포인트별 불확도/Guard Band 분석
@@ -79,6 +83,11 @@ export async function GET() {
         if (utRatio <= 33) ut.safe++
         else if (utRatio <= 50) ut.warning++
         else ut.danger++
+        // 기관별 U/T 수집
+        if (labName) {
+          const entry = labMap.get(labName)
+          if (entry) entry.utRatios.push(utRatio)
+        }
       } else {
         ut.noData++
       }
@@ -127,9 +136,16 @@ export async function GET() {
     }
   }
 
-  // 교정기관 정렬 (건수 내림차순)
+  // 교정기관 정렬 (건수 내림차순) + 적합률/평균U/T 계산
   const calibrationLabStats = Array.from(labMap.entries())
-    .map(([name, certCount]) => ({ name, certCount }))
+    .map(([name, entry]) => ({
+      name,
+      certCount: entry.certCount,
+      passRate: entry.certCount > 0 ? Math.round((entry.passCount / entry.certCount) * 100) : 0,
+      avgUtRatio: entry.utRatios.length > 0
+        ? Math.round(entry.utRatios.reduce((s, v) => s + v, 0) / entry.utRatios.length * 10) / 10
+        : 0,
+    }))
     .sort((a, b) => b.certCount - a.certCount)
 
   const data: ReportData = {

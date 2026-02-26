@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import DataTable, { type Column } from './data-table'
 import { useT } from '@/lib/i18n'
+import { loadEquipStatus, type EquipStatusValue } from './equipment-detail/tab-overview'
 
 // === 타입 ===
 
@@ -114,6 +115,22 @@ function useColumns() {
         return (
           <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${color}`}>
             {s || '-'}
+          </span>
+        )
+      },
+    },
+    {
+      key: 'equipStatus', header: t.detail.equipStatus,
+      render: i => {
+        const rec = loadEquipStatus(i.groupNm)
+        const s: EquipStatusValue = rec?.status ?? 'in-service'
+        if (s === 'in-service') return null // 사용중은 표시 안함 (기본값)
+        const cfg = s === 'quarantine'
+          ? { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', label: t.detail.statusQuarantine }
+          : { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-300', label: t.detail.statusOutOfService }
+        return (
+          <span className={`inline-block px-1.5 py-0.5 rounded-full text-[11px] font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+            {cfg.label}
           </span>
         )
       },

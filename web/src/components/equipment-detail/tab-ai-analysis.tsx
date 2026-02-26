@@ -56,7 +56,10 @@ export default function TabAiAnalysis({ conformityTrend, info, equipmentName }: 
               : 'border-transparent text-slate-400 hover:text-slate-600'
           }`}
         >{t.detail.aiInstructionTab}</button>
-        <span className="ml-auto mb-3 px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §5 : 관리책임</span>
+        <div className="ml-auto mb-3 text-right">
+          <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §5 : 관리책임</span>
+          <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS5}</p>
+        </div>
       </div>
 
       {/* 서브탭 콘텐츠 */}
