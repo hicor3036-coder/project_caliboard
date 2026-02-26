@@ -10,6 +10,7 @@ import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/component
 import EquipmentSearch from '@/components/equipment-search'
 import EquipmentDetailPage from '@/components/equipment-detail-page'
 import EquipmentProfiles from '@/components/equipment-profiles'
+import ManagementReport from '@/components/management-report'
 import { useT, fmt } from '@/lib/i18n'
 
 interface EquipmentItem {
@@ -61,7 +62,7 @@ interface Progress {
 }
 
 // URL ↔ 상태 동기화 헬퍼
-const VALID_VIEWS: ViewType[] = ['home', 'search', 'unprocessed', 'upcoming', 'profiles']
+const VALID_VIEWS: ViewType[] = ['home', 'search', 'unprocessed', 'upcoming', 'profiles', 'report']
 
 function viewFromParams(params: URLSearchParams): { view: ViewType; equipment: { groupNm: string; equipmentName: string } | null } {
   const v = params.get('view')
@@ -311,6 +312,8 @@ function Dashboard() {
         return <UpcomingCalibration data={data.차기교정임박} onOpenDetail={openEquipmentDetail} />
       case 'search':
         return <EquipmentSearch items={data.전체장비} onOpenDetail={openEquipmentDetail} />
+      case 'report':
+        return <ManagementReport analysisData={data} onOpenDetail={openEquipmentDetail} />
       case 'equipment-detail':
         if (selectedEquipment) {
           return (

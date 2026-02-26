@@ -11,6 +11,7 @@ export function fmtDate(d: string | null | undefined): string {
 export interface Column<T> {
   key: string
   header: string
+  headerTitle?: string
   align?: 'left' | 'center' | 'right'
   headerClassName?: string
   minWidth?: number
@@ -179,6 +180,7 @@ export default function DataTable<T>({ columns, data, rowKey, defaultSort, defau
                 return (
                   <th
                     key={col.key}
+                    title={col.headerTitle}
                     onClick={sortable ? () => handleSort(col) : undefined}
                     className={`relative py-2.5 px-2 whitespace-nowrap text-xs font-bold uppercase tracking-wide ${
                       i < columns.length - 1 ? 'pr-3' : ''

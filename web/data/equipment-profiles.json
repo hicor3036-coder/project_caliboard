@@ -5682,10 +5682,11 @@
       "units": null,
       "overload_limit": null,
       "manual_tolerance": {
-        "value": 1,
+        "value": 0.5,
         "unit": "",
         "type": "percentage",
-        "note": null
+        "note": null,
+        "basis": null
       }
     },
     "environment": {
@@ -5726,5 +5727,185 @@
       "manual_url": null
     },
     "updated_at": "2026-02-24"
+  },
+  {
+    "manufacturer": "NORBAR",
+    "model": "50625.LOG",
+    "category": null,
+    "source": "manual_input",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "manual_tolerance": {
+        "value": 100,
+        "unit": "",
+        "type": "percentage",
+        "note": null,
+        "basis": null
+      }
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-24"
+  },
+  {
+    "manufacturer": "NORBAR",
+    "model": "50625.LOG",
+    "category": null,
+    "source": "manual_input",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "manual_tolerance": null,
+      "tolerance": {
+        "value": 0.5,
+        "unit": "%",
+        "note": null
+      },
+      "mpe_percent": 100
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-24"
+  },
+  {
+    "manufacturer": "SNAP-ON",
+    "model": "QD1R200",
+    "category": null,
+    "source": "manual_input",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "manual_tolerance": null,
+      "tolerance": {
+        "value": 0.5,
+        "unit": "%",
+        "note": null
+      },
+      "mpe_percent": 100
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-25"
   }
 ]

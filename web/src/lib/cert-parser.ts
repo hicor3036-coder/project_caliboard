@@ -379,18 +379,33 @@ function parseCover(wb: Workbook): CoverParseResult {
   delete info['_approverCol']; delete info['_approverRow']
 
   // ─── 소급성: 교정방법 + 기술지원코드 (Row 20~28) ───
-  const traceTexts: string[] = []
-  for (const [key, val] of sortedEntries) {
-    const [r] = key.split(',').map(Number)
-    if (r >= 20 && r <= 28) {
-      if (val.includes('CP801') || val.includes('교정업무기준') || val.includes('calibration work standard') ||
-          val.includes('calibrated as per') || val.includes('에 따라')) {
-        traceTexts.push(val)
-      }
+  // PDF→Excel 변환 시 셀 병합 해제로 같은 텍스트가 12개 열에 복사됨.
+  // 또한 긴 문장이 행 단위로 잘림 (Row 23: 본문 앞부분, Row 24: 나머지).
+  // → 각 행에서 C1만 대표로 취하고, 연속 행을 이어붙여 완전한 문장 복원.
+  const traceRows: { row: number; text: string }[] = []
+  const traceKeywords = ['CP801', '교정업무기준', 'calibration work standard', 'calibrated as per', '에 따라']
+  for (let r = 20; r <= 28; r++) {
+    const t = getCell(r, 1).replace(/\s+/g, ' ').trim()
+    if (t && traceKeywords.some(kw => t.includes(kw))) {
+      traceRows.push({ row: r, text: t })
     }
   }
-  if (traceTexts.length > 0) {
-    info['교정방법'] = traceTexts.join(' ')
+  // 키워드 매칭된 행의 뒤 행이 잘린 나머지인지 확인 (키워드 없지만 연속 행)
+  if (traceRows.length > 0) {
+    const lastMatchRow = traceRows[traceRows.length - 1].row
+    for (let r = lastMatchRow + 1; r <= 28; r++) {
+      const t = getCell(r, 1).replace(/\s+/g, ' ').trim()
+      // 짧은 텍스트 + 라벨/헤더가 아님 → 잘린 나머지로 판단
+      if (t && t.length < 60 && !t.includes('List of') && !t.includes('교정에 사용한') &&
+          !t.includes('Description') && !t.includes('Manufacturer') && !t.includes('기기명')) {
+        traceRows.push({ row: r, text: t })
+      } else break
+    }
+  }
+  if (traceRows.length > 0) {
+    // 행들을 직접 이어붙임 (PDF 행 분할로 단어/어절 중간에서 잘림)
+    const combined = traceRows.map(r => r.text).join('')
+    info['교정방법'] = combined
     // 기술지원코드: (CP801-40508-1) → 전체 + 숫자만
     const cpMatch = info['교정방법'].match(/\(?(CP801-(\d+)-\d+)\)?/)
     if (cpMatch) {
@@ -1009,6 +1024,7 @@ export async function parseCertExcel(buffer: Buffer | Uint8Array): Promise<CertR
     교정자: null,
     승인자: null,
     승인자직위: null,
+    을지파싱: false,
   }
 
   // 갑지 파싱

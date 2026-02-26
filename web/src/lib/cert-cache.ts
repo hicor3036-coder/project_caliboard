@@ -22,6 +22,11 @@ export interface MeasurementPoint {
 
   // 물리량 그룹 (복수 물리량 장비용, 예: "Temperature", "Humidity")
   물리량?: string | null
+
+  // 측정불확도 (을지에서 추출, ISO 10012 §7.3.1)
+  불확도?: string | null           // 확장불확도 U 값 (k=2)
+  불확도단위?: string | null       // "mT", "%"
+  불확도k?: number | null          // 포함인자 k (보통 2)
 }
 
 // 기준기 (Reference Standard) 1건
@@ -66,6 +71,9 @@ export interface CertResult {
   교정자: string | null
   승인자: string | null
   승인자직위: string | null
+
+  // 을지 불확도 파싱 여부
+  을지파싱: boolean
 }
 
 interface CertCacheEntry {
@@ -99,6 +107,15 @@ export function getCertBulk(acptNos: string[]): Map<string, CertResult> {
   for (const no of acptNos) {
     const entry = global.certCache?.get(no)
     if (entry) map.set(no, entry.result)
+  }
+  return map
+}
+
+export function getAllCachedCerts(): Map<string, CertResult> {
+  const map = new Map<string, CertResult>()
+  if (!global.certCache) return map
+  for (const [acptNo, entry] of global.certCache) {
+    map.set(acptNo, entry.result)
   }
   return map
 }

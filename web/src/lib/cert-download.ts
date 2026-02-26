@@ -485,7 +485,10 @@ Return JSON:
       "errUnit": "%",
       "tolerance": "4",
       "tolUnit": "%",
-      "result": "PASS"
+      "result": "PASS",
+      "uncertainty": null,
+      "uncUnit": null,
+      "uncK": null
     }
   ],
   "overall": "PASS"
@@ -572,8 +575,15 @@ CRITICAL RULES:
 8. quantity: Physical quantity in English (Temperature, Humidity, Pressure, Torque, Length, etc.).
    Infer from section headers or unit patterns. Use section labels for disambiguation (e.g., "Torque Clockwise").
 
-9. Numbers MUST be strings. null for truly missing values.
+9. Numbers MUST be strings (except uncK which is a number). null for truly missing values.
 10. overall: "PASS" only if ALL measurement points passed.
+
+11. UNCERTAINTY — If the table has a measurement uncertainty column, extract it.
+   Common headers: "Measurement uncertainty", "불확도", "U(k=2)".
+   - uncertainty: expanded uncertainty value U (string). null if no column exists.
+   - uncUnit: unit of uncertainty. null if no column exists.
+   - uncK: coverage factor k (number). Default 2. null if no column exists.
+   Most conformity review sheets do NOT have uncertainty — set all three to null in that case.
 
 EXAMPLES:
 
@@ -703,7 +713,10 @@ Return JSON:
       "errUnit": "%",
       "tolerance": null,
       "tolUnit": null,
-      "result": null
+      "result": null,
+      "uncertainty": "0.86",
+      "uncUnit": "%",
+      "uncK": 2
     }
   ],
   "overall": null
@@ -718,7 +731,7 @@ RULES:
    - Indication/Measured value (지시값/Indication/Measured/DUT) → indicated
    - Multiple error columns may exist (Reproducibility, Interpolation, Zero, Reversibility, etc.)
    - Use the FIRST error column (usually "Relative error" or "Reproducibility") as the primary error → error
-   - Uncertainty column → ignore (not error)
+   - Uncertainty column → extract as uncertainty (NOT error). See rule 10.
    - Class/Grade → ignore
 
 2. SECTION LABELS — Look for "Clockwise", "Counterclockwise", "CW", "CCW",
@@ -743,12 +756,21 @@ RULES:
    INVALID SECTIONS: If a section contains "#DIV/0!", all-zero reference values, or other Excel error values,
    skip that ENTIRE section — the instrument was outside its output range for that direction.
 
-8. Numbers MUST be strings. null for missing values.
+8. Numbers MUST be strings. null for missing values (uncK is a number, not string).
 9. overall: null (no conformity judgment in calibration results).
+
+10. UNCERTAINTY — Extract measurement uncertainty from the uncertainty column.
+   Common headers: "Measurement uncertainty", "Rel. meas. uncertainty", "Measurement Uncertainty(%)",
+   "불확도", "U(k=2)", "Uncertainty". This is separate from error columns.
+   - uncertainty: the expanded uncertainty value U (string). Extract the number only.
+   - uncUnit: unit of uncertainty (e.g., "%", "mT", "°C"). If header says "(k = 2)" with unit in parentheses, extract the unit.
+   - uncK: coverage factor k (number). Look for "(k = 2)", "(k=2)", "Confidence level approximately 95 %, k = 2" etc. Default to 2 if not explicitly stated.
+   - If NO uncertainty column exists, set all three to null.
+   - Do NOT confuse uncertainty with error. They are different columns.
 
 EXAMPLES:
 
-Example 1 — Torque measuring device (Increasing/Decreasing):
+Example 1 — Torque measuring device (Increasing/Decreasing, with Uncertainty):
 Input rows include:
   Reference | | | Relative | Reproducibility | Zero | Reversibility
   Torque | Increasing | Decreasing | Measurement | error | error | error | error | Class
@@ -756,19 +778,36 @@ Input rows include:
   (N·m)
   0.0 | 0.000 0 | 0.000 1 | - | - | - | - | - | -
   0.1 | 0.101 2 | 0.101 4 | 0.86 | 0.69 | 0.36 | 0.02 | 0.20 | 1
-→ ref=0.1, refUnit="N·m", indicated=0.1012, indUnit="N·m", error=0.69, errUnit="%"
-Note: Use Increasing indication. First error column (Relative error = 0.69). Skip 0.0 row.
+→ ref=0.1, refUnit="N·m", indicated=0.1012, indUnit="N·m", error=0.69, errUnit="%",
+  uncertainty=0.86, uncUnit="%", uncK=2
+Note: Use Increasing indication. First error column (Relative error = 0.69).
+  "Measurement Uncertainty(%)" column → uncertainty. Skip 0.0 row.
 
-Example 2 — Torque wrench (1 Run / 2 Run / 3 Run / Average):
+Example 2 — Torque wrench (1 Run / 2 Run / 3 Run / Average, with Uncertainty):
 Input rows include:
-  Indicated | Indicated Value of the Reference | | | | Relative Accuracy
-  Torque | Torque Calibrator | | | | Error
-  (N·cm) | 1 Run | 2 Run | 3 Run | Average | (%)
-  0 | 0 | 0 | 0 | 0 | -
-  2 260 | 2 229 | 2 228 | 2 229 | 2 229 | 1.4
-  4 519 | 4 464 | 4 478 | 4 482 | 4 475 | 1.0
-→ ref=2229 (Average column), refUnit="N·cm", indicated=2260, indUnit="N·cm", error=1.4, errUnit="%"
-Note: Use Average column for ref (it's the reference calibrator average). Indicated Torque = DUT reading. Skip 0 row.`
+  Indicated | Indicated Value of the Reference | | | | Relative | Relative Measurement
+  Torque | Torque Calibrator | | | | Accuracy Error | Uncertainty
+  (N·cm) | 1 Run | 2 Run | 3 Run | Average | (%) | (%)
+  0 | 0 | 0 | 0 | 0 | - | -
+  452 | 443 | 441 | 442 | 442 | 2.3 | 1.0
+  904 | 891 | 893 | 894 | 893 | 1.3 | 0.7
+  2 260 | 2 229 | 2 228 | 2 229 | 2 229 | 1.4 | 0.5
+→ ref=442 (Average column), refUnit="N·cm", indicated=452, indUnit="N·cm", error=2.3, errUnit="%",
+  uncertainty=1.0, uncUnit="%", uncK=2
+Note: Use Average column for ref (reference calibrator average). Indicated Torque = DUT reading. Skip 0 row.
+  "Relative Measurement Uncertainty (%)" column → uncertainty. Extract EACH row's uncertainty value.
+
+Example 3 — Tesla Meter (with Measurement uncertainty column):
+Input rows include:
+  Range | Reference Value | Indication | Deviation | Measurement uncertainty
+  (mT) | (mT) | (mT) | (mT) | (mT)
+  | | | | (Confidence level approximately 95 %, k = 2)
+  30 mT | +16.00 | +16.10 | 0.10 | 0.10
+  30 mT | -16.00 | -16.10 | -0.10 | 0.10
+  30 mT | +8.00 | +8.08 | 0.08 | 0.09
+→ ref=16.00, refUnit="mT", indicated=16.10, indUnit="mT", error=0.10, errUnit="mT",
+  uncertainty=0.10, uncUnit="mT", uncK=2, quantity="Magnetic Flux Density"
+Note: Deviation column = error (absolute). "Measurement uncertainty" → uncertainty. k=2 from header.`
 
 interface LlmConformityResult {
   equipment: {
@@ -790,6 +829,9 @@ interface LlmConformityResult {
     tolerance?: string | null
     tolUnit?: string | null
     result?: string | null
+    uncertainty?: string | null
+    uncUnit?: string | null
+    uncK?: number | null
   }>
   overall?: string | null
 }
@@ -827,7 +869,7 @@ async function llmParseCalibrationResults(
     const parsed = parseLlmJson<LlmConformityResult>(content)
     const sample = parsed.measurements?.[0]
     if (sample) {
-      console.log(`[pool] 을지 → ${model} ${(elapsed / 1000).toFixed(1)}s | 샘플: ref=${sample.ref} ind=${sample.indicated} err=${sample.error}(${sample.errUnit}) tol=${sample.tolerance}(${sample.tolUnit})`)
+      console.log(`[pool] 을지 → ${model} ${(elapsed / 1000).toFixed(1)}s | 샘플: ref=${sample.ref} ind=${sample.indicated} err=${sample.error}(${sample.errUnit}) tol=${sample.tolerance}(${sample.tolUnit}) U=${sample.uncertainty}(${sample.uncUnit})`)
     } else {
       console.log(`[pool] 을지 → ${model} ${(elapsed / 1000).toFixed(1)}s | 측정포인트 0개`)
     }
@@ -835,6 +877,91 @@ async function llmParseCalibrationResults(
   } catch (err) {
     console.error('[pool] 을지 실패:', err instanceof Error ? err.message : err)
     return null
+  }
+}
+
+// 을지 불확도 → 적합성검토서 측정포인트에 병합
+// 3단계 매칭: 1) 기준값 정확매칭 2) 지시값 매칭 3) 인덱스 순서 매칭
+function mergeUncertainty(
+  confPoints: MeasurementPoint[],
+  calPoints: MeasurementPoint[],
+): void {
+  const normalizeNum = (v: string | null | undefined): string => {
+    if (!v) return ''
+    return String(parseFloat(v.replace(/[±<>+\s]/g, '').replace(',', '')))
+  }
+
+  // 을지에서 불확도 있는 포인트만 추출
+  const calWithUnc = calPoints.filter(c => c.불확도)
+  if (calWithUnc.length === 0) return
+
+  const usedCalIdx = new Set<number>()
+
+  // Pass 1: 기준값 + 물리량 정확 매칭
+  for (const conf of confPoints) {
+    if (conf.불확도) continue
+    const confRef = normalizeNum(conf.기준값)
+    if (!confRef) continue
+    const idx = calWithUnc.findIndex((cal, i) =>
+      !usedCalIdx.has(i) &&
+      normalizeNum(cal.기준값) === confRef &&
+      (cal.물리량 || '') === (conf.물리량 || ''),
+    )
+    if (idx >= 0) {
+      conf.불확도 = calWithUnc[idx].불확도
+      conf.불확도단위 = calWithUnc[idx].불확도단위
+      conf.불확도k = calWithUnc[idx].불확도k
+      usedCalIdx.add(idx)
+    }
+  }
+
+  // Pass 2: 지시값 매칭 (을지 indicated ↔ 적합성검토서 indicated 또는 ref)
+  for (const conf of confPoints) {
+    if (conf.불확도) continue
+    const confInd = normalizeNum(conf.지시값)
+    const confRef = normalizeNum(conf.기준값)
+    if (!confInd && !confRef) continue
+    const idx = calWithUnc.findIndex((cal, i) => {
+      if (usedCalIdx.has(i)) return false
+      if ((cal.물리량 || '') !== (conf.물리량 || '')) return false
+      const calInd = normalizeNum(cal.지시값)
+      const calRef = normalizeNum(cal.기준값)
+      // 을지 지시값 = 적합성검토서 지시값 or 기준값
+      return (confInd && calInd && calInd === confInd) ||
+             (confInd && calRef && calRef === confInd) ||
+             (confRef && calInd && calInd === confRef)
+    })
+    if (idx >= 0) {
+      conf.불확도 = calWithUnc[idx].불확도
+      conf.불확도단위 = calWithUnc[idx].불확도단위
+      conf.불확도k = calWithUnc[idx].불확도k
+      usedCalIdx.add(idx)
+    }
+  }
+
+  // Pass 3: 같은 물리량 내 인덱스 순서 매칭 (아직 매칭 안 된 것)
+  const quantityGroups = new Map<string, { confIdx: number[]; calIdx: number[] }>()
+  confPoints.forEach((conf, ci) => {
+    if (conf.불확도) return
+    const q = conf.물리량 || ''
+    if (!quantityGroups.has(q)) quantityGroups.set(q, { confIdx: [], calIdx: [] })
+    quantityGroups.get(q)!.confIdx.push(ci)
+  })
+  calWithUnc.forEach((cal, ci) => {
+    if (usedCalIdx.has(ci)) return
+    const q = cal.물리량 || ''
+    if (!quantityGroups.has(q)) quantityGroups.set(q, { confIdx: [], calIdx: [] })
+    quantityGroups.get(q)!.calIdx.push(ci)
+  })
+  for (const { confIdx, calIdx } of quantityGroups.values()) {
+    const len = Math.min(confIdx.length, calIdx.length)
+    for (let i = 0; i < len; i++) {
+      const conf = confPoints[confIdx[i]]
+      const cal = calWithUnc[calIdx[i]]
+      conf.불확도 = cal.불확도
+      conf.불확도단위 = cal.불확도단위
+      conf.불확도k = cal.불확도k
+    }
   }
 }
 
@@ -860,6 +987,10 @@ function conformityResultToMeasurements(
     허용오차: m.tolerance ?? null,
     허용오차단위: m.tolUnit ?? null,
     물리량: m.quantity ?? null,
+    // 측정불확도 (ISO 10012 §7.3.1)
+    불확도: m.uncertainty ?? null,
+    불확도단위: m.uncUnit ?? null,
+    불확도k: m.uncK ?? null,
   }))
 }
 
@@ -892,80 +1023,83 @@ export async function llmEnhanceCert(
   let { result } = dl
   const { buffer } = dl
 
-  // 1. 적합성검토서가 있으면 LLM 구조화 파싱 시도
-  if (result.적합성검토) {
-    try {
-      const ExcelJS = (await import('exceljs')).default
-      const wb = new ExcelJS.Workbook()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await wb.xlsx.load(buffer as any)
-      const confWs = findConformitySheet(wb)
-      if (confWs) {
-        const text = conformityToStructuredText(confWs)
-        const llmConf = await llmParseConformity(text)
-        if (llmConf) {
-          const { result: confResult, provider } = llmConf
-          const measurements = conformityResultToMeasurements(confResult)
-          if (measurements.length > 0) {
-            result.측정결과 = measurements
-            result.측정포인트수 = measurements.length
-            result.전체판정 = measurements.every(m => m.판정 === 'PASS') ? 'PASS' : 'FAIL'
-          }
-          const eq = confResult.equipment
-          if (eq) {
-            if (!result.제조사 && eq.manufacturer) result.제조사 = eq.manufacturer
-            if (!result.모델 && eq.model) result.모델 = eq.model
-            if (!result.시리얼 && eq.serial) result.시리얼 = eq.serial
-            if (!result.성적서번호 && eq.certNo) result.성적서번호 = eq.certNo
-            if (!result.교정일 && eq.calDate) result.교정일 = eq.calDate
-            if (!result.차기교정일 && eq.dueDate) result.차기교정일 = eq.dueDate
-          }
-          result._llm_provider = provider
-          console.log(`${tag} 적합성검토서 → ${provider} | ${measurements.length}포인트`)
-        }
-      }
-    } catch (err) {
-      console.error(`${tag} LLM 적합성검토서 실패 (규칙기반 유지):`, err)
-    }
-  }
+  // ExcelJS 워크북 1회 로드 (적합성검토서 + 을지 공유)
+  try {
+    const ExcelJS = (await import('exceljs')).default
+    const wb = new ExcelJS.Workbook()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await wb.xlsx.load(buffer as any)
 
-  // 2. 적합성검토서가 없고 측정결과도 없으면 을지 LLM 파싱
-  if (result.측정포인트수 === 0) {
-    try {
-      const ExcelJS = (await import('exceljs')).default
-      const wb = new ExcelJS.Workbook()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await wb.xlsx.load(buffer as any)
-      const calSheets = findCalibrationResultSheets(wb)
-      if (calSheets.length > 0) {
-        const text = calibrationResultsToText(calSheets)
-        if (text.trim()) {
-          const llmCal = await llmParseCalibrationResults(text)
-          if (llmCal) {
-            const { result: calResult, provider } = llmCal
-            const measurements = conformityResultToMeasurements(calResult)
-            if (measurements.length > 0) {
-              result.측정결과 = measurements
-              result.측정포인트수 = measurements.length
-              result.전체판정 = null
-            }
-            const eq = calResult.equipment
-            if (eq) {
-              if (!result.제조사 && eq.manufacturer) result.제조사 = eq.manufacturer
-              if (!result.모델 && eq.model) result.모델 = eq.model
-              if (!result.시리얼 && eq.serial) result.시리얼 = eq.serial
-              if (!result.성적서번호 && eq.certNo) result.성적서번호 = eq.certNo
-              if (!result.교정일 && eq.calDate) result.교정일 = eq.calDate
-              if (!result.차기교정일 && eq.dueDate) result.차기교정일 = eq.dueDate
-            }
-            result._llm_provider = provider
-            console.log(`${tag} 을지 → ${provider} | ${measurements.length}포인트`)
-          }
-        }
+    // 적합성검토서 / 을지 시트 탐색
+    const confWs = result.적합성검토 ? findConformitySheet(wb) : null
+    const calSheets = findCalibrationResultSheets(wb)
+    const calText = calSheets.length > 0 ? calibrationResultsToText(calSheets) : ''
+
+    // 1. 적합성검토서 + 을지 LLM 호출을 병렬 실행
+    const confPromise = confWs
+      ? llmParseConformity(conformityToStructuredText(confWs))
+      : Promise.resolve(null)
+    const calPromise = calText.trim()
+      ? llmParseCalibrationResults(calText)
+      : Promise.resolve(null)
+
+    const [llmConf, llmCal] = await Promise.all([confPromise, calPromise])
+
+    // 2. 적합성검토서 결과 적용
+    if (llmConf) {
+      const { result: confResult, provider } = llmConf
+      const measurements = conformityResultToMeasurements(confResult)
+      if (measurements.length > 0) {
+        result.측정결과 = measurements
+        result.측정포인트수 = measurements.length
+        result.전체판정 = measurements.every(m => m.판정 === 'PASS') ? 'PASS' : 'FAIL'
       }
-    } catch (err) {
-      console.error(`${tag} LLM 을지 실패:`, err)
+      const eq = confResult.equipment
+      if (eq) {
+        if (!result.제조사 && eq.manufacturer) result.제조사 = eq.manufacturer
+        if (!result.모델 && eq.model) result.모델 = eq.model
+        if (!result.시리얼 && eq.serial) result.시리얼 = eq.serial
+        if (!result.성적서번호 && eq.certNo) result.성적서번호 = eq.certNo
+        if (!result.교정일 && eq.calDate) result.교정일 = eq.calDate
+        if (!result.차기교정일 && eq.dueDate) result.차기교정일 = eq.dueDate
+      }
+      result._llm_provider = provider
+      console.log(`${tag} 적합성검토서 → ${provider} | ${measurements.length}포인트`)
     }
+
+    // 3. 을지 결과 적용
+    if (llmCal) {
+      const { result: calResult, provider } = llmCal
+      const calMeasurements = conformityResultToMeasurements(calResult)
+
+      if (result.측정포인트수 === 0) {
+        // 적합성검토서 없음 → 을지가 주 데이터원
+        if (calMeasurements.length > 0) {
+          result.측정결과 = calMeasurements
+          result.측정포인트수 = calMeasurements.length
+          result.전체판정 = null
+        }
+      } else {
+        // 적합성검토서 있음 → 불확도만 병합
+        mergeUncertainty(result.측정결과, calMeasurements)
+      }
+
+      const eq = calResult.equipment
+      if (eq) {
+        if (!result.제조사 && eq.manufacturer) result.제조사 = eq.manufacturer
+        if (!result.모델 && eq.model) result.모델 = eq.model
+        if (!result.시리얼 && eq.serial) result.시리얼 = eq.serial
+        if (!result.성적서번호 && eq.certNo) result.성적서번호 = eq.certNo
+        if (!result.교정일 && eq.calDate) result.교정일 = eq.calDate
+        if (!result.차기교정일 && eq.dueDate) result.차기교정일 = eq.dueDate
+      }
+      if (!result._llm_provider) result._llm_provider = provider
+      result.을지파싱 = true
+      const uncCount = calMeasurements.filter(m => m.불확도).length
+      console.log(`${tag} 을지 → ${provider} | ${calMeasurements.length}포인트 | 불확도 ${uncCount}건`)
+    }
+  } catch (err) {
+    console.error(`${tag} LLM 파싱 실패 (규칙기반 유지):`, err)
   }
 
   // 3. 핵심 필드 누락 시 기존 LLM 보강

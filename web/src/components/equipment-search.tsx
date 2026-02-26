@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import DataTable, { type Column } from './data-table'
 import { useT } from '@/lib/i18n'
@@ -21,6 +21,21 @@ interface EquipmentItem {
   exrsWrtnYmd: string
   groupNm: string
   groupCnt: number
+}
+
+// === 검색 히스토리 (localStorage) ===
+
+const HISTORY_KEY = 'searchHistory'
+const MAX_HISTORY = 10
+
+function loadHistory(): string[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') }
+  catch { return [] }
+}
+
+function saveHistory(list: string[]) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, MAX_HISTORY)))
 }
 
 // === 검색 대상 필드 (통합 텍스트 검색) ===
@@ -161,6 +176,32 @@ export default function EquipmentSearch({ items, onOpenDetail }: { items: Equipm
   // 텍스트 검색은 로컬 state → Enter/버튼 클릭 시에만 URL 반영
   const [inputValue, setInputValue] = useState(query)
 
+  // 검색 히스토리
+  const [history, setHistory] = useState<string[]>([])
+  const [showHistory, setShowHistory] = useState(false)
+  const historyRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setHistory(loadHistory()) }, [])
+
+  // 외부 클릭 시 히스토리 닫기
+  useEffect(() => {
+    if (!showHistory) return
+    const handler = (e: MouseEvent) => {
+      if (historyRef.current && !historyRef.current.contains(e.target as Node)) {
+        setShowHistory(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showHistory])
+
+  // 히스토리 필터링 (타이핑 중 매칭 항목만)
+  const filteredHistory = useMemo(() => {
+    const q = inputValue.trim().toLowerCase()
+    if (!q) return history
+    return history.filter(h => h.toLowerCase().includes(q))
+  }, [history, inputValue])
+
   // URL 파라미터 업데이트 헬퍼 (여러 키를 한 번에 업데이트 가능)
   const updateFilter = useCallback((updates: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -175,8 +216,15 @@ export default function EquipmentSearch({ items, onOpenDetail }: { items: Equipm
   }, [searchParams, router])
 
   const submitQuery = useCallback(() => {
-    updateFilter({ q: inputValue.trim(), page: '' })
-  }, [updateFilter, inputValue])
+    const q = inputValue.trim()
+    updateFilter({ q, page: '' })
+    if (q) {
+      const next = [q, ...history.filter(h => h !== q)].slice(0, MAX_HISTORY)
+      setHistory(next)
+      saveHistory(next)
+    }
+    setShowHistory(false)
+  }, [updateFilter, inputValue, history])
 
   const setStatus = useCallback((v: string) => updateFilter({ status: v, page: '' }), [updateFilter])
   const setManufacturer = useCallback((v: string) => updateFilter({ mfr: v, page: '' }), [updateFilter])
@@ -242,8 +290,8 @@ export default function EquipmentSearch({ items, onOpenDetail }: { items: Equipm
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
         {/* 검색바 — Enter 키 또는 검색 버튼으로 실행 */}
         <div className="flex gap-2 mb-3">
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="relative flex-1" ref={historyRef}>
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -251,6 +299,7 @@ export default function EquipmentSearch({ items, onOpenDetail }: { items: Equipm
               value={inputValue}
               onChange={e => setInputValue(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') submitQuery() }}
+              onFocus={() => setShowHistory(true)}
               placeholder={t.search.placeholder}
               className="w-full pl-10 pr-9 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 placeholder:text-gray-400"
             />
@@ -263,6 +312,46 @@ export default function EquipmentSearch({ items, onOpenDetail }: { items: Equipm
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
+            )}
+            {/* 검색 히스토리 드롭다운 */}
+            {showHistory && filteredHistory.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 max-h-[320px] overflow-y-auto">
+                {filteredHistory.map(h => (
+                  <div
+                    key={h}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer group"
+                    onMouseDown={e => {
+                      e.preventDefault()
+                      setInputValue(h)
+                      setShowHistory(false)
+                      updateFilter({ q: h, page: '' })
+                      // 히스토리 순서 갱신
+                      const next = [h, ...history.filter(x => x !== h)].slice(0, MAX_HISTORY)
+                      setHistory(next)
+                      saveHistory(next)
+                    }}
+                  >
+                    <svg className="w-3.5 h-3.5 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="flex-1 text-sm text-gray-700 truncate">{h}</span>
+                    <button
+                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 transition-opacity p-0.5"
+                      onMouseDown={e => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const next = history.filter(x => x !== h)
+                        setHistory(next)
+                        saveHistory(next)
+                      }}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
           <button

@@ -22,12 +22,17 @@ export interface EquipmentProfile {
     resolution: string | null
     units: string[] | null
     overload_limit: string | null
+    // 구 필드 (런타임 마이그레이션 후 null)
     manual_tolerance: {
       value: number
       unit: string
       type: 'absolute' | 'percentage'
       note: string | null
     } | null
+    // 신규: 장비 대표 허용오차 (절대값)
+    tolerance: { value: number; unit: string; note: string | null } | null
+    // 신규: MPE = 허용오차의 X%. null이면 기본 100%
+    mpe_percent: number | null
   }
 
   environment: {
@@ -88,8 +93,35 @@ declare global {
   var profileCache: Map<string, EquipmentProfile> | undefined
 }
 
+// 퍼지 매칭: 대소문자, 공백, 특수문자 무시
+function normalizeForKey(s: string): string {
+  return (s || '')
+    .toUpperCase()
+    .replace(/[\s\-_/\\.,()[\]{}'"+:;#!@&*~`]/g, '')
+}
+
 function makeKey(manufacturer: string, model: string): string {
-  return `${(manufacturer || '').trim().toUpperCase()}|${(model || '').trim().toUpperCase()}`
+  return `${normalizeForKey(manufacturer)}|${normalizeForKey(model)}`
+}
+
+// manual_tolerance → tolerance + mpe_percent 자동 마이그레이션
+function migrateProfile(p: EquipmentProfile): EquipmentProfile {
+  const mt = p.spec.manual_tolerance
+  if (mt && p.spec.tolerance === undefined && p.spec.mpe_percent === undefined) {
+    if (mt.type === 'absolute') {
+      p.spec.tolerance = { value: mt.value, unit: mt.unit, note: mt.note ?? null }
+      p.spec.mpe_percent = 100
+    } else {
+      // percentage → MPE%로 이전, tolerance는 미설정
+      p.spec.tolerance = null
+      p.spec.mpe_percent = mt.value
+    }
+    p.spec.manual_tolerance = null
+  }
+  // 필드 누락 보정 (구 데이터)
+  if (p.spec.tolerance === undefined) p.spec.tolerance = null
+  if (p.spec.mpe_percent === undefined) p.spec.mpe_percent = null
+  return p
 }
 
 // JSON 파일 → Map 로딩
@@ -100,7 +132,7 @@ function loadFromFile(): Map<string, EquipmentProfile> {
       const raw = readFileSync(DATA_PATH, 'utf-8')
       const arr: EquipmentProfile[] = JSON.parse(raw)
       for (const p of arr) {
-        map.set(makeKey(p.manufacturer, p.model), p)
+        map.set(makeKey(p.manufacturer, p.model), migrateProfile(p))
       }
     }
   } catch (e) {

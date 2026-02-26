@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { useT } from '@/lib/i18n'
 
-export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'profiles' | 'equipment-detail'
+export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'profiles' | 'report' | 'equipment-detail'
 
 interface SidebarProps {
   activeView: ViewType
@@ -71,6 +71,15 @@ export default function Sidebar({
         <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 4v16M4 9h5M4 13h5" />
+        </svg>
+      ),
+    },
+    {
+      id: 'report',
+      label: t.nav.report,
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       ),
     },
