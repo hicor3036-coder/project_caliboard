@@ -119,6 +119,12 @@ const SYSTEM_PROMPT = `당신은 교정 현장 20년 경력의 기술자이며, 
 - **yearsToLimit**: 현 추세로 허용한계 도달까지 남은 연수. null이면 한계 도달 불가
 - **recentErrors**: 최근 교정 시 실측 오차 값들
 - **currentCycle**: 현재 교정주기(개월)
+- **latestGuardBand**: Guard Band 적용 적합성 판정 (ILAC-G8:09/2019). null이면 불확도 데이터 없음
+  - "conformant": 불확도 감안해도 확실히 적합
+  - "conditional-pass": 오차는 허용 내이나 불확도 감안 시 경계 — 분류 한 단계 상향 필요
+  - "conditional-fail": 불확도 감안 시 부적합 가능 — 무조건 precision으로 상향
+  - "non-conformant": 확실히 부적합
+- **latestUtRatio**: 측정불확도(U) ÷ 허용오차(T) × 100%. 33% 이하가 이상적. null이면 불확도 데이터 없음
 
 ## 출력 형식 (JSON만, 다른 텍스트 금지)
 {
@@ -143,6 +149,14 @@ const SYSTEM_PROMPT = `당신은 교정 현장 20년 경력의 기술자이며, 
 - **정밀교정(precision, high)**: significant=true + (usageRatio>70[여유<30%] 또는 yearsToLimit<3)
 - **표준교정(standard, medium)**: significant=true이나 여유 있음, 또는 usageRatio>50[여유<50%]
 - **관찰(observation, low)**: significant=false + usageRatio≤50[여유≥50%]. 안정적
+
+## 불확도 기반 분류 보정 (Guard Band, 매우 중요!)
+위 기본 분류를 적용한 후, latestGuardBand 값으로 **상향 보정**:
+- latestGuardBand="conditional-fail" → **무조건 precision(high)로 상향**. headline에 "불확도 감안 시 부적합 가능" 포함. action에 "불확도가 작은 기준기로 재교정" 또는 "정밀 측정 실시" 포함
+- latestGuardBand="conditional-pass" + 기존 observation → **standard(medium)로 상향**. headline에 "불확도 감안 시 여유 적음" 포함
+- latestGuardBand="conformant" → 보정 없음
+- latestGuardBand=null → 불확도 데이터 없음. environmentNotes에 "불확도 정보 확보 권고" 추가 가능
+- latestUtRatio > 50이면 reason에 "U/T 비율이 높아(XX%) 판정 신뢰도 저하" 언급
 
 ## 작성 예시 (이 톤과 구체성을 따라할 것!)
 

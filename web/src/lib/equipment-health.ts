@@ -1,6 +1,8 @@
 // 장비 건강검진 AI — 진단(점수) / 예측(교정주기) / 처방(권고사항)
 // 클라이언트 사이드, 규칙기반 통계 분석. LLM 호출 없음.
 
+import type { GuardBandVerdict } from '@/components/equipment-detail/shared-utils'
+
 // ─── 타입 ───
 
 export interface TrendPoint {
@@ -10,6 +12,9 @@ export interface TrendPoint {
   허용오차: number | null
   비율: number | null
   판정: string
+  불확도: number | null
+  utRatio: number | null              // U/T × 100% (ISO 14253-1)
+  guardBand: GuardBandVerdict | null   // ILAC-G8:09/2019 4단계 판정
 }
 
 export interface TrendSeries {
@@ -41,6 +46,8 @@ export interface CyclePredictionDetail {
   significant: boolean    // 통계적 유의성 (p < 0.05)
   usageRatio: number | null    // |오차|/|허용오차| % (최신 측정 기준)
   yearsToLimit: number | null  // 현 추세로 허용한계 도달까지 남은 연수
+  latestGuardBand: GuardBandVerdict | null  // 최신 Guard Band 판정
+  latestUtRatio: number | null              // 최신 U/T 비율 (%)
 }
 
 export interface CycleSimulationRow {
@@ -122,7 +129,12 @@ function calcToleranceProximity(series: TrendSeries[]): number {
   for (const s of series) {
     for (let i = s.points.length - 1; i >= 0; i--) {
       if (s.points[i].비율 != null) {
-        latestRatios.push(s.points[i].비율!)
+        let ratio = s.points[i].비율!
+        // Guard Band 가중 페널티: 불확도 감안 시 위험한 포인트를 적절히 감점
+        const gb = s.points[i].guardBand
+        if (gb === 'conditional-pass') ratio += 10    // 경계선 — 소폭 페널티
+        else if (gb === 'conditional-fail') ratio += 25  // 실질 FAIL 가능 — 큰 페널티
+        latestRatios.push(ratio)
         break
       }
     }
@@ -424,9 +436,10 @@ function simulateHealthForCycle(
 
     predictedRatios.push(predicted)
 
-    // 위험 포인트: 예상 소진율 > 80% 또는 yearsToLimit < 주기(년)
+    // 위험 포인트: 예상 소진율 > 80% 또는 yearsToLimit < 주기(년) 또는 Guard Band 경고
     const isDanger = predicted > 80 ||
-      (detail?.yearsToLimit != null && detail.yearsToLimit > 0 && detail.yearsToLimit < yearsAhead)
+      (detail?.yearsToLimit != null && detail.yearsToLimit > 0 && detail.yearsToLimit < yearsAhead) ||
+      detail?.latestGuardBand === 'conditional-fail'
 
     if (isDanger) {
       // 동일 label이 여러 개면 CW/CCW 접미사 추가
@@ -606,6 +619,11 @@ export function predictCalibrationCycle(
         yearsToLimit = Math.round(((tol - latestErr) / absSlope) * 10) / 10
       }
 
+      // 최신 포인트의 Guard Band / U/T 추출
+      const latestPtForGb = s.points.findLast(p => p.오차 != null)
+      const latestGuardBand = latestPtForGb?.guardBand ?? null
+      const latestUtRatio = latestPtForGb?.utRatio ?? null
+
       details.push({
         label: s.label,
         recentYears: validPairs.map(p => p.year),
@@ -615,6 +633,8 @@ export function predictCalibrationCycle(
         significant: pValue < 0.05,
         usageRatio,
         yearsToLimit,
+        latestGuardBand,
+        latestUtRatio,
       })
     }
   }
@@ -692,10 +712,16 @@ export function predictCalibrationCycle(
   const hasRatio = currentRatio != null
 
   // 위험도 판단: 유의미 포인트 중 한계 도달이 가까운 것이 있는가?
+  // Guard Band도 고려: conditional-pass/fail은 불확도 감안 시 위험
   const urgentPoints = significantDetails.filter(d =>
     (d.yearsToLimit != null && d.yearsToLimit < 3) ||  // 3년 이내 한계 도달
-    (d.usageRatio != null && d.usageRatio > 80)        // 이미 80% 이상 사용
+    (d.usageRatio != null && d.usageRatio > 80) ||     // 이미 80% 이상 사용
+    d.latestGuardBand === 'conditional-fail'            // 불확도 감안 시 실질 FAIL
   )
+  // conditional-pass도 별도 집계 (주기 결정에 보조 참고)
+  const guardBandCautionCount = details.filter(d =>
+    d.latestGuardBand === 'conditional-pass' || d.latestGuardBand === 'conditional-fail'
+  ).length
 
   // ── 주기 결정 (포인트별 t-검정 + 위험도 종합) ──
   let recommended: number
@@ -793,6 +819,16 @@ export function predictCalibrationCycle(
 
   if (yearsTo100 != null && ratioSlope > 0) {
     reasonParts.push(`현 추세 유지 시 약 ${yearsTo100.toFixed(1)}년 후 허용오차 100% 도달 예상 (${predictedDate100}).`)
+  }
+
+  // Guard Band 경고 (불확도 감안 시 위험 포인트)
+  if (guardBandCautionCount > 0) {
+    const cfCount = details.filter(d => d.latestGuardBand === 'conditional-fail').length
+    const cpCount = details.filter(d => d.latestGuardBand === 'conditional-pass').length
+    const parts: string[] = []
+    if (cfCount > 0) parts.push(`conditional-fail ${cfCount}건`)
+    if (cpCount > 0) parts.push(`conditional-pass ${cpCount}건`)
+    reasonParts.push(`불확도(Guard Band) 고려 시 주의 포인트: ${parts.join(', ')}.`)
   }
 
   const reasoning = reasonParts.join('\n')
@@ -897,7 +933,30 @@ export function generatePrescriptions(
     })
   }
 
-  // 5. 데이터 부족
+  // 5. 불확도 고려 시 주의 포인트 (Guard Band)
+  const gbCfSeries = series.filter(s => {
+    const last = s.points.findLast(p => p.guardBand != null)
+    return last?.guardBand === 'conditional-fail'
+  })
+  const gbCpSeries = series.filter(s => {
+    const last = s.points.findLast(p => p.guardBand != null)
+    return last?.guardBand === 'conditional-pass'
+  })
+  if (gbCfSeries.length > 0) {
+    rx.push({
+      priority: 'high', category: 'focus', categoryLabel: '불확도 경고',
+      title: `불확도 감안 시 ${gbCfSeries.length}개 포인트 부적합 가능`,
+      description: `${gbCfSeries.map(s => s.label).join(', ')} — 오차는 허용범위 내이나 측정불확도를 감안하면 부적합 가능성이 있습니다. 불확도가 작은 기준기로 재교정하거나 정밀 측정이 필요합니다.`,
+    })
+  } else if (gbCpSeries.length > 0) {
+    rx.push({
+      priority: 'medium', category: 'focus', categoryLabel: '불확도 주의',
+      title: `불확도 감안 시 ${gbCpSeries.length}개 포인트 경계선`,
+      description: `${gbCpSeries.map(s => s.label).join(', ')} — 적합 판정이지만 불확도를 감안하면 경계 상태입니다. 다음 교정 시 해당 포인트의 U/T 비율을 확인하세요.`,
+    })
+  }
+
+  // 6. 데이터 부족
   if (certCount < 3) {
     rx.push({
       priority: certCount < 2 ? 'medium' : 'low',
@@ -907,7 +966,7 @@ export function generatePrescriptions(
     })
   }
 
-  // 6. 상태 우수
+  // 7. 상태 우수
   if (score.total >= 85 && rx.every(p => p.priority !== 'high')) {
     rx.push({
       priority: 'low', category: 'general', categoryLabel: '종합',
@@ -959,6 +1018,8 @@ export interface HealthReasoningInput {
     significant: boolean
     usageRatio: number | null
     yearsToLimit: number | null
+    latestGuardBand: string | null
+    latestUtRatio: number | null
   }>
   currentRatio: number | null
   ratioSlope: number | null
@@ -966,10 +1027,26 @@ export interface HealthReasoningInput {
   healthGrade: string
   healthTotal: number
   components: HealthScore['components']
+  guardBandSummary: {
+    conformant: number
+    conditionalPass: number
+    conditionalFail: number
+    nonConformant: number
+  }
 }
 
 export function buildHealthReasoningInput(result: HealthCheckResult): HealthReasoningInput {
   const { prediction, score } = result
+
+  // Guard Band 분포 집계
+  const gbSummary = { conformant: 0, conditionalPass: 0, conditionalFail: 0, nonConformant: 0 }
+  for (const d of prediction.details) {
+    if (d.latestGuardBand === 'conformant') gbSummary.conformant++
+    else if (d.latestGuardBand === 'conditional-pass') gbSummary.conditionalPass++
+    else if (d.latestGuardBand === 'conditional-fail') gbSummary.conditionalFail++
+    else if (d.latestGuardBand === 'non-conformant') gbSummary.nonConformant++
+  }
+
   return {
     currentCycle: prediction.currentCycleMonths ?? 12,
     recommended: prediction.recommendedCycleMonths,
@@ -982,6 +1059,8 @@ export function buildHealthReasoningInput(result: HealthCheckResult): HealthReas
       significant: d.significant,
       usageRatio: d.usageRatio,
       yearsToLimit: d.yearsToLimit,
+      latestGuardBand: d.latestGuardBand,
+      latestUtRatio: d.latestUtRatio,
     })),
     currentRatio: prediction.extrapolation.currentRatio,
     ratioSlope: prediction.extrapolation.regressionSlope,
@@ -991,6 +1070,7 @@ export function buildHealthReasoningInput(result: HealthCheckResult): HealthReas
     healthGrade: score.grade,
     healthTotal: score.total,
     components: score.components,
+    guardBandSummary: gbSummary,
   }
 }
 
@@ -1034,6 +1114,15 @@ export function generateCalibrationInstruction(result: HealthCheckResult): Calib
       priority = 'low'
     }
 
+    // Guard Band 기반 상향 보정 (ILAC-G8:09/2019)
+    if (d.latestGuardBand === 'conditional-fail') {
+      level = 'precision'
+      priority = 'high'
+    } else if (d.latestGuardBand === 'conditional-pass' && level === 'observation') {
+      level = 'standard'
+      priority = 'medium'
+    }
+
     const levelLabels: Record<InstructionLevel, string> = {
       precision: '정밀교정',
       standard: '표준교정',
@@ -1063,6 +1152,18 @@ export function generateCalibrationInstruction(result: HealthCheckResult): Calib
     }
     if (d.yearsToLimit != null) {
       evidence.push(`현 추세로 약 ${d.yearsToLimit.toFixed(1)}년 후 한계 도달 예상`)
+    }
+    // Guard Band / U/T 정보
+    if (d.latestGuardBand && d.latestGuardBand !== 'conformant') {
+      const gbLabels: Record<string, string> = {
+        'conditional-pass': '불확도 감안 시 경계 (conditional-pass)',
+        'conditional-fail': '불확도 감안 시 부적합 가능 (conditional-fail)',
+        'non-conformant': '불확도 감안 시 부적합 (non-conformant)',
+      }
+      evidence.push(gbLabels[d.latestGuardBand] ?? d.latestGuardBand)
+    }
+    if (d.latestUtRatio != null) {
+      evidence.push(`U/T 비율 ${d.latestUtRatio.toFixed(1)}%`)
     }
 
     return { label: d.label, level, levelLabel: levelLabels[level], priority, instruction, evidence }
@@ -1116,6 +1217,8 @@ export interface CalibrationInstructionInput {
     significant: boolean
     usageRatio: number | null
     yearsToLimit: number | null
+    latestGuardBand: string | null
+    latestUtRatio: number | null
   }>
 }
 
@@ -1138,6 +1241,8 @@ export function buildCalibrationInstructionInput(
     significant: d.significant,
     usageRatio: d.usageRatio,
     yearsToLimit: d.yearsToLimit,
+    latestGuardBand: d.latestGuardBand as string | null,
+    latestUtRatio: d.latestUtRatio,
   }))
 
   return {

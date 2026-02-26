@@ -126,8 +126,15 @@ yearsToLimit(한계 도달까지 남은 연수)은 반드시 currentCycle(현재
 - **details[].significant**: p < 0.05 여부
 - **details[].usageRatio**: 허용오차 대비 현재 오차 비율(%). 이 숫자는 내부 계산용이며, **사용자에게 설명할 때는 반드시 "오차 여유도"로 뒤집어서** 표현하세요. 변환: 오차 여유도 = 100 - usageRatio. 예: usageRatio=8 → "오차 여유도 92%" (허용범위의 92%가 남아있음). usageRatio=70 → "오차 여유도 30%" (여유 적음). "사용률"이라는 표현은 사용하지 마세요!
 - **details[].yearsToLimit**: 현 기울기로 허용한계 도달까지 남은 연수. null이면 계산 불가. **반드시 currentCycle과 비교하여 남은 교정 횟수로 해석할 것**
+- **details[].latestGuardBand**: Guard Band 적용 적합성 판정 (ILAC-G8:09/2019). null이면 불확도 데이터 없음
+  - "conformant": 불확도 감안해도 확실히 적합 — 안심
+  - "conditional-pass": 오차는 허용 내이나 불확도를 감안하면 경계선 — "오차 여유도가 겉보기보다 적다"로 표현
+  - "conditional-fail": 오차는 허용 내이나 불확도 감안 시 부적합 가능성 — "정밀 재교정 필요"로 표현
+  - "non-conformant": 확실히 부적합
+- **details[].latestUtRatio**: 측정불확도(U) ÷ 허용오차(T) × 100%. 33% 이하가 이상적 (ISO 14253-1). null이면 불확도 데이터 없음
+- **guardBandSummary**: 전체 포인트의 Guard Band 분포. conditionalPass/conditionalFail이 있으면 반드시 reasoning에서 언급. 불확도 데이터가 전혀 없으면 "불확도 정보 확보 필요"로 권고
 - **currentRatio**: 전체 포인트 중 최대 usageRatio(%). 이것도 "오차 여유도"로 변환하여 표현. 예: currentRatio=8 → "전체 오차 여유도 92%"
-- **components**: 세부 점수 — toleranceProximity(허용오차여유), longTermStability(장기안정도), shortTermStability(단기안정도), failHistory(적합이력), dataAvailability(데이터충분성)
+- **components**: 세부 점수 — toleranceProximity(허용오차여유, Guard Band 반영), longTermStability(장기안정도), shortTermStability(단기안정도), failHistory(적합이력), dataAvailability(데이터충분성)
 
 ## 출력 형식
 반드시 아래 JSON으로만 응답하세요. 다른 텍스트를 추가하지 마세요.
@@ -152,6 +159,7 @@ yearsToLimit(한계 도달까지 남은 연수)은 반드시 currentCycle(현재
 1줄: 종합 등급과 핵심 진단 요약 (예: "건강등급 A(96점), 전반적으로 매우 안정적인 상태입니다.")
 2줄: 가장 주목할 포인트와 그 이유 — 단순 수치 나열이 아니라 "왜 이 포인트가 문제인지" 맥락 설명. 이미 표시된 usageRatio, yearsToLimit 값을 그대로 반복하지 말 것.
 3줄: 교정주기 결론 한 문장. "~하여 ~개월로 단축/유지/연장을 권고합니다." 형식.
+4줄(선택): guardBandSummary에 conditionalPass/conditionalFail이 있으면, "측정불확도를 감안하면 N개 포인트에서 오차 여유도가 겉보기보다 적습니다"와 같이 불확도 영향을 간결히 언급.
 
 GOOD 예시: "모든 포인트에서 오차 여유도 92% 이상으로 매우 안정적입니다."
 GOOD 예시: "300 N·m 포인트에서 오차 여유도가 30%로 줄어들고 있어 주의가 필요합니다."

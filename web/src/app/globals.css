@@ -1,1 +1,58 @@
 @import "tailwindcss";
+
+/* ── 인쇄 전용 스타일 (ISO 10012 보고서 PDF 내보내기) ── */
+@media print {
+  /* 사이드바, 버튼, 고정 요소 숨김 */
+  nav, aside,
+  .no-print,
+  .fixed { display: none !important; }
+
+  /* 메인 영역 전체 폭 */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  body {
+    background: white !important;
+    font-size: 10pt;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* A4 페이지 설정 */
+  @page {
+    size: A4 portrait;
+    margin: 15mm 12mm;
+  }
+
+  /* 조항 그룹 헤더 전에 페이지 브레이크 */
+  .print-break-before { page-break-before: always; }
+
+  /* 카드가 페이지 중간에 잘리지 않도록 */
+  .print-avoid-break { page-break-inside: avoid; }
+
+  /* 그림자/라운드 제거로 깔끔한 인쇄 */
+  .shadow-sm { box-shadow: none !important; }
+  .rounded-xl { border-radius: 4px !important; }
+
+  /* Recharts SVG 차트 색상 보존 */
+  svg { print-color-adjust: exact; }
+
+  /* ResponsiveContainer 인쇄 시 크기 보존 */
+  .recharts-responsive-container {
+    width: 100% !important;
+    min-height: 200px;
+  }
+
+  /* 인쇄 전용 헤더 표시 */
+  .print-only { display: block !important; }
+}
+
+/* 화면에서는 인쇄 전용 요소 숨김 */
+@media screen {
+  .print-only { display: none !important; }
+}
