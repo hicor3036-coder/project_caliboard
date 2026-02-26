@@ -269,7 +269,12 @@ function parseCover(wb: Workbook): CoverParseResult {
           const dateVal = getCell(r, c + 3) || getCell(r, c + 2) || getCell(r, c + 1)
           if (dateVal) {
             const normalized = extractDateFromCell(dateVal)
-            info['차기교정일'] = normalized || dateVal.trim()
+            // 날짜로 파싱 가능한 경우만 할당 (기준기 테이블 헤더의 "교정기관" 등 오인 방지)
+            if (normalized) {
+              info['차기교정일'] = normalized
+            } else if (/\d/.test(dateVal)) {
+              info['차기교정일'] = dateVal.trim()
+            }
           }
         }
       }

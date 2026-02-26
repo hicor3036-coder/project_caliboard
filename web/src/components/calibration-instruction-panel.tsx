@@ -93,18 +93,26 @@ function InstructionContent({ instruction }: { instruction: AiInstruction }) {
   return (
     <>
       {grouped.map(group => {
-        // observation(정상) 그룹은 한 줄 요약
+        // observation(정상) 그룹은 컴팩트 칩 UI
         if (group.level === 'observation') {
           return (
             <div key={group.level} className="mt-2">
-              <div className="flex items-start gap-2 px-1 py-2 text-sm">
-                <span className={`w-2 h-2 rounded-full ${group.dot} shrink-0 mt-0.5`} />
-                <p className="text-slate-500">
-                  <span className="font-medium text-slate-600">
-                    {t.instruction.normal} ({group.points.map(p => p.label).join(', ')}):
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`w-2 h-2 rounded-full ${group.dot} shrink-0`} />
+                <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                  {t.instruction.normal} ({group.points.length})
+                </span>
+                <span className="text-xs text-slate-400">{t.instruction.normalSummary}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pl-4">
+                {group.points.map((pt, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md border border-emerald-100">
+                    <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {pt.label}
                   </span>
-                  {' '}{t.instruction.normalSummary}
-                </p>
+                ))}
               </div>
             </div>
           )

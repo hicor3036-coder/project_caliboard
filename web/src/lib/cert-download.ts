@@ -383,16 +383,43 @@ interface LlmResponse {
   elapsed: number // ms
 }
 
-// JSON 파싱 헬퍼 (부분 추출 포함)
+// JSON 파싱 헬퍼 (부분 추출 + 잘린 JSON 자동 복구)
 function parseLlmJson<T>(content: string): T {
   try {
     return JSON.parse(content)
   } catch {
+    // 1차: JSON 부분만 추출
     const start = content.indexOf('{')
+    if (start < 0) throw new Error('JSON 파싱 실패')
     const end = content.lastIndexOf('}') + 1
-    if (start >= 0 && end > start) {
-      return JSON.parse(content.slice(start, end))
+    if (end > start) {
+      try { return JSON.parse(content.slice(start, end)) } catch { /* fall through */ }
     }
+
+    // 2차: 토큰 한도로 잘린 JSON 복구 — 마지막 완전한 요소까지 자르고 닫기
+    let json = content.slice(start)
+    // 불완전한 마지막 요소 제거 (마지막 완전한 '}' 또는 값 뒤 쉼표까지)
+    const lastComplete = Math.max(json.lastIndexOf('},'), json.lastIndexOf('null,'), json.lastIndexOf('",'))
+    if (lastComplete > 0) {
+      json = json.slice(0, lastComplete + 1) // '},' 포함
+      json = json.replace(/,\s*$/, '')        // 끝 쉼표 제거
+    }
+    // 열린 괄호를 역순으로 닫기
+    const opens: string[] = []
+    let inStr = false
+    let escape = false
+    for (const ch of json) {
+      if (escape) { escape = false; continue }
+      if (ch === '\\') { escape = true; continue }
+      if (ch === '"') { inStr = !inStr; continue }
+      if (inStr) continue
+      if (ch === '{') opens.push('}')
+      else if (ch === '[') opens.push(']')
+      else if (ch === '}' || ch === ']') opens.pop()
+    }
+    json += opens.reverse().join('')
+    try { return JSON.parse(json) } catch { /* fall through */ }
+
     throw new Error('JSON 파싱 실패')
   }
 }
@@ -454,360 +481,124 @@ async function llmSupplement(
 
 // ─── 적합성검토서 LLM 구조화 파싱 ───
 
-const CONFORMITY_SYSTEM_PROMPT = `You are a calibration certificate conformity review sheet parser.
-The input is the FULL content of a conformity review sheet (pipe-delimited rows).
-It contains equipment info at the top and one or more measurement tables below.
-You must identify the table structure yourself — headers, data rows, and sections.
-
-IMPORTANT CONTEXT: This data was converted from PDF to Excel automatically.
-As a result, cell positions may be misaligned, headers may span multiple rows,
-merged cells may appear as empty cells, and column alignment may be imperfect.
-Interpret the data flexibly based on context, not rigid cell positions.
-
-Return JSON:
+const CONFORMITY_SYSTEM_PROMPT = `Parse a calibration conformity review sheet (pipe-delimited rows from PDF→Excel).
+Headers may span multiple rows; merged cells may appear empty; column alignment may be imperfect.
+Extract equipment info and ALL measurement data. Return JSON:
 {
-  "equipment": {
-    "manufacturer": "string or null",
-    "model": "string or null",
-    "serial": "string or null",
-    "certNo": "string or null",
-    "calDate": "YYYY-MM-DD or null",
-    "dueDate": "YYYY-MM-DD or null"
-  },
-  "measurements": [
-    {
-      "quantity": "Torque Clockwise",
-      "ref": "2279",
-      "refUnit": "N·cm",
-      "indicated": "2260",
-      "indUnit": "N·cm",
-      "error": "-0.8",
-      "errUnit": "%",
-      "tolerance": "4",
-      "tolUnit": "%",
-      "result": "PASS",
-      "uncertainty": null,
-      "uncUnit": null,
-      "uncK": null
-    }
-  ],
+  "equipment": { "manufacturer":str|null, "model":str|null, "serial":str|null, "certNo":str|null, "calDate":"YYYY-MM-DD"|null, "dueDate":"YYYY-MM-DD"|null },
+  "measurements": [{ "quantity":"Torque Clockwise", "ref":"2279", "refUnit":"N·cm", "indicated":"2260", "indUnit":"N·cm", "error":"-0.8", "errUnit":"%", "tolerance":"4", "tolUnit":"%", "result":"PASS", "uncertainty":null, "uncUnit":null, "uncK":null }],
   "overall": "PASS"
 }
 
-CRITICAL RULES:
+RULES:
+1. COLUMNS — Combine multi-row headers vertically. Map by meaning:
+   ref=standard/reference, indicated=DUT reading, error=deviation, tolerance=limit, result=PASS/FAIL.
+   Korean: 기준값→ref, 지시값→indicated, 허용범위→tolerance, 적합여부→result, "O"=PASS/"X"=FAIL.
+   Equipment: 제조사, 모델, 장비명, 제조사 일련번호, [관리번호], 교정일, 차기교정일, 성적서번호.
 
-1. COLUMN IDENTIFICATION — Find the table header rows in the input.
-   Headers may span multiple rows (e.g., one row has "Reference Torque", next row has "Average", next row has "(N·m)").
-   Combine vertically-aligned header rows to determine each column's full meaning.
-   Map columns based on MEANING in calibration context:
+2. DUPLICATE UNITS — If same measurement in multiple units (N·cm AND lbf·in), use first only.
 
-   - ref: The STANDARD/REFERENCE value from the calibrator
-   - indicated: The value shown by the DEVICE UNDER TEST
-   - error: The deviation/difference (may be absolute or percentage)
-   - tolerance: The acceptable limit or allowable range
-   - result: PASS/FAIL conformity judgment
+3. ERROR —
+   a) Explicit error column (e.g. "Relative Accuracy Error (%)")→use directly, do NOT recalculate.
+   b) "Correction"/"보정값" is NOT error (opposite sign). If only Correction exists, calculate: error=indicated−ref.
+   c) No error column: error=indicated−ref. If tolerance is "%"/"% FS", use relative: (indicated−ref)/ref×100.
+   SANITY: error must be small if errUnit="%". If error≈ref or error≈indicated→column mapping bug.
 
-1b. KOREAN FORMAT — Some conformity sheets are in Korean. Map these labels:
-   Equipment info: 제조사 (Manufacturer), 모델 (Model), 장비명 (Description),
-     제조사 일련번호 (Serial Number), [관리번호] (Identification Number),
-     교정일 (Date of Calibration), 차기교정일 (Due Date), 성적서번호 (Certificate No.)
-   Column headers: 기준값 (ref), 지시값 (indicated), 보정값 (Correction — NOT error!),
-     Spec Accuracy / 허용범위 (tolerance), 적합여부 (result)
-   Verdict markers: "O" = PASS, "X" = FAIL. Map to "PASS"/"FAIL" in output.
-   IMPORTANT: "보정값" means "Correction", same as English "Correction" — do NOT use as error.
+4. TOLERANCE — "±0.5 μm"→tolerance="0.5",tolUnit="μm". Strip ±. Non-numeric text→null.
 
-2. DUPLICATE UNIT COLUMNS — When the same measurement appears in multiple units (e.g., N·cm AND lbf·in), use ONLY the first (primary) unit. Skip secondary unit columns entirely.
+5. SECTIONS — Include ALL sections (CW/CCW, Temp/Humidity). Use quantity to distinguish.
 
-3. ERROR/DEVIATION — Priority order:
-   a) If the table has an explicit error/deviation column (e.g., "Relative Accuracy Error (%)", "Error", "Deviation"), use that value and unit DIRECTLY. Do NOT recalculate.
-   b) IMPORTANT: "Correction" (Korean: "보정값") is NOT the same as "Error".
-      Correction = Reference - Indication (opposite sign of error).
-      If only a "Correction"/"보정값" column exists with NO separate "Error" column, calculate: error = indicated - ref. Do NOT use the Correction/보정값 value as error.
-   c) Only if NO error column exists: calculate error = indicated - ref (preserve sign), errUnit = same as ref unit.
-      HOWEVER, if tolerance is expressed in "%" or "% FS" (Full Scale), calculate RELATIVE error instead:
-      error = (indicated - ref) / ref * 100, errUnit = "%". This ensures error and tolerance are comparable.
-   errUnit must reflect the actual unit. If header says "(%)", errUnit = "%".
+6. GROUPED VALUES — If error/tolerance/result appear on ONE row for a group, apply to ALL data rows.
+   Exception: "등급"/"Class"/"Grade" columns are NOT error. Calculate error per row instead.
+   Use Class value as tolerance (e.g. Class 1→tolerance="1",tolUnit="% FS").
 
-   SANITY CHECK — After mapping columns, verify:
-   - If errUnit is "%", the error value should typically be small (< 10). If error ≈ ref or error ≈ indicated, you have a COLUMN MAPPING BUG — re-examine which column is actually the error column.
-   - error must come from a column whose header contains words like "Error", "Deviation", "Accuracy", "오차", "편차". NEVER use the indicated/ref value column as error.
-   - If error value equals the indicated value, something is wrong. Re-read the headers carefully.
+7. DATA ROWS — Skip ref=0.0/indicated=0.0 with "-". Skip sections with "#DIV/0!".
 
-4. TOLERANCE PARSING — For compound expressions like "±0.5 μm (±2 %)":
-   Use the absolute value: tolerance="0.5", tolUnit="μm"
-   For "±4.0 %": tolerance="4.0", tolUnit="%"
-   Always strip the ± sign from the number.
-   If tolerance contains non-numeric text (e.g., "Refer to the attached calibration results"), set tolerance=null, tolUnit=null.
-
-5. MULTIPLE TABLES — The input may contain multiple measurement sections (e.g., "Clockwise" + "Counterclockwise", or "TEMPERATURE" + "HUMIDITY").
-   Look for section labels like "Clockwise", "Counterclockwise", "TEMPERATURE", "HUMIDITY" in the data.
-   Include ALL measurements from ALL sections.
-   Use quantity field to distinguish (e.g., "Torque Clockwise", "Torque Counterclockwise", "Temperature", "Humidity").
-
-6. GROUPED VALUES — CRITICAL pattern for some instruments:
-   Some tables show error, tolerance, and result on ONLY ONE ROW within a group of data rows.
-   That single value applies to ALL data rows in that group.
-
-   How to identify: Multiple data rows with ref/indicated values, but error/tolerance/result cells are empty.
-   Then one row has error/tolerance/result but may lack ref/indicated.
-   → The error/tolerance/result apply to ALL rows in the group.
-
-   You MUST populate the same error, tolerance, and result for every data row in the group.
-   Do NOT calculate individual errors per row — use the group's shared value.
-
-6b. CLASS/GRADE COLUMNS (OVERRIDES Rule 6 for error) — CRITICAL:
-   "허용등급", "등급", "Class", "Grade" are NOT error columns!
-   These are accuracy class ratings (e.g., Class 0.5, Class 1) that describe the instrument's grade.
-
-   When only Class/Grade columns exist (no explicit error column):
-   - **This OVERRIDES Rule 6 for the error field**: Do NOT use the grouped Class value as error.
-     Instead, CALCULATE error INDIVIDUALLY per row: (indicated - ref) / ref * 100, errUnit="%"
-   - tolerance: Use the grouped Class value (e.g., Class 1 → tolerance="1", tolUnit="% FS")
-     Rule 6 still applies for tolerance and result — propagate grouped values.
-   - If "제조사 사양 허용등급" (manufacturer spec) differs from "허용등급", use 허용등급 as tolerance.
-
-7. DATA ROWS — Rows with numeric measurement data are data rows even without PASS/FAIL.
-   Rows with only "-" in error/tolerance/result columns are also data rows (the "-" means "not applicable" for that specific point, often the 0.0 reference point).
-   Skip rows where ref=0.0 and indicated=0.0 with "-" markers (zero calibration point, not a measurement).
-   INVALID DATA: If a section contains "#DIV/0!", all-zero reference values, or "#DIV/0!" in result/error columns,
-   skip that ENTIRE section. This means the instrument was outside its output range for that direction.
-
-8. quantity: Physical quantity in English (Temperature, Humidity, Pressure, Torque, Length, etc.).
-   Infer from section headers or unit patterns. Use section labels for disambiguation (e.g., "Torque Clockwise").
-
-9. Numbers MUST be strings (except uncK which is a number). null for truly missing values.
-10. overall: "PASS" only if ALL measurement points passed.
-
-11. UNCERTAINTY — If the table has a measurement uncertainty column, extract it.
-   Common headers: "Measurement uncertainty", "불확도", "U(k=2)".
-   - uncertainty: expanded uncertainty value U (string). null if no column exists.
-   - uncUnit: unit of uncertainty. null if no column exists.
-   - uncK: coverage factor k (number). Default 2. null if no column exists.
-   Most conformity review sheets do NOT have uncertainty — set all three to null in that case.
+8. quantity: English (Torque, Temperature, etc). uncK is number, others are strings. null for missing.
+   overall: "PASS" only if ALL passed. Uncertainty: extract if column exists, else null.
 
 EXAMPLES:
+Ex1 — Explicit error column:
+  Indicated(N·cm)|(lbf·in)|Ref Calibrator(N·cm)|(lbf·in)|Accuracy Error(%)|Tolerance(±%)|Conformity
+  2260|1586.8|2279|1600.2|-0.8|4|PASS
+→ indicated=2260,ref=2279,error=-0.8(%),tolerance=4(%),result=PASS. Skip lbf·in.
 
-Example 1a — Torque wrench (explicit error column, N·cm):
-Input rows include:
-  Indicated Torque (N·cm) | (lbf·in) | Ref Torque Calibrator (N·cm) | (lbf·in) | Relative Accuracy Error (%) | Tolerance (±%) | Conformity
-  2260 | 1586.8 | 2279 | 1600.2 | -0.8 | 4 | PASS
-→ indicated=2260 (N·cm), ref=2279 (N·cm), error=-0.8 (%), tolerance=4 (%), result=PASS
-Note: "(lbf·in)" = secondary unit, skip. Error column exists — use directly.
-WRONG: error=2260 or error=2279 — these are ref/indicated values, NOT error!
+Ex2 — No error column:
+  Nominal(μm)|Measured(μm)|Tolerance(μm)|Conformity
+  24.3|24.3|0.5|PASS → error=0.0(calculated)
 
-Example 1b — Torque measuring device (explicit error column, N·m):
-Input rows include:
-  Indicated Torque | Ref Torque | Relative Accuracy | Tolerance | Conformity
-  (N·m) | Calibrator (N·m) | Error (%) | (±%) |
-  0.5 | 0.498 | 0.12 | 0.50 | PASS
-  1.0 | 0.997 | 0.08 | 0.50 | PASS
-→ indicated=0.5, ref=0.498, error=0.12 (%), tolerance=0.50 (%), result=PASS
-WRONG: error=0.498 or error=0.5 — these are ref/indicated, NOT error! The error is the SMALL percentage value (0.12%).
+Ex3 — Correction(보정값), NOT error:
+  Reference(°C)|Indication(°C)|Correction(°C)|Tolerance|Suitability
+  15.1|15.0|0.1|Refer to attached|Pass
+→ error=-0.1(calculated:15.0−15.1). tolerance=null(non-numeric). Do NOT use Correction.
 
-Example 2 — Coating thickness (no error column):
-Input rows include:
-  Nominal value (μm) | Measured value (μm) | Tolerance limit (μm) | Conformity
-  24.3 | 24.3 | 0.5 | PASS
-→ ref=24.3, indicated=24.3, error=0.0 (calculated), tolerance=0.5
+Ex4 — Grouped values:
+  Ref(N·m)|Measured Avg(N·m)|Rel.accuracy err(%FS)|Specs(±%FS)|Conformity
+  0.0|0.0000|-|-|-
+  0.1|0.1012| | |
+  0.5|0.5022| | |
+  | |0.37|0.50|PASS
+→ ALL rows share error=0.37,tolerance=0.50,result=PASS. Skip 0.0 row.
 
-Example 3 — Temperature/Humidity (Correction column, NOT error):
-Input rows include:
-  Reference (°C) | Indication (°C) | Correction (°C) | Tolerance | Suitability
-  15.1 | 15.0 | 0.1 | Refer to the attached calibration results | Pass
-→ ref=15.1, indicated=15.0, error=-0.1 (calculated: 15.0-15.1, NOT from Correction), tolerance=null (non-numeric text), result=PASS
-Note: "Correction" is NOT error — do not use it. Calculate error = indicated - ref.
+Ex5 — Class/Grade (NOT error):
+  지시토크(N·m)|측정값평균(N·m)|등급(FS대비)|제조사사양허용등급(FS대비)|적합여부
+  0.1|0.1006| | |
+  0.5|0.5010| | |
+  | |1|1|PASS
+→ 등급=Class→tolerance="1",tolUnit="% FS". CALCULATE error per row: (0.1006−0.1)/0.1×100=0.60%.
 
-Example 4 — Torque device (grouped error/tolerance):
-Input rows include:
-  Reference Torque | Measured value Average | Relative accuracy err | Specifications | Conformity
-  (N·m) | (N·m) | (Full Scale) | (± %) (Full Scale) | (PASS, FAIL)
-  0.0 | 0.000 0 | - | - | -
-  0.1 | 0.101 2 | | |
-  0.2 | 0.201 5 | | |
-  0.3 | 0.301 8 | | |
-  0.4 | 0.402 0 | | |
-  0.5 | 0.502 2 | | |
-  | | 0.37 | 0.50 | PASS
-  0.6 | 0.602 4 | | |
-  ...
-  1.0 | 1.003 7 | | |
-→ ALL rows (0.1~1.0) share: error=0.37 (%), tolerance=0.50 (%), result=PASS
-   Skip the 0.0 row (zero point with "-" markers).
-   For each: ref=0.1, indicated=0.1012, error=0.37, errUnit="%", tolerance=0.50, tolUnit="%", result=PASS
-
-Example 5 — Torque device (Class/Grade columns, NO error column, grouped result):
-Input rows include:
-  시 계 방 향
-  지시토크 | 측정값 평균 | 등 급 | 제조사 사양 허용등급 | 적합여부
-  (N·m) | (N·m) | (Full Scale 대비) | (Full Scale 대비) | (PASS, FAIL)
-  0.0 | 0.000 0 | - | - | -
-  0.1 | 0.100 6 | | |
-  0.2 | 0.200 6 | | |
-  0.3 | 0.300 7 | | |
-  0.4 | 0.400 9 | | |
-  0.5 | 0.501 0 | | |
-  | | 1 | 1 | PASS
-  0.6 | 0.601 2 | | |
-  0.7 | 0.701 5 | | |
-  0.8 | 0.801 7 | | |
-  0.9 | 0.902 0 | | |
-  1.0 | 1.002 3 | | |
-→ "등급" and "제조사 사양 허용등급" are Class/Grade — NOT error!
-  NO error column exists → CALCULATE error per row.
-  "등급 1 (Full Scale 대비)" → tolerance="1", tolUnit="% FS"
-  Grouped: tolerance and result apply to ALL rows in the group.
-  Row 1: ref=0.1, indicated=0.1006, error="0.60" (calculated: (0.1006-0.1)/0.1*100=0.60%), errUnit="%",
-    tolerance="1", tolUnit="% FS", result="PASS", quantity="Torque Clockwise"
-  Row 5: ref=0.5, indicated=0.5010, error="0.20" (calculated: (0.5010-0.5)/0.5*100=0.20%), errUnit="%",
-    tolerance="1", tolUnit="% FS", result="PASS"
-  Skip 0.0 row (zero point). Skip the summary row (no ref/indicated).
-WRONG: error=1 — that's the Class/Grade value, NOT error! Error must be calculated.
-
-Example 6 — Korean format (O/X verdict, 보정값 is Correction):
-Input rows include:
-  교정결과 사용적합성 검토서
-  제조사 | GE DRUCK LIMITED | 모델 | ADTS542F | 장비명 | 고도계
-  제조사 일련번호 | 10895844
-  [관리번호] | B40074
-  교정일 | 2023-03-17 | 차기교정일 | 2024-03-16
-  성적서번호 | 23-015176-01-34
-  측정점번호 | 기준값 | 지시값 | 보정값 | Spec Accuracy | 허용범위 | 적합여부
-  | (kPa) | (kPa) | (kPa) | (± % Measurement) | (±) | (O, X)
-  1 | 2.134 0 | 2.134 | 0.000 | 0.2 % of RDG | 0.004 3 | O
-  2 | 4.269 0 | 4.268 | 0.001 | 0.2 % of RDG | 0.008 5 | O
-→ equipment: manufacturer="GE DRUCK LIMITED", model="ADTS542F", serial="10895844",
-  certNo="23-015176-01-34", calDate="2023-03-17", dueDate="2024-03-16"
-→ ref="2.1340", refUnit="kPa", indicated="2.134", indUnit="kPa",
-  error="-0.0000" (calculated: 2.134 - 2.1340, NOT from 보정값 0.000),
-  errUnit="kPa", tolerance="0.0043", tolUnit="kPa", result="PASS"
-Note: "O" → PASS. "보정값" is Correction — do NOT use as error. Calculate error = indicated - ref.
-  "허용범위" provides the absolute tolerance value. "Spec Accuracy" describes the spec but use 허용범위 for tolerance.`
+Ex6 — Korean format:
+  제조사|GE DRUCK|모델|ADTS542F|교정일|2023-03-17|차기교정일|2024-03-16
+  기준값(kPa)|지시값(kPa)|보정값(kPa)|Spec Accuracy|허용범위(±)|적합여부(O,X)
+  2.1340|2.134|0.000|0.2%RDG|0.0043|O
+→ error=2.134−2.1340(calculated). tolerance="0.0043". "O"→PASS.`
 
 // ─── 을지(교정 측정결과) LLM 파싱 프롬프트 ───
 
-const CALIBRATION_RESULTS_SYSTEM_PROMPT = `You are a calibration certificate measurement data parser.
-The input contains calibration measurement results (을지/calibration results pages).
-This data was converted from PDF to Excel automatically, so cell alignment may be imperfect.
-The data may be in Korean, English, or mixed.
-
+const CALIBRATION_RESULTS_SYSTEM_PROMPT = `Parse calibration measurement results (을지, pipe-delimited from PDF→Excel).
 Multiple sheets may be concatenated with "=== Page N ===" separators.
+tolerance=null, tolUnit=null, result=null, overall=null for ALL rows (no conformity in 을지).
 
 Return JSON:
 {
-  "equipment": {
-    "manufacturer": "string or null",
-    "model": "string or null",
-    "serial": "string or null",
-    "certNo": "string or null",
-    "calDate": "YYYY-MM-DD or null",
-    "dueDate": "YYYY-MM-DD or null"
-  },
-  "measurements": [
-    {
-      "quantity": "Torque Clockwise",
-      "ref": "0.1",
-      "refUnit": "N·m",
-      "indicated": "0.1012",
-      "indUnit": "N·m",
-      "error": "0.69",
-      "errUnit": "%",
-      "tolerance": null,
-      "tolUnit": null,
-      "result": null,
-      "uncertainty": "0.86",
-      "uncUnit": "%",
-      "uncK": 2
-    }
-  ],
+  "equipment": { "manufacturer":str|null, "model":str|null, "serial":str|null, "certNo":str|null, "calDate":"YYYY-MM-DD"|null, "dueDate":"YYYY-MM-DD"|null },
+  "measurements": [{ "quantity":"Torque Clockwise", "ref":"0.1", "refUnit":"N·m", "indicated":"0.1012", "indUnit":"N·m", "error":"0.69", "errUnit":"%", "tolerance":null, "tolUnit":null, "result":null, "uncertainty":"0.86", "uncUnit":"%", "uncK":2 }],
   "overall": null
 }
 
 RULES:
+1. COLUMNS — Combine multi-row headers. Map: ref=Reference/기준값, indicated=Indication/지시값.
+   Multiple error columns may exist (Reproducibility, Interpolation, Zero, etc.)→use FIRST one.
+   "Correction"/"보정값" is NOT error. Class/Grade→ignore.
 
-1. COLUMN IDENTIFICATION — Headers often span multiple rows.
-   Combine vertically-aligned header rows to determine each column's meaning.
-   Typical columns in calibration results:
-   - Reference value (기준값/Reference/Standard) → ref
-   - Indication/Measured value (지시값/Indication/Measured/DUT) → indicated
-   - Multiple error columns may exist (Reproducibility, Interpolation, Zero, Reversibility, etc.)
-   - Use the FIRST error column (usually "Relative error" or "Reproducibility") as the primary error → error
-   - Uncertainty column → extract as uncertainty (NOT error). See rule 10.
-   - Class/Grade → ignore
+2. SECTIONS — CW/CCW, 시계/반시계, Temperature/Humidity→use as quantity prefix.
 
-2. SECTION LABELS — Look for "Clockwise", "Counterclockwise", "CW", "CCW",
-   "시계방향", "반시계방향", "TEMPERATURE", "HUMIDITY", "온도", "습도" etc.
-   Use these as quantity prefixes (e.g., "Torque Clockwise", "Temperature").
+3. INDICATION PRIORITY — Average>Increasing>single column.
 
-3. MULTIPLE INDICATION COLUMNS — Priority for indicated value:
-   a) If an "Average" column exists (among multiple runs like 1 Run, 2 Run, 3 Run, Average), use Average.
-   b) If "Increasing indication" and "Decreasing indication" exist without Average, use Increasing.
-   c) If only single indication/measured column, use that.
+4. ERROR — Use FIRST relative error column directly. Do NOT recalculate.
 
-4. ERROR — Use the FIRST relative/percentage error column value.
-   errUnit is typically "%". Do NOT recalculate — use the table value directly.
-   "Correction" column: same rule as conformity — it is NOT error.
+5. UNCERTAINTY — Headers: "Measurement uncertainty","불확도","U(k=2)". NOT the same as error.
+   Extract: uncertainty=U value(string), uncUnit=unit, uncK=k(number, default 2). Null if no column.
 
-5. TOLERANCE — Calibration results typically do NOT have tolerance columns.
-   Set tolerance=null, tolUnit=null.
-
-6. RESULT — No PASS/FAIL in calibration results. Set result=null for all rows.
-
-7. SKIP zero-point rows: Where ref=0.0 and indicated ≈ 0.0 with "-" markers.
-   INVALID SECTIONS: If a section contains "#DIV/0!", all-zero reference values, or other Excel error values,
-   skip that ENTIRE section — the instrument was outside its output range for that direction.
-
-8. Numbers MUST be strings. null for missing values (uncK is a number, not string).
-9. overall: null (no conformity judgment in calibration results).
-
-10. UNCERTAINTY — Extract measurement uncertainty from the uncertainty column.
-   Common headers: "Measurement uncertainty", "Rel. meas. uncertainty", "Measurement Uncertainty(%)",
-   "불확도", "U(k=2)", "Uncertainty". This is separate from error columns.
-   - uncertainty: the expanded uncertainty value U (string). Extract the number only.
-   - uncUnit: unit of uncertainty (e.g., "%", "mT", "°C"). If header says "(k = 2)" with unit in parentheses, extract the unit.
-   - uncK: coverage factor k (number). Look for "(k = 2)", "(k=2)", "Confidence level approximately 95 %, k = 2" etc. Default to 2 if not explicitly stated.
-   - If NO uncertainty column exists, set all three to null.
-   - Do NOT confuse uncertainty with error. They are different columns.
+6. Skip ref=0.0 rows with "-". Skip sections with "#DIV/0!".
+   Numbers are strings (except uncK=number). null for missing.
 
 EXAMPLES:
+Ex1 — Torque (Increasing/Decreasing + Uncertainty):
+  Ref Torque(N·m)|Increasing|Decreasing|Meas.Uncertainty(%)|Rel.error(%)|Repro(%)|Zero(%)|Rev(%)|Class
+  0.0|0.0000|0.0001|-|-|-|-|-|-
+  0.1|0.1012|0.1014|0.86|0.69|0.36|0.02|0.20|1
+→ ref=0.1,indicated=0.1012(Increasing),error=0.69(%),uncertainty=0.86(%),uncK=2. Skip 0.0.
 
-Example 1 — Torque measuring device (Increasing/Decreasing, with Uncertainty):
-Input rows include:
-  Reference | | | Relative | Reproducibility | Zero | Reversibility
-  Torque | Increasing | Decreasing | Measurement | error | error | error | error | Class
-  | indication | indication | Uncertainty(%) | (%) | (%) | (%) | (%)
-  (N·m)
-  0.0 | 0.000 0 | 0.000 1 | - | - | - | - | - | -
-  0.1 | 0.101 2 | 0.101 4 | 0.86 | 0.69 | 0.36 | 0.02 | 0.20 | 1
-→ ref=0.1, refUnit="N·m", indicated=0.1012, indUnit="N·m", error=0.69, errUnit="%",
-  uncertainty=0.86, uncUnit="%", uncK=2
-Note: Use Increasing indication. First error column (Relative error = 0.69).
-  "Measurement Uncertainty(%)" column → uncertainty. Skip 0.0 row.
+Ex2 — Torque wrench (Average + Uncertainty):
+  Indicated(N·cm)|1Run|2Run|3Run|Average|Accuracy Error(%)|Meas.Uncertainty(%)
+  452|443|441|442|442|2.3|1.0
+→ ref=442(Average),indicated=452(DUT),error=2.3,uncertainty=1.0,uncK=2.
 
-Example 2 — Torque wrench (1 Run / 2 Run / 3 Run / Average, with Uncertainty):
-Input rows include:
-  Indicated | Indicated Value of the Reference | | | | Relative | Relative Measurement
-  Torque | Torque Calibrator | | | | Accuracy Error | Uncertainty
-  (N·cm) | 1 Run | 2 Run | 3 Run | Average | (%) | (%)
-  0 | 0 | 0 | 0 | 0 | - | -
-  452 | 443 | 441 | 442 | 442 | 2.3 | 1.0
-  904 | 891 | 893 | 894 | 893 | 1.3 | 0.7
-  2 260 | 2 229 | 2 228 | 2 229 | 2 229 | 1.4 | 0.5
-→ ref=442 (Average column), refUnit="N·cm", indicated=452, indUnit="N·cm", error=2.3, errUnit="%",
-  uncertainty=1.0, uncUnit="%", uncK=2
-Note: Use Average column for ref (reference calibrator average). Indicated Torque = DUT reading. Skip 0 row.
-  "Relative Measurement Uncertainty (%)" column → uncertainty. Extract EACH row's uncertainty value.
-
-Example 3 — Tesla Meter (with Measurement uncertainty column):
-Input rows include:
-  Range | Reference Value | Indication | Deviation | Measurement uncertainty
-  (mT) | (mT) | (mT) | (mT) | (mT)
-  | | | | (Confidence level approximately 95 %, k = 2)
-  30 mT | +16.00 | +16.10 | 0.10 | 0.10
-  30 mT | -16.00 | -16.10 | -0.10 | 0.10
-  30 mT | +8.00 | +8.08 | 0.08 | 0.09
-→ ref=16.00, refUnit="mT", indicated=16.10, indUnit="mT", error=0.10, errUnit="mT",
-  uncertainty=0.10, uncUnit="mT", uncK=2, quantity="Magnetic Flux Density"
-Note: Deviation column = error (absolute). "Measurement uncertainty" → uncertainty. k=2 from header.`
+Ex3 — Tesla Meter:
+  Range|RefValue(mT)|Indication(mT)|Deviation(mT)|Meas.uncertainty(mT, k=2)
+  30mT|+16.00|+16.10|0.10|0.10
+→ ref=16.00,indicated=16.10,error=0.10(mT),uncertainty=0.10(mT),uncK=2.`
 
 interface LlmConformityResult {
   equipment: {
@@ -839,10 +630,14 @@ interface LlmConformityResult {
 async function llmParseConformity(
   conformityText: string,
 ): Promise<{ result: LlmConformityResult; provider: string } | null> {
-  const prompt = `Parse the following conformity review sheet data:\n\n${conformityText}`
+  // 텍스트가 너무 길면 LLM 응답이 잘림 — 12,000자 제한
+  const trimmed = conformityText.length > 12000
+    ? conformityText.slice(0, 12000) + '\n... (truncated)'
+    : conformityText
+  const prompt = `Parse the following conformity review sheet data:\n\n${trimmed}`
 
   try {
-    const { content, model, elapsed } = await llmPool.submit(prompt, CONFORMITY_SYSTEM_PROMPT, 4000)
+    const { content, model, elapsed } = await llmPool.submit(prompt, CONFORMITY_SYSTEM_PROMPT, 8000)
     const parsed = parseLlmJson<LlmConformityResult>(content)
     // 디버그: 첫 측정포인트 샘플 출력
     const sample = parsed.measurements?.[0]
@@ -862,10 +657,14 @@ async function llmParseConformity(
 async function llmParseCalibrationResults(
   text: string,
 ): Promise<{ result: LlmConformityResult; provider: string } | null> {
-  const prompt = `Parse the following calibration measurement results data:\n\n${text}`
+  // 을지 텍스트가 너무 길면 입력 토큰 폭증 → TPM 초과 + 응답 잘림
+  const trimmed = text.length > 12000
+    ? text.slice(0, 12000) + '\n... (truncated)'
+    : text
+  const prompt = `Parse the following calibration measurement results data:\n\n${trimmed}`
 
   try {
-    const { content, model, elapsed } = await llmPool.submit(prompt, CALIBRATION_RESULTS_SYSTEM_PROMPT, 4000)
+    const { content, model, elapsed } = await llmPool.submit(prompt, CALIBRATION_RESULTS_SYSTEM_PROMPT, 8000)
     const parsed = parseLlmJson<LlmConformityResult>(content)
     const sample = parsed.measurements?.[0]
     if (sample) {

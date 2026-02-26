@@ -13,26 +13,26 @@ import {
   useCertData, computeConformityTrend,
 } from './equipment-detail/shared-utils'
 import { DdayBadge } from './equipment-detail/shared-components'
-import TabIdentity from './equipment-detail/tab-identity'
-import TabHistory from './equipment-detail/tab-history'
+import TabOverview from './equipment-detail/tab-overview'
 import TabTraceability from './equipment-detail/tab-traceability'
 import CertDetailModal from './equipment-detail/cert-detail-modal'
 
 // 무거운 탭은 lazy loading
 const TabMeasurement = dynamic(() => import('./equipment-detail/tab-measurement'), { ssr: false })
+const TabCorrectiveAction = dynamic(() => import('./equipment-detail/tab-corrective-action'), { ssr: false })
 const TabAiAnalysis = dynamic(() => import('./equipment-detail/tab-ai-analysis'), { ssr: false })
 
 // ──────────────────────────── 탭 정의 ────────────────────────────
 
-type TabKey = 'identity' | 'history' | 'measurement' | 'traceability' | 'ai'
+type TabKey = 'overview' | 'measurement' | 'traceability' | 'corrective' | 'ai'
 
-const TAB_ORDER: TabKey[] = ['identity', 'history', 'measurement', 'traceability', 'ai']
+const TAB_ORDER: TabKey[] = ['overview', 'measurement', 'traceability', 'corrective', 'ai']
 
 const TAB_ICONS: Record<TabKey, string> = {
-  identity:      'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z',
-  history:       'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  overview:      'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z',
   measurement:   'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
   traceability:  'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
+  corrective:    'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
   ai:            'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
 }
 
@@ -50,7 +50,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
   const { t } = useT()
 
   // 탭 상태
-  const [activeTab, setActiveTab] = useState<TabKey>('identity')
+  const [activeTab, setActiveTab] = useState<TabKey>('overview')
 
   // 공유 데이터 상태
   const [items, setItems] = useState<DetailItem[]>([])
@@ -164,10 +164,10 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 
   // 탭 라벨 매핑
   const tabLabels: Record<TabKey, string> = {
-    identity: t.detail.tabIdentity,
-    history: t.detail.tabHistory,
+    overview: t.detail.tabOverview,
     measurement: t.detail.tabMeasurement,
     traceability: t.detail.tabTraceability,
+    corrective: t.detail.tabCorrectiveAction,
     ai: t.detail.tabAi,
   }
 
@@ -245,7 +245,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
       <div className="flex gap-1 bg-slate-50 rounded-xl p-1 mb-6 overflow-x-auto">
         {TAB_ORDER.map(tabKey => {
           const isActive = activeTab === tabKey
-          const needsCert = ['measurement', 'traceability', 'ai'].includes(tabKey)
+          const needsCert = ['measurement', 'traceability', 'corrective', 'ai'].includes(tabKey)
           const hasCerts = certs.size > 0
           return (
             <button
@@ -277,8 +277,9 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 
       {/* ===== 탭 콘텐츠 ===== */}
       <div className="min-h-[400px]">
-        {activeTab === 'identity' && (
-          <TabIdentity
+        {activeTab === 'overview' && (
+          <TabOverview
+            groupNm={groupNm}
             info={info}
             items={items}
             imageUrl={imageUrl}
@@ -291,12 +292,6 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             tolerance={tolerance}
             mpePercent={mpePercent}
             onSpecChange={(tol, mpe) => { setTolerance(tol); setMpePercent(mpe) }}
-          />
-        )}
-
-        {activeTab === 'history' && (
-          <TabHistory
-            items={items}
             certs={certs}
             certErrors={certErrors}
             certProgress={certProgress}
@@ -313,10 +308,10 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               conformityTrend={conformityTrend}
               tolerance={tolerance}
               mpePercent={mpePercent}
-              onGoIdentity={() => setActiveTab('identity')}
+              onGoIdentity={() => setActiveTab('overview')}
             />
           ) : (
-            <NoCertPlaceholder onGoHistory={() => setActiveTab('history')} />
+            <NoCertPlaceholder onGoOverview={() => setActiveTab('overview')} />
           )
         )}
 
@@ -324,8 +319,19 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
           <TabTraceability
             certs={certs}
             certDone={certDone}
-            onGoHistory={() => setActiveTab('history')}
+            onGoOverview={() => setActiveTab('overview')}
           />
+        )}
+
+        {activeTab === 'corrective' && (
+          certs.size > 0 ? (
+            <TabCorrectiveAction
+              groupNm={groupNm}
+              certs={certs}
+            />
+          ) : (
+            <NoCertPlaceholder onGoOverview={() => setActiveTab('overview')} />
+          )
         )}
 
         {activeTab === 'ai' && (
@@ -336,7 +342,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               equipmentName={equipmentName}
             />
           ) : (
-            <NoCertPlaceholder onGoHistory={() => setActiveTab('history')} />
+            <NoCertPlaceholder onGoOverview={() => setActiveTab('overview')} />
           )
         )}
       </div>
@@ -355,7 +361,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 
 // ──────────────────────────── 보조 컴포넌트 ────────────────────────────
 
-function NoCertPlaceholder({ onGoHistory }: { onGoHistory: () => void }) {
+function NoCertPlaceholder({ onGoOverview }: { onGoOverview: () => void }) {
   const { t } = useT()
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
@@ -363,7 +369,7 @@ function NoCertPlaceholder({ onGoHistory }: { onGoHistory: () => void }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
       <p className="text-sm text-slate-500 mb-2">{t.detail.traceNoCert}</p>
-      <button onClick={onGoHistory}
+      <button onClick={onGoOverview}
         className="px-4 py-2 text-xs font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
       >{t.detail.traceGoHistory}</button>
     </div>

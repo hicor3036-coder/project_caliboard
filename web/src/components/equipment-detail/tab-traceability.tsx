@@ -66,10 +66,10 @@ function CollapsibleText({ label, text }: { label: string; text: string }) {
 interface Props {
   certs: Map<string, CertResult>
   certDone: boolean
-  onGoHistory: () => void
+  onGoOverview: () => void
 }
 
-export default function TabTraceability({ certs, certDone, onGoHistory }: Props) {
+export default function TabTraceability({ certs, certDone, onGoOverview }: Props) {
   const { t } = useT()
 
   // 최신 cert (교정일 기준)
@@ -94,7 +94,7 @@ export default function TabTraceability({ certs, certDone, onGoHistory }: Props)
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         <p className="text-sm text-slate-500 mb-2">{t.detail.traceNoCert}</p>
-        <button onClick={onGoHistory}
+        <button onClick={onGoOverview}
           className="px-4 py-2 text-xs font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
         >{t.detail.traceGoHistory}</button>
       </div>
