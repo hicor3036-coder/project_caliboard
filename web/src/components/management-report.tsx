@@ -6,7 +6,7 @@ import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/component
 import { useT, fmt } from '@/lib/i18n'
 import type { ReportData } from '@/app/api/ktools/report/route'
 import { loadCorrectiveActions, loadImpactAssessments, type CorrectiveAction, type ImpactAssessment } from './equipment-detail/tab-nonconformity'
-import { type EquipStatusValue } from './equipment-detail/tab-identification'
+import { type EquipStatusValue } from '@/lib/equipment-status'
 import { triggerPrintPdf, generateExcelReport } from '@/lib/report-export'
 
 /* ── AnalysisData 타입 (page.tsx에서 전달) ── */

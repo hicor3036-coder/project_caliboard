@@ -43,23 +43,35 @@ export default function TabPreventive({ conformityTrend, info, equipmentName }: 
       <div className="flex items-center border-b border-gray-100 px-6 pt-4">
         <button
           onClick={() => setActiveAiTab('health')}
-          className={`pb-3 px-1 mr-6 text-sm font-medium border-b-2 transition-colors ${
+          className={`pb-3 px-1 mr-6 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
             activeAiTab === 'health'
               ? 'border-emerald-500 text-emerald-600'
               : 'border-transparent text-slate-400 hover:text-slate-600'
           }`}
-        >{t.detail.aiHealthTab}</button>
+        >
+          {t.detail.aiHealthTab}
+          <span className="text-[10px] text-slate-400 font-normal">§8.2.4 · §7.1.2 · §8.4.3</span>
+        </button>
         <button
           onClick={() => setActiveAiTab('instruction')}
-          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
             activeAiTab === 'instruction'
               ? 'border-blue-500 text-blue-600'
               : 'border-transparent text-slate-400 hover:text-slate-600'
           }`}
-        >{t.detail.aiInstructionTab}</button>
+        >
+          {t.detail.aiInstructionTab}
+          <span className="text-[10px] text-slate-400 font-normal">§7.2.2</span>
+        </button>
         <div className="ml-auto mb-3 text-right">
-          <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §8.2.4 : 모니터링 / §7.1.2 : 확인주기 / §8.4.3 : 예방조치</span>
-          <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS824}</p>
+          <span className="px-2 py-0.5 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">
+            {activeAiTab === 'health'
+              ? 'ISO 10012 §8.2.4 모니터링 · §7.1.2 확인주기 · §8.4.3 예방조치'
+              : 'ISO 10012 §7.2.2 측정프로세스 설계'}
+          </span>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {activeAiTab === 'health' ? t.detail.reqS824 : t.detail.reqS71}
+          </p>
         </div>
       </div>
 

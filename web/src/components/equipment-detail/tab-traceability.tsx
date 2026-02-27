@@ -8,6 +8,7 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import type { CertResult } from '@/lib/cert-cache'
 import { useT } from '@/lib/i18n'
 import { InfoRow, SectionHeader } from './shared-components'
+import RecordChecklist from './record-checklist'
 
 // 반복 문장 제거 (LLM 파싱 아티팩트 대응)
 function dedup(text: string): string {
@@ -244,6 +245,9 @@ export default function TabTraceability({ certs, certDone, onGoOverview }: Props
           </div>
         </div>
       )}
+
+      {/* ════════ §7.1.4(a)~(p) 기록 체크리스트 ════════ */}
+      <RecordChecklist latestCert={latestCert} totalCerts={certs.size} />
     </div>
   )
 }
