@@ -94,20 +94,23 @@ export async function GET() {
 
       // Guard Band 판정
       const err = mp.오차 != null ? parseFloat(String(mp.오차)) : null
-      if (err != null && !isNaN(err) && unc != null && !isNaN(unc) && tol != null && !isNaN(tol) && Math.abs(tol) > 0) {
-        // 단위 호환성 체크
+      // 오차-허용오차 단위 호환성 체크 (단위가 다르면 계산 무의미)
+      const errTolUnitOk = !mp.오차단위 || !mp.허용오차단위 || mp.오차단위 === mp.허용오차단위
+      if (err != null && !isNaN(err) && unc != null && !isNaN(unc) && tol != null && !isNaN(tol) && Math.abs(tol) > 0 && errTolUnitOk) {
+        // 불확도-오차 단위 호환성 체크
         const uncUnitOk = !mp.불확도단위 || !mp.오차단위 || mp.불확도단위 === mp.오차단위
         if (uncUnitOk) {
           const absErr = Math.abs(err)
+          const absUnc = Math.abs(unc)
           const absTol = Math.abs(tol)
-          if (absErr + unc <= absTol) {
+          if (absErr + absUnc <= absTol) {
             gb.conformant++
             certHasGb = true
           } else if (absErr <= absTol) {
             gb.conditionalPass++
             certHasGb = true
             if (!certWorstGb || certWorstGb === 'conformant') certWorstGb = 'conditional-pass'
-          } else if (absErr <= absTol + unc) {
+          } else if (absErr <= absTol + absUnc) {
             gb.conditionalFail++
             certHasGb = true
             if (!certWorstGb || certWorstGb === 'conformant' || certWorstGb === 'conditional-pass') certWorstGb = 'conditional-fail'
@@ -119,7 +122,7 @@ export async function GET() {
         } else {
           gb.noData++
         }
-      } else if (unc == null || isNaN(unc as number)) {
+      } else if (unc == null || isNaN(unc as number) || !errTolUnitOk) {
         gb.noData++
       }
     }

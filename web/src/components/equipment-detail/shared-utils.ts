@@ -414,7 +414,7 @@ export function computeConformityTrend(
         const latestUnc = latestMatched ? parseNum(latestMatched.불확도) : null
         const tol = point['허용상한'] as number | null
         if (latestUnc != null && tol != null) {
-          const gbLimit = Math.abs(tol) - latestUnc
+          const gbLimit = Math.abs(tol) - Math.abs(latestUnc)
           if (gbLimit > 0) {
             point['GB상한'] = gbLimit
             point['GB하한'] = -gbLimit
@@ -447,20 +447,21 @@ export function computeConformityTrend(
           : null
         // 측정불확도 U/T 비율 (ISO 10012 §7.3.1)
         const uncNum = matched ? parseNum(matched.불확도) : null
-        const utRatio = uncNum != null && tolNum != null && tolNum !== 0
-          ? Math.round((uncNum / Math.abs(tolNum)) * 1000) / 10
+        const absUnc = uncNum != null ? Math.abs(uncNum) : null
+        const utRatio = absUnc != null && tolNum != null && tolNum !== 0
+          ? Math.round((absUnc / Math.abs(tolNum)) * 1000) / 10
           : null
         // Guard Band 판정 (ILAC-G8:09/2019)
         // 오차·불확도·허용오차 단위가 같을 때만 계산 가능
         let guardBand: GuardBandVerdict | null = null
-        if (errNum != null && uncNum != null && tolNum != null && unitsCompatible) {
+        if (errNum != null && absUnc != null && tolNum != null && unitsCompatible) {
           const uncUnitOk = !matched?.불확도단위 || !matched?.오차단위 || matched.불확도단위 === matched.오차단위
           if (uncUnitOk) {
             const absErr = Math.abs(errNum)
             const absTol = Math.abs(tolNum)
-            if (absErr + uncNum <= absTol) guardBand = 'conformant'
+            if (absErr + absUnc <= absTol) guardBand = 'conformant'
             else if (absErr <= absTol) guardBand = 'conditional-pass'
-            else if (absErr <= absTol + uncNum) guardBand = 'conditional-fail'
+            else if (absErr <= absTol + absUnc) guardBand = 'conditional-fail'
             else guardBand = 'non-conformant'
           }
         }

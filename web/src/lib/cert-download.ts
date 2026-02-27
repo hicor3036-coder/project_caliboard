@@ -501,7 +501,10 @@ RULES:
 3. ERROR —
    a) Explicit error column (e.g. "Relative Accuracy Error (%)")→use directly, do NOT recalculate.
    b) "Correction"/"보정값" is NOT error (opposite sign). If only Correction exists, calculate: error=indicated−ref.
-   c) No error column: error=indicated−ref. If tolerance is "%"/"% FS", use relative: (indicated−ref)/ref×100.
+   c) No error column: error=indicated−ref.
+      - If errUnit="%" and column header says "% FS" or "%FS"→relative to Full Scale: (indicated−ref)/FullScale×100.
+        FullScale = maximum ref value in the group.
+      - If errUnit="%" (plain)→relative to ref: (indicated−ref)/ref×100.
    SANITY: error must be small if errUnit="%". If error≈ref or error≈indicated→column mapping bug.
 
 4. TOLERANCE — "±0.5 μm"→tolerance="0.5",tolUnit="μm". Strip ±. Non-numeric text→null.
@@ -509,6 +512,10 @@ RULES:
 5. SECTIONS — Include ALL sections (CW/CCW, Temp/Humidity). Use quantity to distinguish.
 
 6. GROUPED VALUES — If error/tolerance/result appear on ONE row for a group, apply to ALL data rows.
+   IMPORTANT: Data rows in the group may have EMPTY error/tolerance/result cells. Do NOT fill them
+   with measured values from adjacent columns. Only the summary row contains the real error/tolerance/result.
+   If a "data row" has the same numeric value in both measured AND error columns, that is a PDF→Excel
+   conversion artifact — the error column should be treated as empty.
    Exception: "등급"/"Class"/"Grade" columns are NOT error. Calculate error per row instead.
    Use Class value as tolerance (e.g. Class 1→tolerance="1",tolUnit="% FS").
 
@@ -739,16 +746,25 @@ function mergeUncertainty(
   }
 
   // Pass 3: 같은 물리량 내 인덱스 순서 매칭 (아직 매칭 안 된 것)
+  // 물리량 정규화: "Torque Clockwise"→"torque cw", "Torque CW"→"torque cw" 등
+  const normalizeQuantity = (q: string | null | undefined): string => {
+    if (!q) return ''
+    let s = q.toLowerCase().trim()
+    s = s.replace(/\bclockwise\b/g, 'cw').replace(/\bcounterclockwise\b/g, 'ccw')
+    s = s.replace(/\b시계\s*방향\b/g, 'cw').replace(/\b반시계\s*방향\b/g, 'ccw')
+    s = s.replace(/\b시계\b/g, 'cw').replace(/\b반시계\b/g, 'ccw')
+    return s
+  }
   const quantityGroups = new Map<string, { confIdx: number[]; calIdx: number[] }>()
   confPoints.forEach((conf, ci) => {
     if (conf.불확도) return
-    const q = conf.물리량 || ''
+    const q = normalizeQuantity(conf.물리량)
     if (!quantityGroups.has(q)) quantityGroups.set(q, { confIdx: [], calIdx: [] })
     quantityGroups.get(q)!.confIdx.push(ci)
   })
   calWithUnc.forEach((cal, ci) => {
     if (usedCalIdx.has(ci)) return
-    const q = cal.물리량 || ''
+    const q = normalizeQuantity(cal.물리량)
     if (!quantityGroups.has(q)) quantityGroups.set(q, { confIdx: [], calIdx: [] })
     quantityGroups.get(q)!.calIdx.push(ci)
   })
@@ -760,6 +776,19 @@ function mergeUncertainty(
       conf.불확도 = cal.불확도
       conf.불확도단위 = cal.불확도단위
       conf.불확도k = cal.불확도k
+      usedCalIdx.add(calWithUnc.indexOf(cal))
+    }
+  }
+
+  // Pass 4: 물리량 무시 폴백 — 아직 불확도 없는 포인트에 남은 을지 데이터를 순서대로 매칭
+  const unmatchedConf = confPoints.filter(c => !c.불확도)
+  const unmatchedCal = calWithUnc.filter((_, i) => !usedCalIdx.has(i))
+  if (unmatchedConf.length > 0 && unmatchedCal.length > 0) {
+    const len = Math.min(unmatchedConf.length, unmatchedCal.length)
+    for (let i = 0; i < len; i++) {
+      unmatchedConf[i].불확도 = unmatchedCal[i].불확도
+      unmatchedConf[i].불확도단위 = unmatchedCal[i].불확도단위
+      unmatchedConf[i].불확도k = unmatchedCal[i].불확도k
     }
   }
 }

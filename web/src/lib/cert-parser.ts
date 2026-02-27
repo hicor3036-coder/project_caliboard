@@ -1147,7 +1147,46 @@ export function conformityToStructuredText(ws: Worksheet): string {
     })
   })
 
-  // 3. 사용 중인 최대 열 수 파악 (후행 빈 열 제거용)
+  // 3. k-tools PDF→Excel 변환 아티팩트 제거
+  // k-tools가 PDF를 Excel로 변환할 때, 실제로는 빈 셀인데 인접한 측정값을
+  // 복사해 넣는 경우가 있음. 이로 인해 오차/허용오차/적합여부 열에 측정값이
+  // 들어가서 LLM이 잘못된 오차를 계산하게 됨.
+  // 패턴: 같은 행에서 앞쪽 열(기준값/지시값)의 값이 뒤쪽 열(오차/허용/결과)에
+  //       동일하게 반복되면, 뒤쪽의 중복값을 빈칸으로 치환.
+  for (const row of rows) {
+    if (row.length < 4) continue
+    // 숫자값이 있는 앞쪽 열(인덱스 0~3) 수집
+    const frontValues = new Set<string>()
+    const numericFront = new Set<string>()
+    for (let i = 0; i < Math.min(4, row.length); i++) {
+      const v = row[i].trim()
+      if (v && !isNaN(Number(v.replace(/,/g, '')))) {
+        frontValues.add(v)
+        numericFront.add(v)
+      }
+    }
+    if (numericFront.size === 0) continue
+    // 뒤쪽 열(인덱스 4~) 검사: 앞쪽 측정값과 동일한 숫자가 반복되면 제거
+    let tailDupCount = 0
+    let tailTotalCount = 0
+    for (let i = 4; i < row.length; i++) {
+      const v = row[i].trim()
+      if (!v) continue
+      tailTotalCount++
+      if (frontValues.has(v)) tailDupCount++
+    }
+    // 뒤쪽 열의 모든 비어있지 않은 셀이 앞쪽 측정값의 복사본이면 제거
+    if (tailDupCount > 0 && tailDupCount === tailTotalCount) {
+      for (let i = 4; i < row.length; i++) {
+        const v = row[i].trim()
+        if (v && frontValues.has(v)) {
+          row[i] = ''
+        }
+      }
+    }
+  }
+
+  // 4. 사용 중인 최대 열 수 파악 (후행 빈 열 제거용)
   let maxCol = 0
   for (const row of rows) {
     for (let i = row.length - 1; i >= 0; i--) {
@@ -1156,7 +1195,7 @@ export function conformityToStructuredText(ws: Worksheet): string {
   }
   if (maxCol === 0) return ''
 
-  // 4. 파이프 구분 텍스트 출력
+  // 5. 파이프 구분 텍스트 출력
   const lines: string[] = []
   for (const row of rows) {
     const cells = Array.from({ length: maxCol }, (_, i) => row[i] || '')
