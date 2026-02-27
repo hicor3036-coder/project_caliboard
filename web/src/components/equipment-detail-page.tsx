@@ -293,12 +293,6 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             mpePercent={mpePercent}
             onSpecChange={(tol, mpe) => { setTolerance(tol); setMpePercent(mpe) }}
             certs={certs}
-            certErrors={certErrors}
-            certProgress={certProgress}
-            certLoading={certLoading}
-            certDone={certDone}
-            fetchCerts={fetchCerts}
-            onSelectCert={(acptNo, cert) => setSelectedCert({ acptNo, cert })}
           />
         )}
 

@@ -12,11 +12,10 @@ import {
   loadEquipStatus, loadEquipStatusHistory, saveEquipStatus, STATUS_BADGE,
 } from '@/lib/equipment-status'
 import DataTable, { type Column, fmtDate } from '../data-table'
-import type { DetailItem, TableRow, CertProgress } from './shared-utils'
+import type { DetailItem, TableRow } from './shared-utils'
 import { parseYmd, daysBetween } from './shared-utils'
 import { InfoRow, SectionHeader } from './shared-components'
 import ToleranceEditor, { type ToleranceData } from './tolerance-editor'
-import CertListSection from './cert-list-section'
 
 // re-export for backward compatibility
 export type { EquipStatusValue } from '@/lib/equipment-status'
@@ -36,18 +35,12 @@ interface Props {
   mpePercent: number | null
   onSpecChange: (tolerance: ToleranceData | null, mpePercent: number | null) => void
   certs: Map<string, CertResult>
-  certErrors: Map<string, string>
-  certProgress: CertProgress
-  certLoading: boolean
-  certDone: boolean
-  fetchCerts: (refresh?: boolean) => void
-  onSelectCert: (acptNo: string, cert: CertResult) => void
 }
 
 export default function TabIdentification({
   groupNm, info, items, imageUrl, thumbnailUrl, imageLoading, imageError,
   setThumbnailUrl, setImageError, equipmentName, tolerance, mpePercent, onSpecChange,
-  certs, certErrors, certProgress, certLoading, certDone, fetchCerts, onSelectCert,
+  certs,
 }: Props) {
   const { t } = useT()
 
@@ -338,16 +331,102 @@ export default function TabIdentification({
         </div>
       )}
 
-      {/* ════════ 섹션 4: 교정성적서 분석 ════════ */}
-      <CertListSection
-        certs={certs}
-        certErrors={certErrors}
-        certProgress={certProgress}
-        certLoading={certLoading}
-        certDone={certDone}
-        fetchCerts={fetchCerts}
-        onSelectCert={onSelectCert}
+      {/* ════════ 섹션 4: 외부공급자 (교정기관) 정보 §6.4 ════════ */}
+      <ExternalSupplierSection certs={certs} />
+    </div>
+  )
+}
+
+// ─── 외부공급자(교정기관) 정보 (§6.4) ───
+
+function ExternalSupplierSection({ certs }: { certs: Map<string, CertResult> }) {
+  const { t, lang } = useT()
+
+  const suppliers = useMemo(() => {
+    const map = new Map<string, { count: number; refStds: string[]; latestDate: string | null }>()
+    for (const cert of certs.values()) {
+      for (const ref of cert.기준기) {
+        const name = ref.교정기관?.trim()
+        if (!name) continue
+        const entry = map.get(name) || { count: 0, refStds: [], latestDate: null }
+        entry.count++
+        if (ref.장비명 && !entry.refStds.includes(ref.장비명)) entry.refStds.push(ref.장비명)
+        if (ref.유효일 && (!entry.latestDate || ref.유효일 > entry.latestDate)) entry.latestDate = ref.유효일
+        map.set(name, entry)
+      }
+    }
+    return [...map.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+  }, [certs])
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <SectionHeader
+        icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />}
+        title={lang === 'ko' ? '외부공급자 (교정기관)' : 'External Suppliers (Calibration Labs)'}
+        color="text-purple-400"
+        clause="ISO 10012 §6.4 : 외부 공급자 (External Suppliers)"
+        requirement={lang === 'ko'
+          ? '§6.4 — 외부 교정 서비스 공급자는 문서화된 요구사항의 충족 능력에 근거하여 평가되고 선정되어야 한다'
+          : '§6.4 — External calibration service suppliers shall be evaluated and selected based on ability to fulfil documented requirements'}
       />
+
+      {suppliers.length === 0 ? (
+        <div className="mt-4 bg-slate-50 rounded-lg p-4 border border-dashed border-slate-200 text-center">
+          <p className="text-sm text-slate-400">
+            {lang === 'ko'
+              ? '성적서를 불러오면 기준기 교정기관 정보가 자동으로 표시됩니다'
+              : 'Load certificates to display reference standard calibration lab info'}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="text-left py-2 px-3 font-semibold text-slate-500">
+                  {lang === 'ko' ? '교정기관' : 'Calibration Lab'}
+                </th>
+                <th className="text-center py-2 px-3 font-semibold text-slate-500">
+                  {lang === 'ko' ? '기준기 수' : 'Ref. Standards'}
+                </th>
+                <th className="text-left py-2 px-3 font-semibold text-slate-500">
+                  {lang === 'ko' ? '담당 기준기' : 'Equipment'}
+                </th>
+                <th className="text-center py-2 px-3 font-semibold text-slate-500">
+                  {lang === 'ko' ? '최근 유효일' : 'Latest Valid'}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {suppliers.map(([name, data]) => (
+                <tr key={name} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                  <td className="py-2.5 px-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
+                      <span className="font-medium text-slate-700">{name}</span>
+                    </div>
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded font-medium">{data.count}</span>
+                  </td>
+                  <td className="py-2.5 px-3 text-slate-500 max-w-[200px] truncate" title={data.refStds.join(', ')}>
+                    {data.refStds.slice(0, 3).join(', ')}{data.refStds.length > 3 ? ` +${data.refStds.length - 3}` : ''}
+                  </td>
+                  <td className="py-2.5 px-3 text-center text-slate-500">
+                    {data.latestDate || '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-slate-400 mt-2 text-right">
+            {lang === 'ko'
+              ? `※ 성적서 ${certs.size}건의 기준기 교정기관 자동 집계`
+              : `※ Auto-aggregated from ${certs.size} certificates`}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
