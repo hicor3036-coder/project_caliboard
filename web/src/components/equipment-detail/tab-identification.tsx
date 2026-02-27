@@ -35,12 +35,15 @@ interface Props {
   mpePercent: number | null
   onSpecChange: (tolerance: ToleranceData | null, mpePercent: number | null) => void
   certs: Map<string, CertResult>
+  certLoading: boolean
+  certDone: boolean
+  fetchCerts: (refresh?: boolean) => void
 }
 
 export default function TabIdentification({
   groupNm, info, items, imageUrl, thumbnailUrl, imageLoading, imageError,
   setThumbnailUrl, setImageError, equipmentName, tolerance, mpePercent, onSpecChange,
-  certs,
+  certs, certLoading, certDone, fetchCerts,
 }: Props) {
   const { t } = useT()
 
@@ -236,6 +239,34 @@ export default function TabIdentification({
               <InfoRow label={t.detail.latestCal} value={fmtDate(info.exrsWrtnYmd)} />
               <InfoRow label={t.detail.calHistory} value={fmt(t.detail.historyUnit, items.length)} />
               <InfoRow label={t.detail.manager} value={info.mngmRsprNm} />
+            </div>
+            {/* 성적서 불러오기 */}
+            <div className="mt-3 pt-3 border-t border-slate-100">
+              {certs.size > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    {fmt(t.detail.certDone, certs.size)}
+                  </span>
+                  <button onClick={() => fetchCerts(true)} disabled={certLoading}
+                    className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                  >{t.detail.refresh}</button>
+                </div>
+              ) : (
+                <button onClick={() => fetchCerts()} disabled={certLoading}
+                  className="w-full py-2 text-xs font-medium bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {certLoading ? (
+                    <>
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      {t.detail.certDownloading}
+                    </>
+                  ) : t.detail.loadCerts}
+                </button>
+              )}
             </div>
           </div>
         </div>

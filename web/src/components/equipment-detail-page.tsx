@@ -293,6 +293,9 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             mpePercent={mpePercent}
             onSpecChange={(tol, mpe) => { setTolerance(tol); setMpePercent(mpe) }}
             certs={certs}
+            certLoading={certLoading}
+            certDone={certDone}
+            fetchCerts={fetchCerts}
           />
         )}
 
@@ -305,7 +308,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               onGoIdentity={() => setActiveTab('identification')}
             />
           ) : (
-            <NoCertPlaceholder onGoOverview={() => setActiveTab('identification')} />
+            <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
           )
         )}
 
@@ -324,7 +327,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               certs={certs}
             />
           ) : (
-            <NoCertPlaceholder onGoOverview={() => setActiveTab('identification')} />
+            <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
           )
         )}
 
@@ -336,7 +339,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
               equipmentName={equipmentName}
             />
           ) : (
-            <NoCertPlaceholder onGoOverview={() => setActiveTab('identification')} />
+            <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
           )
         )}
       </div>
@@ -355,17 +358,26 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 
 // ──────────────────────────── 보조 컴포넌트 ────────────────────────────
 
-function NoCertPlaceholder({ onGoOverview }: { onGoOverview: () => void }) {
+function NoCertPlaceholder({ onLoadCerts, loading }: { onLoadCerts: () => void; loading: boolean }) {
   const { t } = useT()
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
       <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
-      <p className="text-sm text-slate-500 mb-2">{t.detail.traceNoCert}</p>
-      <button onClick={onGoOverview}
-        className="px-4 py-2 text-xs font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-      >{t.detail.traceGoHistory}</button>
+      <p className="text-sm text-slate-500 mb-1">{t.detail.traceNoCert}</p>
+      <p className="text-xs text-slate-400 mb-3">{t.detail.certDesc}</p>
+      <button onClick={onLoadCerts} disabled={loading}
+        className="px-4 py-2 text-xs font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+      >
+        {loading && (
+          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        )}
+        {loading ? t.detail.certDownloading : t.detail.loadCerts}
+      </button>
     </div>
   )
 }
