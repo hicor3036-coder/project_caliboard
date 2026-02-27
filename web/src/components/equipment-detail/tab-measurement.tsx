@@ -1,5 +1,5 @@
 /**
- * 탭 3: 측정분석 (ISO 10012 Clause 7.3 검증)
+ * 탭 3: 측정분석 (ISO 10012 §7.3 측정 불확도 및 소급성)
  * — 요약카드 + 트렌드차트 + MPE 이중 판정 + Guard Band 재판정
  */
 'use client'
@@ -55,7 +55,7 @@ export default function TabMeasurement({ conformityTrend, tolerance, mpePercent,
     return { exceedCount, totalPoints: currentTrend.series.length }
   }, [showMpe, effectiveMpe, currentTrend])
 
-  // U/T 비율 통계 (ISO 10012 §7.3.1 측정불확도)
+  // U/T 비율 통계 (ISO 10012 §7.3 Measurement uncertainty and traceability)
   const utStats = useMemo(() => {
     let total = 0, cautionCount = 0, sumUt = 0, hasAny = false
     for (const s of currentTrend.series) {
@@ -389,7 +389,7 @@ export default function TabMeasurement({ conformityTrend, tolerance, mpePercent,
                 </div>
               )}
             </div>
-            <p className="text-[10px] text-slate-400 mt-2">ISO 10012 §7.3.1 / ILAC-G8</p>
+            <p className="text-[10px] text-slate-400 mt-2">ISO 10012 §7.3.1 측정 불확도 / ILAC-G8</p>
           </div>
         ) : !guardBandMode && hasUncData ? (
           <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-4 flex items-center justify-center">
@@ -412,7 +412,7 @@ export default function TabMeasurement({ conformityTrend, tolerance, mpePercent,
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold text-slate-800">{t.detail.trendTitle}</h3>
-              <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §7.3 : 검증</span>
+              <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §7.3 : 측정불확도 및 소급성 (Measurement uncertainty and traceability)</span>
             </div>
             <span className="text-xs text-slate-400 tracking-wide">{t.detail.trendSub}</span>
             <span className="text-[11px] text-slate-400">{t.detail.reqS73}</span>

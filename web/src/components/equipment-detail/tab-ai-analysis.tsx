@@ -1,5 +1,5 @@
 /**
- * 탭 5: AI 분석 (ISO 10012 Clause 5 관리)
+ * 탭 5: AI 분석 (ISO 10012 §5 경영책임 / Management responsibility)
  * — 교정 지시서 + 건강검진 서브탭
  */
 'use client'
@@ -57,7 +57,7 @@ export default function TabAiAnalysis({ conformityTrend, info, equipmentName }: 
           }`}
         >{t.detail.aiInstructionTab}</button>
         <div className="ml-auto mb-3 text-right">
-          <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §5 : 관리책임</span>
+          <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §5 : 경영책임 (Management responsibility)</span>
           <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS5}</p>
         </div>
       </div>

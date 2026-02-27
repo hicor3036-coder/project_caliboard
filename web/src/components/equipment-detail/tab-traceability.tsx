@@ -1,5 +1,5 @@
 /**
- * 탭 4: 소급성·환경 (ISO 10012 Clause 7.2/7.4)
+ * 탭 4: 소급성·환경 (ISO 10012 §7.3 측정 불확도 및 소급성 / §6.3.2 환경)
  * — 최신 cert 갑지 데이터: 환경조건, 교정방법, 기준기, 교정자/승인자
  */
 'use client'
@@ -129,7 +129,7 @@ export default function TabTraceability({ certs, certDone, onGoOverview }: Props
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />}
             title={t.detail.traceEnvTitle}
             color="text-cyan-500"
-            clause="ISO 10012 §7.4 : 환경조건"
+            clause="ISO 10012 §6.3.2 : 환경 (Environment)"
             requirement={t.detail.reqS74}
           />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
@@ -162,7 +162,7 @@ export default function TabTraceability({ certs, certDone, onGoOverview }: Props
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />}
             title="소급성 (Traceability)"
             color="text-violet-500"
-            clause="ISO 10012 §7.2 : 소급성"
+            clause="ISO 10012 §7.3 : 측정불확도 및 소급성 (Measurement uncertainty and traceability)"
             requirement={t.detail.reqS72}
           />
           <div className="space-y-3 mt-3">
@@ -183,7 +183,7 @@ export default function TabTraceability({ certs, certDone, onGoOverview }: Props
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />}
             title={t.detail.traceRefStd}
             color="text-emerald-500"
-            clause="ISO 10012 §7.2 : 소급성"
+            clause="ISO 10012 §7.3 : 측정불확도 및 소급성 (Measurement uncertainty and traceability)"
             requirement={t.detail.reqS72}
           />
           <div className="overflow-x-auto mt-3">
@@ -222,7 +222,7 @@ export default function TabTraceability({ certs, certDone, onGoOverview }: Props
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />}
             title="교정 인력"
             color="text-slate-400"
-            clause="ISO 10012 §6.1 : 인적 자원"
+            clause="ISO 10012 §6.1 : 인적 자원 (Human resources)"
             requirement={t.detail.reqS61}
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">

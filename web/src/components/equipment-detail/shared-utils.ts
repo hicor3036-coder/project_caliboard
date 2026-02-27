@@ -445,7 +445,7 @@ export function computeConformityTrend(
         const ratio = errNum != null && tolNum != null && tolNum !== 0 && unitsCompatible
           ? Math.round((Math.abs(errNum) / Math.abs(tolNum)) * 1000) / 10
           : null
-        // 측정불확도 U/T 비율 (ISO 10012 §7.3.1)
+        // 측정불확도 U/T 비율 (ISO 10012 §7.3 Measurement uncertainty and traceability)
         const uncNum = matched ? parseNum(matched.불확도) : null
         const absUnc = uncNum != null ? Math.abs(uncNum) : null
         const utRatio = absUnc != null && tolNum != null && tolNum !== 0
