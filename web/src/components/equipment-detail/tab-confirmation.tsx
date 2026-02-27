@@ -1,5 +1,6 @@
 /**
- * 탭 3: 측정분석 (ISO 10012 §7.3 측정 불확도 및 소급성)
+ * 탭 2: 측정학적 확인 (Metrological Confirmation)
+ * ISO 10012 §7.1.1 일반 + §7.1.4 기록 + §7.3.1 불확도 + §8.2.4 모니터링
  * — 요약카드 + 트렌드차트 + MPE 이중 판정 + Guard Band 재판정
  */
 'use client'
@@ -22,7 +23,7 @@ interface Props {
   onGoIdentity: () => void  // 허용오차 설정으로 이동
 }
 
-export default function TabMeasurement({ conformityTrend, tolerance, mpePercent, onGoIdentity }: Props) {
+export default function TabConfirmation({ conformityTrend, tolerance, mpePercent, onGoIdentity }: Props) {
   const { t, lang } = useT()
   const [activeTrendQuantity, setActiveTrendQuantity] = useState<string | null>(null)
   const [hiddenYears, setHiddenYears] = useState<Set<string>>(new Set())
@@ -55,7 +56,7 @@ export default function TabMeasurement({ conformityTrend, tolerance, mpePercent,
     return { exceedCount, totalPoints: currentTrend.series.length }
   }, [showMpe, effectiveMpe, currentTrend])
 
-  // U/T 비율 통계 (ISO 10012 §7.3 Measurement uncertainty and traceability)
+  // U/T 비율 통계 (ISO 10012 §7.3.1 측정 불확도 + §8.2.4 모니터링)
   const utStats = useMemo(() => {
     let total = 0, cautionCount = 0, sumUt = 0, hasAny = false
     for (const s of currentTrend.series) {
@@ -412,10 +413,10 @@ export default function TabMeasurement({ conformityTrend, tolerance, mpePercent,
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold text-slate-800">{t.detail.trendTitle}</h3>
-              <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §7.3 : 측정불확도 및 소급성 (Measurement uncertainty and traceability)</span>
+              <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §8.2.4 : 모니터링 (Monitoring) / §7.3.1 : 측정 불확도</span>
             </div>
             <span className="text-xs text-slate-400 tracking-wide">{t.detail.trendSub}</span>
-            <span className="text-[11px] text-slate-400">{t.detail.reqS73}</span>
+            <span className="text-[11px] text-slate-400">{t.detail.reqS824}</span>
           </div>
           <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200">
             {fmt(t.detail.trendCount, conformityTrend.certCount)}

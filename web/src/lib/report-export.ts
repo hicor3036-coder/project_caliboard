@@ -125,8 +125,8 @@ export async function generateExcelReport(params: ExcelExportParams) {
   const wsS5 = wb.addWorksheet(t.report.sheetS5)
   r = 1
 
-  // §5.4(a) 적합성
-  addSectionTitle(wsS5, r, `§5.4(a) ${t.report.sectionConformity}`, 4); r++
+  // §7.1.1 + §8.2.4 적합성
+  addSectionTitle(wsS5, r, `§7.1.1/§8.2.4 ${t.report.sectionConformity}`, 4); r++
   addTableHeader(wsS5, r, [t.report.passCount, t.report.failCount, t.report.noJudgment, t.report.totalEquip]); r++
   ;[reportData.certStats.passCount, reportData.certStats.failCount, reportData.certStats.noJudgment, analyzed].forEach((v, i) => {
     const cell = wsS5.getCell(r, i + 1)
@@ -136,7 +136,7 @@ export async function generateExcelReport(params: ExcelExportParams) {
   }); r += 2
 
   // Guard Band
-  addSectionTitle(wsS5, r, `§5.4(a) ${t.report.guardBandDist}`, 5); r++
+  addSectionTitle(wsS5, r, `§7.3.1 ${t.report.guardBandDist}`, 5); r++
   addTableHeader(wsS5, r, [t.report.gbConformant, t.report.gbConditionalPass, t.report.gbConditionalFail, t.report.gbNonConformant, t.report.gbNoData]); r++
   const gbStats = reportData.guardBandStats
   ;[gbStats.conformant, gbStats.conditionalPass, gbStats.conditionalFail, gbStats.nonConformant, gbStats.noData].forEach((v, i) => {
@@ -146,8 +146,8 @@ export async function generateExcelReport(params: ExcelExportParams) {
     cell.border = THIN_BORDER
   }); r += 2
 
-  // §5.4(b) 시정조치
-  addSectionTitle(wsS5, r, `§5.4(b) ${t.report.correctiveAction}`, 3); r++
+  // §8.4.2 시정조치
+  addSectionTitle(wsS5, r, `§8.4.2 ${t.report.correctiveAction}`, 3); r++
   addTableHeader(wsS5, r, [t.report.caOpenCount, t.report.caClosed, t.report.caAvgDays]); r++
   ;[caStats.open, caStats.closed, `${caStats.avgDays} ${t.common.days}`].forEach((v, i) => {
     const cell = wsS5.getCell(r, i + 1)
@@ -156,8 +156,8 @@ export async function generateExcelReport(params: ExcelExportParams) {
     cell.border = THIN_BORDER
   }); r += 2
 
-  // §5.4(h) 월별접수추이
-  addSectionTitle(wsS5, r, `§5.4(h) ${t.chart.monthlyTrend}`, 2); r++
+  // §8.2.4 월별접수추이
+  addSectionTitle(wsS5, r, `§8.2.4 ${t.chart.monthlyTrend}`, 2); r++
   addTableHeader(wsS5, r, [lang === 'ko' ? '월' : 'Month', lang === 'ko' ? '건수' : 'Count']); r++
   for (const item of analysisData.월별접수추이) {
     wsS5.getCell(r, 1).value = item.month
@@ -169,7 +169,7 @@ export async function generateExcelReport(params: ExcelExportParams) {
   }; r++
 
   // 진행상태 분포
-  addSectionTitle(wsS5, r, `§5.4(h) ${t.chart.statusDist}`, 2); r++
+  addSectionTitle(wsS5, r, `§8.2.4 ${t.chart.statusDist}`, 2); r++
   addTableHeader(wsS5, r, [lang === 'ko' ? '상태' : 'Status', lang === 'ko' ? '건수' : 'Count']); r++
   for (const item of analysisData.진행상태분포) {
     wsS5.getCell(r, 1).value = item.label
@@ -181,7 +181,7 @@ export async function generateExcelReport(params: ExcelExportParams) {
   }; r++
 
   // 차기교정 구간
-  addSectionTitle(wsS5, r, `§5.4(h) ${t.report.upcomingSummary}`, 2); r++
+  addSectionTitle(wsS5, r, `§7.1.2 ${t.report.upcomingSummary}`, 2); r++
   addTableHeader(wsS5, r, [lang === 'ko' ? '구간' : 'Zone', lang === 'ko' ? '건수' : 'Count']); r++
   for (const [zone, count] of Object.entries(upcomingByZone)) {
     wsS5.getCell(r, 1).value = zone
@@ -193,7 +193,7 @@ export async function generateExcelReport(params: ExcelExportParams) {
   }; r++
 
   // 미처리 현황
-  addSectionTitle(wsS5, r, `§5.4(h) ${t.report.unprocessedSummary}`, 2); r++
+  addSectionTitle(wsS5, r, `§8.2.4 ${t.report.unprocessedSummary}`, 2); r++
   addKpiRow(wsS5, r, lang === 'ko' ? '미처리 건수' : 'Unprocessed Count', analysisData.summary.미처리건수); r++
   const avgStay = analysisData.미처리현황.length > 0
     ? Math.round(analysisData.미처리현황.reduce((s, i) => s + i.체류일수, 0) / analysisData.미처리현황.length)
@@ -261,7 +261,7 @@ export async function generateExcelReport(params: ExcelExportParams) {
   const wsLab = wb.addWorksheet(t.report.sheetLabEval)
   r = 1
 
-  addSectionTitle(wsLab, r, `§5.4(i) ${t.report.sectionSupplier}`, 4); r++
+  addSectionTitle(wsLab, r, `§6.4 ${t.report.sectionSupplier}`, 4); r++
   addTableHeader(wsLab, r, [t.report.labName, t.report.certCount, t.detail.labPassRate, t.detail.labAvgUt]); r++
 
   for (const lab of reportData.calibrationLabStats) {

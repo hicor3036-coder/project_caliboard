@@ -1,5 +1,6 @@
 /**
- * 개요 탭 — 기본정보(ISO 10012 §7.1 측정학적 확인) + 교정이력(§8 측정관리시스템 분석 및 개선) 통합
+ * 탭 1: 장비 식별 (Equipment Identification)
+ * ISO 10012 §6.2.4 식별 + §6.3.1 측정장비 + §7.1.2 확인주기
  */
 'use client'
 
@@ -11,7 +12,7 @@ import type { DetailItem, TableRow, CertProgress } from './shared-utils'
 import { parseYmd, daysBetween } from './shared-utils'
 import { InfoRow, SectionHeader } from './shared-components'
 
-// ─── 장비 상태 관리 (ISO 10012 §7.1 측정학적 확인 + §8.3 부적합 관리) ───
+// ─── 장비 상태 관리 (ISO 10012 §6.2.4 식별 + §8.3.3 부적합 측정장비) ───
 
 export type EquipStatusValue = 'in-service' | 'quarantine' | 'out-of-service'
 
@@ -97,7 +98,7 @@ interface Props {
 
 // ─── 메인 ───
 
-export default function TabOverview({
+export default function TabIdentification({
   groupNm, info, items, imageUrl, thumbnailUrl, imageLoading, imageError,
   setThumbnailUrl, setImageError, equipmentName, tolerance, mpePercent, onSpecChange,
   certs, certErrors, certProgress, certLoading, certDone, fetchCerts, onSelectCert,
@@ -278,11 +279,11 @@ export default function TabOverview({
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />}
               title={t.detail.equipmentInfo}
               color="text-slate-400"
-              clause="ISO 10012 §7.1 : 측정학적 확인 (Metrological confirmation)"
-              requirement={t.detail.reqS71}
+              clause="ISO 10012 §6.2.4 : 식별 (Identification)"
+              requirement={t.detail.reqS624}
             />
             <div className="space-y-2.5">
-              {/* 장비 상태 (§8.3 부적합 관리) */}
+              {/* 장비 상태 (§6.2.4 측정학적 확인 상태 식별) */}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-400 font-medium min-w-[72px]">{t.detail.equipStatus}</span>
                 <div className="flex items-center gap-1.5">
@@ -441,7 +442,7 @@ export default function TabOverview({
             <div>
               <h3 className="text-sm font-semibold text-slate-700">{t.detail.toleranceSetting}</h3>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §7.1 : 측정학적 확인 (Metrological confirmation)</span>
+                <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §7.1.1 : 측정학적 확인 일반 (Metrological confirmation — General)</span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS71}</p>
             </div>
@@ -556,9 +557,9 @@ export default function TabOverview({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold text-slate-700">{t.detail.calTimeline}</h3>
-                <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §8 : 측정관리시스템 분석 및 개선 (Analysis and improvement)</span>
+                <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §6.2.3 : 기록 (Records) / §7.1.2 : 확인주기 (Confirmation intervals)</span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS8}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS712}</p>
             </div>
             <button
               onClick={() => setHistoryTableOpen(v => !v)}

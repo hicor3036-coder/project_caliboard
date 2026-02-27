@@ -1,6 +1,7 @@
 /**
- * 탭 5: AI 분석 (ISO 10012 §5 경영책임 / Management responsibility)
- * — 교정 지시서 + 건강검진 서브탭
+ * 탭 5: AI 예방분석 (AI Preventive Analysis)
+ * ISO 10012 §8.2.4 모니터링 + §7.1.2 확인주기 + §8.4.3 예방조치
+ * — 건강검진 + 교정 지시서 서브탭
  */
 'use client'
 
@@ -16,7 +17,7 @@ interface Props {
   equipmentName: string
 }
 
-export default function TabAiAnalysis({ conformityTrend, info, equipmentName }: Props) {
+export default function TabPreventive({ conformityTrend, info, equipmentName }: Props) {
   const { t } = useT()
   const [activeAiTab, setActiveAiTab] = useState<'health' | 'instruction'>('health')
 
@@ -57,8 +58,8 @@ export default function TabAiAnalysis({ conformityTrend, info, equipmentName }: 
           }`}
         >{t.detail.aiInstructionTab}</button>
         <div className="ml-auto mb-3 text-right">
-          <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §5 : 경영책임 (Management responsibility)</span>
-          <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS5}</p>
+          <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §8.2.4 : 모니터링 / §7.1.2 : 확인주기 / §8.4.3 : 예방조치</span>
+          <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS824}</p>
         </div>
       </div>
 

@@ -5,8 +5,8 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import { useT, fmt } from '@/lib/i18n'
 import type { ReportData } from '@/app/api/ktools/report/route'
-import { loadCorrectiveActions, loadImpactAssessments, type CorrectiveAction, type ImpactAssessment } from './equipment-detail/tab-corrective-action'
-import { type EquipStatusValue } from './equipment-detail/tab-overview'
+import { loadCorrectiveActions, loadImpactAssessments, type CorrectiveAction, type ImpactAssessment } from './equipment-detail/tab-nonconformity'
+import { type EquipStatusValue } from './equipment-detail/tab-identification'
 import { triggerPrintPdf, generateExcelReport } from '@/lib/report-export'
 
 /* ── AnalysisData 타입 (page.tsx에서 전달) ── */
@@ -406,7 +406,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
           <PlaceholderCard clause="§5.3" title={t.report.s53Title} requirement={t.report.s53Req} />
         </div>
 
-        {/* §5.4 경영검토 — 기존 구현 섹션들 */}
+        {/* §7.1.1/§8.2.4 측정학적 확인 적합성 + Guard Band */}
         <Card>
           <SectionHeader title={t.report.sectionConformity} sub={t.report.sectionConformitySub} requirement={t.report.sectionConformityReq} />
           {hasCertData ? (
@@ -463,12 +463,12 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
           )}
         </Card>
 
-        {/* §5.4(b) 시정조치 실제 데이터 + §5.4(d,g) placeholder */}
+        {/* §8.4.2 시정조치 + §8.2.2 고객피드백 + §8.2.3 심사결과 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 print-grid-3">
-          {/* §5.4(b) 시정/예방조치 — 실제 데이터 */}
+          {/* §8.4.2 시정조치 — 실제 데이터 */}
           <Card className="!p-4">
             <div className="flex items-start gap-2 mb-3">
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded shrink-0 mt-0.5">§5.4(b)</span>
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded shrink-0 mt-0.5">§8.4.2</span>
               <div>
                 <p className="text-sm font-semibold text-slate-700">{t.report.correctiveAction}</p>
                 <p className="text-[10px] text-slate-400">{t.report.correctiveActionSub}</p>
@@ -494,11 +494,11 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
               <p className="text-xs text-slate-300 italic">{t.detail.caNoItems}</p>
             )}
           </Card>
-          <PlaceholderCard clause="§5.4(d)" title={t.report.customerFeedback} requirement={t.report.customerFeedbackSub} />
-          <PlaceholderCard clause="§5.4(g)" title={t.report.auditResult} requirement={t.report.auditResultSub} />
+          <PlaceholderCard clause="§8.2.2" title={t.report.customerFeedback} requirement={t.report.customerFeedbackSub} />
+          <PlaceholderCard clause="§8.2.3" title={t.report.auditResult} requirement={t.report.auditResultSub} />
         </div>
 
-        {/* §5.4(h) 측정 프로세스 성과 */}
+        {/* §8.2.4 측정 프로세스 성과 모니터링 */}
         <div>
           <SectionHeader title={t.report.sectionPerformance} sub={t.report.sectionPerformanceSub} requirement={t.report.sectionPerformanceReq} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print-grid-2">
@@ -531,7 +531,7 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
           </div>
         </div>
 
-        {/* §5.4(i) 교정기관 품질평가 */}
+        {/* §6.4 외부공급자 (교정기관) 품질평가 */}
         <Card>
           <SectionHeader title={t.report.sectionSupplier} sub={t.report.sectionSupplierSub} requirement={t.report.sectionSupplierReq} />
           {hasCertData && reportData && reportData.calibrationLabStats.length > 0 ? (

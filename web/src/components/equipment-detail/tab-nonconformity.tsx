@@ -1,5 +1,6 @@
 /**
- * 시정조치 + 영향평가 탭 — ISO 10012 §8.3 부적합 관리 + §5.4 경영검토
+ * 탭 4: 부적합·시정 (Nonconformity & Corrective Action)
+ * ISO 10012 §8.3.3 부적합 측정장비 + §8.4.2 시정조치
  * localStorage 기반 CRUD + 워크플로우 (open → in-progress → verification → closed)
  */
 'use client'
@@ -81,7 +82,7 @@ interface Props {
 
 // ─── 메인 ───
 
-export default function TabCorrectiveAction({ groupNm, certs }: Props) {
+export default function TabNonconformity({ groupNm, certs }: Props) {
   const { t } = useT()
 
   // 시정조치 목록 (이 장비만 필터)
@@ -249,8 +250,8 @@ export default function TabCorrectiveAction({ groupNm, certs }: Props) {
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />}
             title={t.detail.caTitle}
             color="text-amber-500"
-            clause="ISO 10012 §8.3 : 부적합 관리 (Control of nonconformities) + §5.4 : 경영검토 (Management review)"
-            requirement={t.detail.reqS83}
+            clause="ISO 10012 §8.4.2 : 시정조치 (Corrective action) + §8.3.3 : 부적합 측정장비"
+            requirement={t.detail.reqS833}
           />
           <button
             onClick={createCA}
@@ -381,7 +382,7 @@ export default function TabCorrectiveAction({ groupNm, certs }: Props) {
           icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />}
           title={t.detail.iaTitle}
           color="text-orange-500"
-          clause="ISO 10012 §8.3 : 부적합 관리 (Control of nonconformities)"
+          clause="ISO 10012 §8.3.3 : 부적합 측정장비 (Nonconforming measuring equipment)"
           requirement={t.detail.reqS83Ia}
         />
 

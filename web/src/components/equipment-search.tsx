@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import DataTable, { type Column } from './data-table'
 import { useT } from '@/lib/i18n'
-import { loadEquipStatus, type EquipStatusValue } from './equipment-detail/tab-overview'
+import { loadEquipStatus, type EquipStatusValue } from './equipment-detail/tab-identification'
 
 // === 타입 ===
 
