@@ -12,7 +12,7 @@ import {
   loadEquipStatus, loadEquipStatusHistory, saveEquipStatus, STATUS_BADGE,
 } from '@/lib/equipment-status'
 import DataTable, { type Column, fmtDate } from '../data-table'
-import type { DetailItem, TableRow } from './shared-utils'
+import type { DetailItem, TableRow, CertProgress } from './shared-utils'
 import { parseYmd, daysBetween } from './shared-utils'
 import { InfoRow, SectionHeader } from './shared-components'
 import ToleranceEditor, { type ToleranceData } from './tolerance-editor'
@@ -35,6 +35,8 @@ interface Props {
   mpePercent: number | null
   onSpecChange: (tolerance: ToleranceData | null, mpePercent: number | null) => void
   certs: Map<string, CertResult>
+  certErrors: Map<string, string>
+  certProgress: CertProgress
   certLoading: boolean
   certDone: boolean
   fetchCerts: (refresh?: boolean) => void
@@ -43,7 +45,7 @@ interface Props {
 export default function TabIdentification({
   groupNm, info, items, imageUrl, thumbnailUrl, imageLoading, imageError,
   setThumbnailUrl, setImageError, equipmentName, tolerance, mpePercent, onSpecChange,
-  certs, certLoading, certDone, fetchCerts,
+  certs, certErrors, certProgress, certLoading, certDone, fetchCerts,
 }: Props) {
   const { t } = useT()
 
@@ -240,32 +242,47 @@ export default function TabIdentification({
               <InfoRow label={t.detail.calHistory} value={fmt(t.detail.historyUnit, items.length)} />
               <InfoRow label={t.detail.manager} value={info.mngmRsprNm} />
             </div>
-            {/* 성적서 불러오기 */}
+            {/* 성적서 불러오기 + 프로그레스 */}
             <div className="mt-3 pt-3 border-t border-slate-100">
-              {certs.size > 0 ? (
+              {certLoading && certProgress.total > 0 ? (() => {
+                const completed = certs.size + certErrors.size
+                const pct = Math.round((completed / certProgress.total) * 100)
+                return (
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                      <span>
+                        {certProgress.status === 'cached' ? t.detail.certCached : certProgress.status === 'downloading' ? t.detail.certDownloading : t.detail.certAnalyzing}
+                      </span>
+                      <span className="font-medium">{completed}/{certProgress.total} ({pct}%)</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })() : certLoading ? (
+                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  {t.detail.certLoading}
+                </div>
+              ) : certs.size > 0 ? (
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     {fmt(t.detail.certDone, certs.size)}
+                    {certErrors.size > 0 && <span className="text-red-400 ml-1">({fmt(t.detail.certFail, certErrors.size)})</span>}
                   </span>
-                  <button onClick={() => fetchCerts(true)} disabled={certLoading}
-                    className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                  <button onClick={() => fetchCerts(true)}
+                    className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
                   >{t.detail.refresh}</button>
                 </div>
               ) : (
-                <button onClick={() => fetchCerts()} disabled={certLoading}
-                  className="w-full py-2 text-xs font-medium bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  {certLoading ? (
-                    <>
-                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      {t.detail.certDownloading}
-                    </>
-                  ) : t.detail.loadCerts}
-                </button>
+                <button onClick={() => fetchCerts()}
+                  className="w-full py-2 text-xs font-medium bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1.5"
+                >{t.detail.loadCerts}</button>
               )}
             </div>
           </div>
