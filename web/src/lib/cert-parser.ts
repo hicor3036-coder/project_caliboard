@@ -436,28 +436,38 @@ function parseCover(wb: Workbook): CoverParseResult {
     }
   }
 
-  // Step B: 데이터 행에서 병합 그룹별로 값을 추출
-  // ExcelJS getCell은 병합 셀에도 원본 값을 전파 → 연속 동일값 = 하나의 병합 그룹
-  // 기준기 테이블은 항상 5컬럼 (장비명, 제조사/모델, S/N, 유효일, 교정기관) 순서
+  // Step B: 헤더 행에서 컬럼 위치 파악 후, 데이터 행을 위치 기반으로 매핑
+  // 기준기 테이블은 5컬럼 (장비명, 제조사/모델, S/N, 유효일, 교정기관) 순서
   if (hasRefTable) {
-    const dataStartRow = refHeaderEndRow + 1
-    let emptyCount = 0
-
-    // 병합 그룹 추출: 연속 동일값을 하나로 묶음
-    const dedupeRow = (r: number): string[] => {
-      const groups: string[] = []
+    // Step B-1: 헤더에서 5개 컬럼의 시작 위치(col) 찾기
+    const colPositions: number[] = []  // 각 컬럼 그룹의 시작 col
+    for (let r = 25; r <= refHeaderEndRow; r++) {
       let prev = ''
       for (let c = 1; c <= 12; c++) {
         const v = getCell(r, c)
         if (v && v !== prev) {
-          groups.push(v)
+          if (!colPositions.includes(c)) colPositions.push(c)
           prev = v
         } else if (!v) {
-          prev = ''  // 빈 셀이 있으면 그룹 끊기
+          prev = ''
         }
       }
-      return groups
+      if (colPositions.length >= 5) break
     }
+    colPositions.sort((a, b) => a - b)
+
+    // 각 컬럼 그룹에서 병합된 값(첫 번째 비빈 값)을 가져오는 함수
+    const getGroupValue = (r: number, startCol: number, endCol: number): string => {
+      let prev = ''
+      for (let c = startCol; c < endCol; c++) {
+        const v = getCell(r, c)
+        if (v && v !== prev) return v
+      }
+      return ''
+    }
+
+    const dataStartRow = refHeaderEndRow + 1
+    let emptyCount = 0
 
     for (let r = dataStartRow; r <= dataStartRow + 20; r++) {
       const rowText = getRowText(r)
@@ -470,24 +480,30 @@ function parseCover(wb: Workbook): CoverParseResult {
       if (!rowText.trim()) { emptyCount++; if (emptyCount >= 2) break; continue }
       emptyCount = 0
 
-      // 병합 그룹별 고유 값 추출
-      const groups = dedupeRow(r)
+      // 컬럼 위치 기반으로 값 추출 (빈 컬럼이 있어도 위치가 밀리지 않음)
+      const vals: string[] = []
+      for (let i = 0; i < colPositions.length; i++) {
+        const start = colPositions[i]
+        const end = i + 1 < colPositions.length ? colPositions[i + 1] : 13
+        vals.push(getGroupValue(r, start, end))
+      }
 
-      // 최소 2개 그룹이 있어야 기준기 행으로 인식
-      if (groups.length < 2) continue
+      // 최소 2개 값이 있어야 기준기 행으로 인식
+      const nonEmpty = vals.filter(v => v).length
+      if (nonEmpty < 2) continue
 
       // 순서 매핑: [0]=장비명, [1]=제조사/모델, [2]=S/N, [3]=유효일, [4]=교정기관
       const std: ReferenceStandard = {
-        장비명: groups[0] || null,
-        제조사모델: groups[1] || null,
-        시리얼: groups[2] || null,
+        장비명: vals[0] || null,
+        제조사모델: vals[1] || null,
+        시리얼: vals[2] || null,
         유효일: null,
-        교정기관: groups[4] || null,
+        교정기관: vals[4] || null,
       }
 
       // 유효일: 날짜 정규화
-      if (groups[3]) {
-        std.유효일 = normalizeDate(groups[3]) || groups[3].trim()
+      if (vals[3]) {
+        std.유효일 = normalizeDate(vals[3]) || vals[3].trim()
       }
 
       standards.push(std)
