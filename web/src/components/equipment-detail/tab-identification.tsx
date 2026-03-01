@@ -85,8 +85,10 @@ export default function TabIdentification({
     t.detail.statusOutOfService
 
   // ── 교정이력 데이터 ──
-  const [historyTableOpen, setHistoryTableOpen] = useState(false)
-  const columns = useHistoryColumns()
+  const [historyTableOpen, setHistoryTableOpen] = useState(true)
+  const [excelDownloading, setExcelDownloading] = useState<string | null>(null)
+  const [markanyLoading, setMarkanyLoading] = useState<string | null>(null)
+  const columns = useHistoryColumns(excelDownloading, setExcelDownloading, markanyLoading, setMarkanyLoading)
 
   const tableData: TableRow[] = useMemo(() =>
     [...items]
@@ -234,6 +236,8 @@ export default function TabIdentification({
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />}
               title={t.detail.calMgmt}
               color="text-blue-400"
+              clause="ISO 10012 §7.1.2 : 확인주기 (Confirmation intervals)"
+              requirement={t.detail.reqS712}
             />
             <div className="space-y-2.5">
               <InfoRow label={t.detail.calCycle} value={info.affcCyclCd ? `${info.affcCyclCd}${t.detail.months}` : '-'} />
@@ -558,7 +562,12 @@ function StatusChangeModal({
 
 // ─── 테이블 컬럼 훅 ───
 
-function useHistoryColumns(): Column<TableRow>[] {
+function useHistoryColumns(
+  excelDownloading: string | null,
+  setExcelDownloading: (v: string | null) => void,
+  markanyLoading: string | null,
+  setMarkanyLoading: (v: string | null) => void,
+): Column<TableRow>[] {
   const { t } = useT()
   return useMemo(() => [
     { key: 'no', header: 'No', align: 'center' as const, sortValue: (i: TableRow) => i.no, render: (i: TableRow) => <span className="text-gray-400">{i.no}</span> },
@@ -567,7 +576,6 @@ function useHistoryColumns(): Column<TableRow>[] {
     { key: 'rcpnYmd', header: t.detail.rcpnDate, sortValue: (i: TableRow) => i.rcpnYmd, render: (i: TableRow) => <span className="text-gray-600">{fmtDate(i.rcpnYmd)}</span> },
     { key: 'exrsWrtnYmd', header: t.detail.calComplete, sortValue: (i: TableRow) => i.exrsWrtnYmd, render: (i: TableRow) => <span className="text-gray-600">{fmtDate(i.exrsWrtnYmd)}</span> },
     { key: 'nxtrExrsYmd', header: t.detail.nextCalDate, sortValue: (i: TableRow) => i.nxtrExrsYmd, render: (i: TableRow) => <span className="text-gray-600">{fmtDate(i.nxtrExrsYmd)}</span> },
-    { key: 'totalSum', header: t.detail.cost, sortValue: (i: TableRow) => i.totalSum, render: (i: TableRow) => <span className="text-gray-600">{i.totalSum ? fmt(t.detail.costUnit, i.totalSum.toLocaleString()) : '-'}</span> },
     {
       key: 'pgstNm', header: t.detail.status, sortValue: (i: TableRow) => i.pgstNm,
       render: (i: TableRow) => {
@@ -577,5 +585,100 @@ function useHistoryColumns(): Column<TableRow>[] {
       },
     },
     { key: 'mngmRsprNm', header: t.detail.calManager, sortValue: (i: TableRow) => i.mngmRsprNm, render: (i: TableRow) => <span className="text-gray-600">{i.mngmRsprNm || '-'}</span> },
-  ], [t])
+    {
+      key: 'markany', header: '성적서', align: 'center' as const,
+      render: (i: TableRow) => {
+        const isCompleted = i.pgstNm.includes('완료')
+        if (!isCompleted) return <span className="text-gray-200">-</span>
+        const isLoading = markanyLoading === i.acptNo
+        return (
+          <button
+            disabled={!!markanyLoading}
+            className="px-3 py-1.5 rounded-md hover:bg-indigo-50 text-indigo-500 hover:text-indigo-700 transition-colors disabled:opacity-50"
+            title="마크애니 성적서 보기"
+            onClick={async () => {
+              if (markanyLoading) return
+              setMarkanyLoading(i.acptNo)
+              try {
+                const res = await fetch(`/api/ktools/edms?acptNo=${encodeURIComponent(i.acptNo)}`)
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+                  alert(err.error || '성적서 조회 실패')
+                  return
+                }
+                const data = await res.json()
+                window.open(data.url, '_blank', 'width=1200,height=900,scrollbars=yes,resizable=yes')
+              } catch {
+                alert('성적서 열기 중 오류가 발생했습니다.')
+              } finally {
+                setMarkanyLoading(null)
+              }
+            }}
+          >
+            {isLoading ? (
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            )}
+          </button>
+        )
+      },
+    },
+    {
+      key: 'excel', header: 'Excel', align: 'center' as const,
+      render: (i: TableRow) => {
+        const isCompleted = i.pgstNm.includes('완료')
+        if (!isCompleted) return <span className="text-gray-200">-</span>
+        const isLoading = excelDownloading === i.acptNo
+        return (
+          <button
+            disabled={!!excelDownloading}
+            className="px-3 py-1.5 rounded-md hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors disabled:opacity-50"
+            title="성적서 Excel 다운로드"
+            onClick={async () => {
+              if (excelDownloading) return
+              setExcelDownloading(i.acptNo)
+              try {
+                const res = await fetch(`/api/ktools/cert-download?acptNo=${encodeURIComponent(i.acptNo)}`)
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+                  alert(err.error || '다운로드 실패')
+                  return
+                }
+                const blob = await res.blob()
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `성적서_${i.acptNo}.xlsx`
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(url)
+              } catch {
+                alert('성적서 다운로드 중 오류가 발생했습니다.')
+              } finally {
+                setExcelDownloading(null)
+              }
+            }}
+          >
+            {isLoading ? (
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            )}
+          </button>
+        )
+      },
+    },
+  ], [t, excelDownloading, setExcelDownloading, markanyLoading, setMarkanyLoading])
 }

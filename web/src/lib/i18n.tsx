@@ -581,6 +581,14 @@ const ko = {
     verdict: '판정',
     guardBand: 'Guard Band',
     calDate: '교정일',
+    // 커버리지 매트릭스
+    coverageMatrix: '조항 커버리지',
+    coverageMatrixDesc: 'ISO 10012 요구사항 대비 시스템 구현 현황',
+    coverageAi: 'AI',
+    coverageImpl: '구현',
+    coveragePlan: '계획',
+    coverageTotal: '{0}/{1} 조항 ({2}%)',
+    coverageAiCount: 'AI 분석 {0}건',
     // 내보내기
     exportPdf: 'PDF 내보내기',
     exportExcel: 'Excel 내보내기',
@@ -1163,6 +1171,14 @@ const en: typeof ko = {
     verdict: 'Verdict',
     guardBand: 'Guard Band',
     calDate: 'Cal. Date',
+    // Coverage matrix
+    coverageMatrix: 'Clause Coverage',
+    coverageMatrixDesc: 'System implementation status against ISO 10012 requirements',
+    coverageAi: 'AI',
+    coverageImpl: 'Impl.',
+    coveragePlan: 'Planned',
+    coverageTotal: '{0}/{1} clauses ({2}%)',
+    coverageAiCount: '{0} AI-powered',
     // Export
     exportPdf: 'Export PDF',
     exportExcel: 'Export Excel',

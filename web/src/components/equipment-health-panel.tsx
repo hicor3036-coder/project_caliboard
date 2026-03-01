@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useMemo, useState, useCallback, type ReactNode } from 'react'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 import type { HealthCheckResult, HealthScore, CyclePrediction, Prescription, TrendSeries } from '@/lib/equipment-health'
 import { analyzeEquipmentHealth, buildHealthReasoningInput } from '@/lib/equipment-health'
@@ -514,22 +514,26 @@ export default function EquipmentHealthPanel({ series, calDates, certCount, affc
     [series, calDates, certCount, affcCyclCd],
   )
 
-  // 2. LLM 강화 상태
-  const [llmReasoning, setLlmReasoning] = useState<string | null>(null)
-  const [llmPrescriptions, setLlmPrescriptions] = useState<Prescription[] | null>(null)
-  const [llmStatus, setLlmStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  // 2. LLM 강화 상태 — series 키별 캐싱 (물리량 탭 전환 시 유지)
+  const seriesKey = useMemo(() => series.map(s => s.label).join('|'), [series])
+  const [llmCache, setLlmCache] = useState<Record<string, { reasoning: string | null; prescriptions: Prescription[] | null; status: 'idle' | 'loading' | 'done' | 'error' }>>({})
 
-  // result 변경 시 LLM 상태 리셋
-  useEffect(() => {
-    setLlmReasoning(null)
-    setLlmPrescriptions(null)
-    setLlmStatus('idle')
-  }, [result])
+  const cached = llmCache[seriesKey]
+  const llmReasoning = cached?.reasoning ?? null
+  const llmPrescriptions = cached?.prescriptions ?? null
+  const llmStatus = cached?.status ?? 'idle'
+
+  const setLlmForKey = useCallback((update: Partial<{ reasoning: string | null; prescriptions: Prescription[] | null; status: 'idle' | 'loading' | 'done' | 'error' }>) => {
+    setLlmCache(prev => ({
+      ...prev,
+      [seriesKey]: { reasoning: prev[seriesKey]?.reasoning ?? null, prescriptions: prev[seriesKey]?.prescriptions ?? null, status: prev[seriesKey]?.status ?? 'idle', ...update },
+    }))
+  }, [seriesKey])
 
   // 3. 사용자가 능동적으로 호출
   const requestAi = useCallback(async () => {
     if (result.prediction.direction === 'insufficient') return
-    setLlmStatus('loading')
+    setLlmForKey({ status: 'loading' })
     try {
       const input = buildHealthReasoningInput(result)
       const response = await fetch('/api/ai/health-reasoning', {
@@ -540,18 +544,18 @@ export default function EquipmentHealthPanel({ series, calDates, certCount, affc
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const data = await response.json()
 
-      if (data.reasoning) setLlmReasoning(data.reasoning)
-      if (Array.isArray(data.prescriptions)) {
-        setLlmPrescriptions(data.prescriptions.map((p: { priority: string; category: string; title: string; description: string }) => ({
-          ...p,
-          categoryLabel: categoryLabels[p.category as keyof typeof categoryLabels] || p.category,
-        })))
-      }
-      setLlmStatus('done')
+      const reasoning = data.reasoning ?? null
+      const prescriptions = Array.isArray(data.prescriptions)
+        ? data.prescriptions.map((p: { priority: string; category: string; title: string; description: string }) => ({
+            ...p,
+            categoryLabel: categoryLabels[p.category as keyof typeof categoryLabels] || p.category,
+          }))
+        : null
+      setLlmForKey({ reasoning, prescriptions, status: 'done' })
     } catch {
-      setLlmStatus('error')
+      setLlmForKey({ status: 'error' })
     }
-  }, [result, categoryLabels])
+  }, [result, categoryLabels, setLlmForKey])
 
   // 4. 최종 렌더링 데이터 (AI 인사이트만 표시, 규칙 기반 텍스트 숨김)
   const displayPrediction = useMemo(() => ({

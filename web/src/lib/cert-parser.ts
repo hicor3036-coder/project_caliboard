@@ -160,11 +160,16 @@ function parseCover(wb: Workbook): CoverParseResult {
   if (!ws) return { info, 기준기: standards }
 
   // 모든 셀을 (행, 열) → 값 딕셔너리로 변환
+  // ※ ExcelJS는 병합 셀의 slave에도 master 값을 전파 → master 셀만 저장
   const cells = new Map<string, string>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ws.eachRow((row: any, rowNum: number) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     row.eachCell((cell: any, colNum: number) => {
+      // 병합된 slave 셀은 건너뛰기 (master에 실제 값이 있음)
+      if (cell.isMerged && cell.master && cell.master !== cell) {
+        return
+      }
       const val = cellStr(cell.value)
       if (val) cells.set(`${rowNum},${colNum}`, val)
     })
@@ -436,35 +441,92 @@ function parseCover(wb: Workbook): CoverParseResult {
     }
   }
 
-  // Step B: 헤더 행에서 컬럼 위치 파악 후, 데이터 행을 위치 기반으로 매핑
-  // 기준기 테이블은 5컬럼 (장비명, 제조사/모델, S/N, 유효일, 교정기관) 순서
+  // Step B: 기준기 테이블 파싱 — 헤더 의미론적 매핑 + 데이터 행 보정
+  // 테이블 5컬럼: 장비명(Description), 제조사/모델(Manufacturer/Model), S/N, 유효일(Due date), 교정기관(Laboratory)
+  // ※ cells Map이 master-only이므로, 각 셀 위치에 해당 값만 존재
+  //
+  // 실제 패턴 (test 폴더 7개 성적서 분석 결과):
+  //   - 헤더 "Description"은 col2에 있지만 데이터는 col1부터 시작 (병합 범위 col1:col3)
+  //   - 컬럼 위치는 파일마다 다름 (col 3~13 범위에서 변동)
+  //   - 일부 파일에서 장비명이 길어 데이터가 2행에 걸쳐 분할됨
   if (hasRefTable) {
-    // Step B-1: 헤더에서 5개 컬럼의 시작 위치(col) 찾기
-    const colPositions: number[] = []  // 각 컬럼 그룹의 시작 col
-    for (let r = 25; r <= refHeaderEndRow; r++) {
-      let prev = ''
-      for (let c = 1; c <= 12; c++) {
-        const v = getCell(r, c)
-        if (v && v !== prev) {
-          if (!colPositions.includes(c)) colPositions.push(c)
-          prev = v
-        } else if (!v) {
-          prev = ''
-        }
-      }
-      if (colPositions.length >= 5) break
-    }
-    colPositions.sort((a, b) => a - b)
+    // Step B-1: 헤더에서 의미론적 키워드로 컬럼 타입별 master col 찾기
+    // 같은 타입이 여러 행에 있으면 (한글/영문 동시) 가장 작은 col을 사용
+    type ColType = 'desc' | 'mfr' | 'sn' | 'date' | 'lab'
+    const foundAll: { type: ColType; col: number }[] = []
 
-    // 각 컬럼 그룹에서 병합된 값(첫 번째 비빈 값)을 가져오는 함수
-    const getGroupValue = (r: number, startCol: number, endCol: number): string => {
-      let prev = ''
-      for (let c = startCol; c < endCol; c++) {
+    for (let r = 25; r <= refHeaderEndRow; r++) {
+      for (let c = 1; c <= 14; c++) {
         const v = getCell(r, c)
-        if (v && v !== prev) return v
+        if (!v) continue
+        const vl = v.toLowerCase()
+
+        if (vl.includes('description') || vl.includes('기기명'))
+          foundAll.push({ type: 'desc', col: c })
+        else if (vl.includes('manufacturer') || vl.includes('제작회사'))
+          foundAll.push({ type: 'mfr', col: c })
+        else if (vl.includes('serial') || vl.includes('기기번호'))
+          foundAll.push({ type: 'sn', col: c })
+        else if (vl.includes('due date') || vl.includes('차기교정') || vl.includes('유효'))
+          foundAll.push({ type: 'date', col: c })
+        else if (vl.includes('calibration laboratory') || vl.includes('교정기관'))
+          foundAll.push({ type: 'lab', col: c })
+      }
+    }
+
+    // 각 타입별 가장 작은 col을 선택 (한글 col10 vs 영문 col9 → col9 사용)
+    const found: { type: ColType; col: number }[] = []
+    for (const type of ['desc', 'mfr', 'sn', 'date', 'lab'] as ColType[]) {
+      const matches = foundAll.filter(f => f.type === type)
+      if (matches.length > 0) {
+        const minCol = Math.min(...matches.map(m => m.col))
+        found.push({ type, col: minCol })
+      }
+    }
+
+    // Step B-2: 각 컬럼의 시작 col 결정
+    const colOf = (t: ColType) => found.find(f => f.type === t)?.col ?? 0
+    const mfrCol = colOf('mfr')
+    const snCol = colOf('sn')
+    const dateCol = colOf('date')
+    const labCol = colOf('lab')
+    // 장비명은 항상 col1 (헤더에서 col2에 있어도 데이터는 col1:col3 병합)
+    const descCol = 1
+
+    // 5컬럼 위치를 순서대로 정렬
+    const colOrder = [
+      { type: 'desc' as ColType, col: descCol },
+      { type: 'mfr' as ColType, col: mfrCol },
+      { type: 'sn' as ColType, col: snCol },
+      { type: 'date' as ColType, col: dateCol },
+      { type: 'lab' as ColType, col: labCol },
+    ].filter(c => c.col > 0).sort((a, b) => a.col - b.col)
+
+    // 각 컬럼의 범위: [시작col, 다음컬럼 시작col) — 마지막은 col14까지
+    const colRange = (type: ColType): [number, number] => {
+      const idx = colOrder.findIndex(c => c.type === type)
+      if (idx < 0) return [0, 0]
+      const start = colOrder[idx].col
+      const end = idx + 1 < colOrder.length ? colOrder[idx + 1].col : 14
+      return [start, end]
+    }
+
+    // 범위 내 첫 번째 비빈 값을 반환
+    const getVal = (r: number, range: [number, number]): string => {
+      const [start, end] = range
+      if (start === 0) return ''
+      for (let c = start; c < end; c++) {
+        const v = getCell(r, c)
+        if (v) return v
       }
       return ''
     }
+
+    const DR = colRange('desc')
+    const MR = colRange('mfr')
+    const SR = colRange('sn')
+    const TR = colRange('date')
+    const LR = colRange('lab')
 
     const dataStartRow = refHeaderEndRow + 1
     let emptyCount = 0
@@ -480,33 +542,53 @@ function parseCover(wb: Workbook): CoverParseResult {
       if (!rowText.trim()) { emptyCount++; if (emptyCount >= 2) break; continue }
       emptyCount = 0
 
-      // 컬럼 위치 기반으로 값 추출 (빈 컬럼이 있어도 위치가 밀리지 않음)
-      const vals: string[] = []
-      for (let i = 0; i < colPositions.length; i++) {
-        const start = colPositions[i]
-        const end = i + 1 < colPositions.length ? colPositions[i + 1] : 13
-        vals.push(getGroupValue(r, start, end))
+      const desc = getVal(r, DR)
+      const mfr = getVal(r, MR)
+      const sn = getVal(r, SR)
+      const date = getVal(r, TR)
+      const lab = getVal(r, LR)
+
+      // 행 분할 처리: 장비명만 있고 나머지 컬럼이 비어있으면 다음 행과 합침
+      // (PDF→Excel 변환 시 긴 장비명이 전체 행을 차지하고, 나머지 데이터가 다음 행에)
+      // ※ nonEmpty < 2 체크보다 먼저 처리해야 함 (desc만 있으면 nonEmpty=1)
+      if (desc && !mfr && !sn && !date && !lab) {
+        const nr = r + 1
+        const nrText = getRowText(nr)
+        // 다음 행이 종료 패턴이면 행 분할 아님
+        if (/calibration\s*results|교정\s*결과|measurement\s*uncertainty|측정\s*불확도/i.test(nrText) ||
+            /^6\.\s|^7\.\s/.test(nrText.trim())) {
+          continue
+        }
+        const nMfr = getVal(nr, MR)
+        const nSn = getVal(nr, SR)
+        const nDate = getVal(nr, TR)
+        const nLab = getVal(nr, LR)
+        if (nMfr || nSn || nDate || nLab) {
+          const nDesc = getVal(nr, DR) // 장비명 나머지 (e.g. "ne")
+          standards.push({
+            장비명: (nDesc ? desc + nDesc : desc) || null,
+            제조사모델: nMfr || null,
+            시리얼: nSn || null,
+            유효일: nDate ? (normalizeDate(nDate) || nDate.trim()) : null,
+            교정기관: nLab || null,
+          })
+          r++ // 다음 행 건너뛰기
+          continue
+        }
+        continue // 다음 행에도 데이터 없으면 건너뜀
       }
 
       // 최소 2개 값이 있어야 기준기 행으로 인식
-      const nonEmpty = vals.filter(v => v).length
+      const nonEmpty = [desc, mfr, sn, date, lab].filter(v => v).length
       if (nonEmpty < 2) continue
 
-      // 순서 매핑: [0]=장비명, [1]=제조사/모델, [2]=S/N, [3]=유효일, [4]=교정기관
-      const std: ReferenceStandard = {
-        장비명: vals[0] || null,
-        제조사모델: vals[1] || null,
-        시리얼: vals[2] || null,
-        유효일: null,
-        교정기관: vals[4] || null,
-      }
-
-      // 유효일: 날짜 정규화
-      if (vals[3]) {
-        std.유효일 = normalizeDate(vals[3]) || vals[3].trim()
-      }
-
-      standards.push(std)
+      standards.push({
+        장비명: desc || null,
+        제조사모델: mfr || null,
+        시리얼: sn || null,
+        유효일: date ? (normalizeDate(date) || date.trim()) : null,
+        교정기관: lab || null,
+      })
     }
   }
 

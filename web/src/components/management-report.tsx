@@ -387,6 +387,9 @@ export default function ManagementReport({ analysisData, onOpenDetail }: {
         </div>
       </div>
 
+      {/* ── ISO 10012 조항 커버리지 매트릭스 ── */}
+      <CoverageMatrix />
+
       {/* ── 요약 KPI 카드 4개 ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print-grid-4">
         <SummaryCard label={t.report.totalEquip} value={totalEquip.toLocaleString()} color="bg-blue-500" />
@@ -842,6 +845,136 @@ function PlaceholderCard({ clause, title, requirement }: { clause: string; title
         </div>
       </div>
     </div>
+  )
+}
+
+/* ── ISO 10012 커버리지 매트릭스 ── */
+
+type CoverageStatus = 'implemented' | 'ai' | 'placeholder'
+
+interface CoverageItem {
+  clause: string
+  titleKo: string
+  titleEn: string
+  status: CoverageStatus
+}
+
+interface CoverageGroup {
+  group: string
+  titleKey: 'clauseS5' | 'clauseS6' | 'clauseS7' | 'clauseS8'
+  items: CoverageItem[]
+}
+
+const ISO_COVERAGE: CoverageGroup[] = [
+  { group: '§5', titleKey: 'clauseS5', items: [
+    { clause: '§5.1', titleKo: '계량 기능', titleEn: 'Metrological Function', status: 'placeholder' },
+    { clause: '§5.2', titleKo: '고객 중심', titleEn: 'Customer Focus', status: 'placeholder' },
+    { clause: '§5.3', titleKo: '품질 목표', titleEn: 'Quality Objectives', status: 'placeholder' },
+    { clause: '§5.4', titleKo: '경영 검토', titleEn: 'Management Review', status: 'ai' },
+  ]},
+  { group: '§6', titleKey: 'clauseS6', items: [
+    { clause: '§6.1', titleKo: '인적 자원', titleEn: 'Human Resources', status: 'implemented' },
+    { clause: '§6.2.1', titleKo: '절차', titleEn: 'Procedures', status: 'placeholder' },
+    { clause: '§6.2.2', titleKo: '소프트웨어', titleEn: 'Software', status: 'placeholder' },
+    { clause: '§6.2.3', titleKo: '기록', titleEn: 'Records', status: 'implemented' },
+    { clause: '§6.2.4', titleKo: '식별', titleEn: 'Identification', status: 'implemented' },
+    { clause: '§6.3.1', titleKo: '측정장비', titleEn: 'Equipment', status: 'implemented' },
+    { clause: '§6.3.2', titleKo: '환경 조건', titleEn: 'Environment', status: 'implemented' },
+    { clause: '§6.4', titleKo: '외부공급자', titleEn: 'Ext. Suppliers', status: 'implemented' },
+  ]},
+  { group: '§7', titleKey: 'clauseS7', items: [
+    { clause: '§7.1.1', titleKo: '측정학적 확인', titleEn: 'Confirmation', status: 'ai' },
+    { clause: '§7.1.2', titleKo: '확인 주기', titleEn: 'Intervals', status: 'ai' },
+    { clause: '§7.1.3', titleKo: '조정 관리', titleEn: 'Adjustment Control', status: 'placeholder' },
+    { clause: '§7.1.4', titleKo: '확인 기록', titleEn: 'Records', status: 'implemented' },
+    { clause: '§7.2.1', titleKo: '일반사항', titleEn: 'General', status: 'placeholder' },
+    { clause: '§7.2.2', titleKo: '프로세스 설계', titleEn: 'Process Design', status: 'ai' },
+    { clause: '§7.2.3', titleKo: '프로세스 실현', titleEn: 'Realization', status: 'placeholder' },
+    { clause: '§7.3.1', titleKo: '측정 불확도', titleEn: 'Uncertainty', status: 'implemented' },
+    { clause: '§7.3.2', titleKo: '소급성', titleEn: 'Traceability', status: 'implemented' },
+  ]},
+  { group: '§8', titleKey: 'clauseS8', items: [
+    { clause: '§8.1', titleKo: '일반사항', titleEn: 'General', status: 'placeholder' },
+    { clause: '§8.2.1', titleKo: '일반사항', titleEn: 'General', status: 'placeholder' },
+    { clause: '§8.2.2', titleKo: '고객만족', titleEn: 'Customer Satisfaction', status: 'placeholder' },
+    { clause: '§8.2.3', titleKo: '심사', titleEn: 'Audit', status: 'placeholder' },
+    { clause: '§8.2.4', titleKo: '모니터링', titleEn: 'Monitoring', status: 'ai' },
+    { clause: '§8.3.1', titleKo: '부적합 시스템', titleEn: 'System NC', status: 'placeholder' },
+    { clause: '§8.3.2', titleKo: '부적합 프로세스', titleEn: 'Process NC', status: 'placeholder' },
+    { clause: '§8.3.3', titleKo: '부적합 장비', titleEn: 'Equipment NC', status: 'implemented' },
+    { clause: '§8.4.1', titleKo: '일반사항', titleEn: 'General', status: 'placeholder' },
+    { clause: '§8.4.2', titleKo: '시정조치', titleEn: 'Corrective', status: 'implemented' },
+    { clause: '§8.4.3', titleKo: '예방조치', titleEn: 'Preventive', status: 'ai' },
+  ]},
+]
+
+function CoverageMatrix() {
+  const { t, lang } = useT()
+
+  const allItems = ISO_COVERAGE.flatMap(g => g.items)
+  const implCount = allItems.filter(i => i.status !== 'placeholder').length
+  const aiCount = allItems.filter(i => i.status === 'ai').length
+  const totalCount = allItems.length
+  const pct = Math.round((implCount / totalCount) * 100)
+
+  const PILL: Record<CoverageStatus, string> = {
+    ai: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    implemented: 'bg-blue-50 text-blue-700 border-blue-200',
+    placeholder: 'bg-slate-50 text-slate-400 border-slate-200 border-dashed',
+  }
+
+  return (
+    <Card>
+      {/* 헤더 행: 제목 + 퍼센트 + 범례 */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-bold text-slate-800">{t.report.coverageMatrix}</h3>
+          <span className="text-xl font-bold text-slate-800">{pct}%</span>
+          <span className="text-sm text-slate-400">({implCount}/{totalCount})</span>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-slate-500">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />AI ({aiCount})</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-400" />{t.report.coverageImpl} ({implCount - aiCount})</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-slate-200" />{t.report.coveragePlan} ({totalCount - implCount})</span>
+        </div>
+      </div>
+
+      {/* 진행바 */}
+      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-5">
+        <div className="h-full rounded-full flex">
+          <div className="bg-emerald-500" style={{ width: `${(aiCount / totalCount) * 100}%` }} />
+          <div className="bg-blue-400" style={{ width: `${((implCount - aiCount) / totalCount) * 100}%` }} />
+        </div>
+      </div>
+
+      {/* 조항 그리드 — 그룹별 한 행씩 */}
+      <div className="space-y-3">
+        {ISO_COVERAGE.map(group => (
+          <div key={group.group} className="flex items-start gap-2.5">
+            {/* 그룹 라벨 */}
+            <span className="shrink-0 w-[56px] mt-0.5 px-2 py-1 text-xs font-bold bg-slate-800 text-white rounded text-center">{group.group}</span>
+            {/* 칩들 */}
+            <div className="flex flex-wrap gap-1.5">
+              {group.items.map(item => (
+                <span
+                  key={item.clause}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border text-xs font-medium leading-none ${PILL[item.status]}`}
+                >
+                  {item.status === 'ai' && (
+                    <svg className="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  )}
+                  {item.status === 'implemented' && (
+                    <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                  )}
+                  <span className="font-bold">{item.clause}</span>
+                  <span className="font-normal opacity-70">{lang === 'ko' ? item.titleKo : item.titleEn}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
   )
 }
 

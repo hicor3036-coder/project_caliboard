@@ -1,16 +1,11 @@
 'use client'
 
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import type { TrendSeries } from '@/lib/equipment-health'
 import { analyzeEquipmentHealth, buildCalibrationInstructionInput } from '@/lib/equipment-health'
-import { useT, fmt, type Lang } from '@/lib/i18n'
+import { useT, fmt } from '@/lib/i18n'
 
 // ─── Props ───
-
-interface QuantityTrend {
-  series: TrendSeries[]
-  [key: string]: unknown
-}
 
 interface Props {
   series: TrendSeries[]
@@ -20,8 +15,7 @@ interface Props {
   equipmentName: string
   manufacturer: string
   model: string
-  byQuantity?: Map<string, QuantityTrend>
-  quantityKeys?: string[]
+  quantityLabel?: string  // 선택된 물리량 라벨 (TabPreventive에서 전달)
   embedded?: boolean
 }
 
@@ -49,23 +43,6 @@ const ROW_STYLES: Record<string, { dot: string; bg: string; text: string }> = {
   high:   { dot: 'bg-red-500',    bg: 'bg-red-50',    text: 'text-red-700' },
   medium: { dot: 'bg-amber-400',  bg: 'bg-amber-50',  text: 'text-amber-700' },
   low:    { dot: 'bg-emerald-400', bg: '',              text: 'text-slate-500' },
-}
-
-const QUANTITY_LABELS_KO: Record<string, string> = {
-  Temperature: '온도', Humidity: '습도', Pressure: '압력',
-  Vibration: '진동', Frequency: '주파수', 'Sound Level': '소음',
-  Voltage: '전압', Current: '전류', Resistance: '저항',
-}
-
-const QUANTITY_LABELS_EN: Record<string, string> = {
-  Temperature: 'Temperature', Humidity: 'Humidity', Pressure: 'Pressure',
-  Vibration: 'Vibration', Frequency: 'Frequency', 'Sound Level': 'Sound Level',
-  Voltage: 'Voltage', Current: 'Current', Resistance: 'Resistance',
-}
-
-function quantityLabel(q: string, lang: Lang = 'ko'): string {
-  const labels = lang === 'ko' ? QUANTITY_LABELS_KO : QUANTITY_LABELS_EN
-  return labels[q] || q
 }
 
 // ─── 그룹 설정 ───
@@ -185,66 +162,39 @@ function InstructionContent({ instruction }: { instruction: AiInstruction }) {
 export default function CalibrationInstructionPanel({
   series, calDates, certCount, affcCyclCd,
   equipmentName, manufacturer, model,
-  byQuantity, quantityKeys,
+  quantityLabel: qLabel,
   embedded = false,
 }: Props) {
-  const { t, lang } = useT()
-  // 물리량 탭: '전체' 제외, 실제 물리량만
-  const tabs = useMemo(() => {
-    if (!quantityKeys || !byQuantity) return []
-    const filtered = quantityKeys.filter(q => q !== '전체' && byQuantity.has(q))
-    return filtered.length >= 2 ? filtered : []
-  }, [quantityKeys, byQuantity])
+  const { t } = useT()
 
-  const hasMultiQ = tabs.length >= 2
-  const [activeTab, setActiveTab] = useState<string | null>(null)
-
-  // 탭이 있으면 첫 번째 탭을 기본 선택
-  useEffect(() => {
-    if (hasMultiQ && !activeTab) setActiveTab(tabs[0])
-  }, [hasMultiQ, tabs, activeTab])
-
-  // 현재 탭에 해당하는 series 결정
-  const currentSeries = useMemo(() => {
-    if (hasMultiQ && activeTab && byQuantity?.has(activeTab)) {
-      return byQuantity.get(activeTab)!.series
-    }
-    return series
-  }, [hasMultiQ, activeTab, byQuantity, series])
-
-  // 전체 series로 direction 확인 (insufficient 체크용)
   const overallResult = useMemo(
     () => analyzeEquipmentHealth(series, calDates, certCount, affcCyclCd),
     [series, calDates, certCount, affcCyclCd],
   )
 
-  // 탭별 AI 결과 캐시 (key: 탭 이름 또는 '__all__')
-  const [instructionMap, setInstructionMap] = useState<Map<string, AiInstruction>>(new Map())
-  const [statusMap, setStatusMap] = useState<Map<string, 'idle' | 'loading' | 'done' | 'error'>>(new Map())
+  // series 키별 캐싱 (물리량 탭 전환 시 유지)
+  const seriesKey = useMemo(() => series.map(s => s.label).join('|'), [series])
+  const [cache, setCache] = useState<Record<string, { instruction: AiInstruction | null; status: 'idle' | 'loading' | 'done' | 'error' }>>({})
 
-  const currentKey = hasMultiQ ? (activeTab ?? '__all__') : '__all__'
-  const instruction = instructionMap.get(currentKey) ?? null
-  const llmStatus = statusMap.get(currentKey) ?? 'idle'
+  const cached = cache[seriesKey]
+  const instruction = cached?.instruction ?? null
+  const llmStatus = cached?.status ?? 'idle'
 
-  // series 변경 시 캐시 초기화
-  useEffect(() => {
-    setInstructionMap(new Map())
-    setStatusMap(new Map())
-  }, [series])
+  const setCacheForKey = useCallback((update: Partial<{ instruction: AiInstruction | null; status: 'idle' | 'loading' | 'done' | 'error' }>) => {
+    setCache(prev => ({
+      ...prev,
+      [seriesKey]: { instruction: prev[seriesKey]?.instruction ?? null, status: prev[seriesKey]?.status ?? 'idle', ...update },
+    }))
+  }, [seriesKey])
 
   const requestAi = useCallback(async () => {
     if (overallResult.prediction.direction === 'insufficient') return
-    const key = currentKey
-    const targetSeries = currentSeries
 
-    setStatusMap(prev => new Map(prev).set(key, 'loading'))
+    setCacheForKey({ status: 'loading' })
     try {
-      const result = analyzeEquipmentHealth(targetSeries, calDates, certCount, affcCyclCd)
+      const result = analyzeEquipmentHealth(series, calDates, certCount, affcCyclCd)
       const input = buildCalibrationInstructionInput(result, { equipmentName, manufacturer, model })
-      // 탭별 호출 시 물리량 정보 추가
-      if (hasMultiQ && activeTab) {
-        input.quantityLabel = quantityLabel(activeTab, lang)
-      }
+      if (qLabel) input.quantityLabel = qLabel
       const res = await fetch('/api/ai/calibration-instruction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,19 +203,21 @@ export default function CalibrationInstructionPanel({
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       if (Array.isArray(data.points)) {
-        setInstructionMap(prev => new Map(prev).set(key, {
-          points: data.points,
-          schedule: data.schedule ?? [],
-          environmentNotes: data.environmentNotes ?? [],
-        }))
-        setStatusMap(prev => new Map(prev).set(key, 'done'))
+        setCacheForKey({
+          instruction: {
+            points: data.points,
+            schedule: data.schedule ?? [],
+            environmentNotes: data.environmentNotes ?? [],
+          },
+          status: 'done',
+        })
       } else {
         throw new Error('형식 불일치')
       }
     } catch {
-      setStatusMap(prev => new Map(prev).set(key, 'error'))
+      setCacheForKey({ status: 'error' })
     }
-  }, [overallResult, currentKey, currentSeries, calDates, certCount, affcCyclCd, equipmentName, manufacturer, model, hasMultiQ, activeTab, lang])
+  }, [overallResult, series, calDates, certCount, affcCyclCd, equipmentName, manufacturer, model, qLabel, setCacheForKey])
 
   if (overallResult.prediction.direction === 'insufficient') return null
 
@@ -315,23 +267,6 @@ export default function CalibrationInstructionPanel({
           </button>
         )}
       </div>
-
-      {/* 물리량 탭 */}
-      {hasMultiQ && (
-        <div className="flex gap-1 mb-4 bg-gray-50 rounded-lg p-1">
-          {tabs.map(q => (
-            <button
-              key={q}
-              onClick={() => setActiveTab(q)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                activeTab === q ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {quantityLabel(q, lang)}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* AI 호출 전: 빈 상태 */}
       {!instruction && llmStatus !== 'loading' && (

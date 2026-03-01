@@ -295,6 +295,12 @@ export default function TabConfirmation({ conformityTrend, tolerance, mpePercent
 
   return (
     <div className="space-y-6">
+      {/* §7.1.1 ISO 태그 */}
+      <div className="flex items-center justify-between">
+        <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §7.1.1 : 측정학적 확인 (Metrological Confirmation)</span>
+        <span className="text-[11px] text-slate-400">{t.detail.reqS71}</span>
+      </div>
+
       {/* 요약 패널 — 3-그룹 */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
         {/* A. 교정 요약 — 강조 패널 */}
