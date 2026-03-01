@@ -95,7 +95,7 @@ export default function Page() {
 }
 
 function Dashboard() {
-  const { t } = useT()
+  const { t, lang } = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [data, setData] = useState<AnalysisData | null>(null)
@@ -292,6 +292,22 @@ function Dashboard() {
       case 'home':
         return (
           <div className="space-y-6">
+            {/* 히어로 헤더 */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-800">{t.dashboard.title}</h1>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {fmt(t.dashboard.equipStatus, data.summary.총건수.toLocaleString())}
+                </p>
+              </div>
+              <div className="text-right text-xs text-slate-400">
+                <p>{t.dashboard.lastSync}</p>
+                <p className="font-medium text-slate-500">
+                  {new Date(data.summary.데이터시점).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+
             <SummaryCards
               {...data.summary}
               cacheRemaining={data.cache?.remainingMs}

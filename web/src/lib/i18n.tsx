@@ -27,6 +27,11 @@ const ko = {
     collapse: '접기',
     expand: '펼치기',
   },
+  dashboard: {
+    title: '교정 관리 대시보드',
+    equipStatus: '장비 {0}대 관리 중',
+    lastSync: '마지막 동기화',
+  },
   summary: {
     total: '전체 장비',
     unprocessed: '미처리',
@@ -622,6 +627,11 @@ const en: typeof ko = {
     logout: 'Logout',
     collapse: 'Collapse',
     expand: 'Expand',
+  },
+  dashboard: {
+    title: 'Calibration Dashboard',
+    equipStatus: 'Managing {0} equipment',
+    lastSync: 'Last sync',
   },
   summary: {
     total: 'Total Equipment',

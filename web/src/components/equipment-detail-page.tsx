@@ -242,7 +242,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
       </div>
 
       {/* ===== 탭 네비게이션 ===== */}
-      <div className="flex gap-1 bg-slate-50 rounded-xl p-1 mb-6 overflow-x-auto">
+      <div className="flex gap-1 border-b border-slate-200 mb-6 overflow-x-auto">
         {TAB_ORDER.map(tabKey => {
           const isActive = activeTab === tabKey
           const needsCert = ['confirmation', 'traceability', 'nonconformity', 'preventive'].includes(tabKey)
@@ -251,13 +251,13 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
             <button
               key={tabKey}
               onClick={() => setActiveTab(tabKey)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
+              className={`relative flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-all whitespace-nowrap ${
                 isActive
-                  ? 'bg-white text-slate-800 shadow-sm'
+                  ? 'text-slate-800'
                   : 'text-slate-400 hover:text-slate-600'
               }`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-4 h-4 ${isActive ? 'text-blue-600' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={TAB_ICONS[tabKey]} />
               </svg>
               {tabLabels[tabKey]}
@@ -268,7 +268,11 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
                 </svg>
               )}
               {!certLoading && hasCerts && needsCert && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full leading-none">{certs.size}</span>
+              )}
+              {/* 활성 탭 하단 인디케이터 바 */}
+              {isActive && (
+                <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-blue-600 rounded-full" />
               )}
             </button>
           )
