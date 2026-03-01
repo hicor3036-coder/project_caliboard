@@ -94,7 +94,7 @@ export default function Sidebar({
   return (
     <aside className={`${collapsed ? 'w-16' : 'w-56'} h-screen sticky top-0 bg-slate-800 text-white flex flex-col shrink-0 transition-all duration-200`}>
       {/* 로고 */}
-      <div className="px-3 py-4 border-b border-slate-700">
+      <div className="px-3 py-4 border-b border-slate-700 bg-gradient-to-b from-slate-700/50 to-transparent">
         {collapsed ? (
           <div className="flex justify-center">
             <img
@@ -105,7 +105,7 @@ export default function Sidebar({
           </div>
         ) : (
           <>
-            <div className="flex flex-col items-start gap-1 mb-1 px-2">
+            <div className="flex flex-col items-start gap-1 mb-1.5 px-2">
               <img
                 src="https://k-tools.ktl.re.kr/resource/templete/spm/images/ktools_logo.svg"
                 alt="K-Tools"
@@ -117,7 +117,8 @@ export default function Sidebar({
                 className="h-6"
               />
             </div>
-            <p className="text-sm font-bold text-slate-300 px-2">CaliBoard</p>
+            <p className="text-sm font-bold text-white px-2">CaliBoard</p>
+            <p className="text-[10px] text-slate-400 px-2 mt-0.5">ISO 10012 Calibration Management</p>
           </>
         )}
       </div>
