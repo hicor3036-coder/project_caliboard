@@ -494,6 +494,7 @@ RULES:
 1. COLUMNS — Combine multi-row headers vertically. Map by meaning:
    ref=standard/reference, indicated=DUT reading, error=deviation, tolerance=limit, result=PASS/FAIL.
    Korean: 기준값→ref, 지시값→indicated, 허용범위→tolerance, 적합여부→result, "O"=PASS/"X"=FAIL.
+   TORQUE WRENCH: "Indicated Torque"=DUT set value(indicated). "Indicated Value of Reference Torque Calibrator"=reference measurement(ref). Do NOT confuse "Indicated" in the reference calibrator column header with DUT indication.
    Equipment: 제조사, 모델, 장비명, 제조사 일련번호, [관리번호], 교정일, 차기교정일, 성적서번호.
 
 2. DUPLICATE UNITS — If same measurement in multiple units (N·cm AND lbf·in), use first only.
@@ -575,6 +576,7 @@ Return JSON:
 
 RULES:
 1. COLUMNS — Combine multi-row headers. Map: ref=Reference/기준값, indicated=Indication/지시값.
+   TORQUE WRENCH: "Indicated Torque"=DUT set value(indicated). "Indicated Value of Reference Torque Calibrator"=reference measurement(ref). Do NOT confuse "Indicated" in the reference calibrator column header with DUT indication.
    Multiple error columns may exist (Reproducibility, Interpolation, Zero, etc.)→use FIRST one.
    "Correction"/"보정값" is NOT error. Class/Grade→ignore.
 
@@ -598,9 +600,10 @@ Ex1 — Torque (Increasing/Decreasing + Uncertainty):
 → ref=0.1,indicated=0.1012(Increasing),error=0.69(%),uncertainty=0.86(%),uncK=2. Skip 0.0.
 
 Ex2 — Torque wrench (Average + Uncertainty):
-  Indicated(N·cm)|1Run|2Run|3Run|Average|Accuracy Error(%)|Meas.Uncertainty(%)
-  452|443|441|442|442|2.3|1.0
-→ ref=442(Average),indicated=452(DUT),error=2.3,uncertainty=1.0,uncK=2.
+  Indicated Torque(N·m)|Indicated Value of Reference Torque Calibrator 1Run|2Run|3Run|Average|Relative Accuracy Error(%)|Meas.Uncertainty(%)
+  56.5|54.06|53.89|53.84|53.93|4.8|1.0
+→ indicated=56.5(Indicated Torque=DUT setting),ref=53.93(Reference Calibrator Average),error=4.8,uncertainty=1.0,uncK=2.
+  IMPORTANT: "Indicated Torque" is the DUT's set/nominal value (지시값). "Indicated Value of Reference Torque Calibrator" is the reference measurement (기준값). Do NOT swap them.
 
 Ex3 — Tesla Meter:
   Range|RefValue(mT)|Indication(mT)|Deviation(mT)|Meas.uncertainty(mT, k=2)

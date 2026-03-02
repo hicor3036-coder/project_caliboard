@@ -123,12 +123,14 @@ export type ProgressCallback = (info: {
 }) => void
 
 // 전체 데이터 수집 (페이지네이션 + 자동 재로그인)
+export type FetchAllResult = { items: KtoolsItem[]; fetchedAt: Date; sessionId: string }
+
 export async function fetchAll(
   userId: string,
   userPwd: string,
   onProgress?: ProgressCallback,
   existingSessionId?: string | null,
-): Promise<{ items: KtoolsItem[]; fetchedAt: Date; sessionId: string }> {
+): Promise<FetchAllResult> {
 
   // 로그인 or 세션 재사용
   let sessionId: string

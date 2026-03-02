@@ -1,8 +1,11 @@
 // API Route: 데이터 수집 + 분석 + 메모리 캐싱
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAll } from '@/lib/ktools-fetch'
+import { fetchAll, type FetchAllResult } from '@/lib/ktools-fetch'
 import { analyzeAll } from '@/lib/ktools-analyze'
 import { getCache, setCache, getCacheStatus, getSessionId } from '@/lib/cache'
+
+// 동시 수집 방지: 진행 중인 fetchAll Promise를 공유
+let activeFetch: Promise<FetchAllResult> | null = null
 
 // 쿠키에서 자격증명 추출
 function getCredentials(request: NextRequest): { userId: string; userPwd: string } | null {
@@ -33,14 +36,25 @@ export async function GET(request: NextRequest) {
       items = cached.items
       fetchedAt = cached.fetchedAt
       console.log(`캐시 사용: ${items.length}건`)
+    } else if (activeFetch) {
+      // 이미 수집 중 → 같은 Promise 대기
+      console.log('수집 진행 중 — 기존 요청 대기...')
+      const result = await activeFetch
+      items = result.items
+      fetchedAt = result.fetchedAt
     } else {
       console.log('데이터 수집 시작...')
       const cachedSession = getSessionId()
-      const result = await fetchAll(creds.userId, creds.userPwd, undefined, cachedSession)
-      items = result.items
-      fetchedAt = result.fetchedAt
-      setCache(items, fetchedAt, result.sessionId)
-      console.log(`수집 완료 + 캐시 저장: ${items.length}건`)
+      activeFetch = fetchAll(creds.userId, creds.userPwd, undefined, cachedSession)
+      try {
+        const result = await activeFetch
+        items = result.items
+        fetchedAt = result.fetchedAt
+        setCache(items, fetchedAt, result.sessionId)
+        console.log(`수집 완료 + 캐시 저장: ${items.length}건`)
+      } finally {
+        activeFetch = null
+      }
     }
 
     // 분석

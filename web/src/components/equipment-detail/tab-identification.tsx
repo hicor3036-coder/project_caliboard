@@ -6,6 +6,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import type { CertResult } from '@/lib/cert-cache'
+import CertDetailModal from './cert-detail-modal'
 import { useT, fmt } from '@/lib/i18n'
 import {
   type EquipStatusValue, type EquipmentStatusRecord,
@@ -88,6 +89,14 @@ export default function TabIdentification({
   const [historyTableOpen, setHistoryTableOpen] = useState(true)
   const [excelDownloading, setExcelDownloading] = useState<string | null>(null)
   const [markanyLoading, setMarkanyLoading] = useState<string | null>(null)
+  const [selectedCert, setSelectedCert] = useState<{ acptNo: string; cert: CertResult } | null>(null)
+  const [rowToast, setRowToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!rowToast) return
+    const timer = setTimeout(() => setRowToast(null), 2500)
+    return () => clearTimeout(timer)
+  }, [rowToast])
   const columns = useHistoryColumns(excelDownloading, setExcelDownloading, markanyLoading, setMarkanyLoading)
 
   const tableData: TableRow[] = useMemo(() =>
@@ -376,7 +385,24 @@ export default function TabIdentification({
               {tableData.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">{t.detail.noHistory}</div>
               ) : (
-                <DataTable columns={columns} data={tableData} rowKey={i => `${i.acptNo}-${i.no}`} defaultSort={{ key: 'no', direction: 'asc' }} />
+                <DataTable
+                  columns={columns}
+                  data={tableData}
+                  rowKey={i => `${i.acptNo}-${i.no}`}
+                  defaultSort={{ key: 'no', direction: 'asc' }}
+                  onRowClick={i => {
+                    const cert = certs.get(i.acptNo)
+                    if (cert) {
+                      setSelectedCert({ acptNo: i.acptNo, cert })
+                    } else if (certLoading) {
+                      setRowToast('성적서 분석 중입니다. 잠시 후 다시 시도해주세요.')
+                    } else if (!certDone) {
+                      setRowToast('성적서를 먼저 불러와주세요. (상단 "새로고침" 버튼)')
+                    } else {
+                      setRowToast('이 접수건의 파싱 데이터가 없습니다.')
+                    }
+                  }}
+                />
               )}
             </div>
           )}
@@ -385,6 +411,22 @@ export default function TabIdentification({
 
       {/* ════════ 섹션 4: 외부공급자 (교정기관) 정보 §6.4 ════════ */}
       <ExternalSupplierSection certs={certs} />
+
+      {/* 행 클릭 안내 토스트 */}
+      {rowToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white text-sm px-5 py-3 rounded-xl shadow-lg animate-[fadeIn_0.2s_ease-out]">
+          {rowToast}
+        </div>
+      )}
+
+      {/* 성적서 파싱 결과 모달 */}
+      {selectedCert && (
+        <CertDetailModal
+          acptNo={selectedCert.acptNo}
+          cert={selectedCert.cert}
+          onClose={() => setSelectedCert(null)}
+        />
+      )}
     </div>
   )
 }
@@ -397,7 +439,7 @@ function ExternalSupplierSection({ certs }: { certs: Map<string, CertResult> }) 
   const suppliers = useMemo(() => {
     const map = new Map<string, { count: number; refStds: string[]; latestDate: string | null }>()
     for (const cert of certs.values()) {
-      for (const ref of cert.기준기) {
+      for (const ref of cert.기준기 ?? []) {
         const name = ref.교정기관?.trim()
         if (!name) continue
         const entry = map.get(name) || { count: 0, refStds: [], latestDate: null }
@@ -596,7 +638,8 @@ function useHistoryColumns(
             disabled={!!markanyLoading}
             className="px-3 py-1.5 rounded-md hover:bg-indigo-50 text-indigo-500 hover:text-indigo-700 transition-colors disabled:opacity-50"
             title="마크애니 성적서 보기"
-            onClick={async () => {
+            onClick={async (e) => {
+              e.stopPropagation()
               if (markanyLoading) return
               setMarkanyLoading(i.acptNo)
               try {
@@ -640,7 +683,8 @@ function useHistoryColumns(
             disabled={!!excelDownloading}
             className="px-3 py-1.5 rounded-md hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors disabled:opacity-50"
             title="성적서 Excel 다운로드"
-            onClick={async () => {
+            onClick={async (e) => {
+              e.stopPropagation()
               if (excelDownloading) return
               setExcelDownloading(i.acptNo)
               try {
