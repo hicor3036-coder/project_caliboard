@@ -108,11 +108,13 @@ export function daysBetween(a: Date, b: Date): number {
 // 전문 교정 리포트 팔레트
 export const TREND_COLORS = ['#1e40af', '#dc2626', '#d97706', '#059669', '#7c3aed', '#0284c7', '#be185d', '#475569']
 
-export function normalizeRef(val: string): string {
-  const cleaned = val.replace(/\s/g, '')
+export function normalizeRef(val: string | number | null | undefined): string {
+  if (val == null) return ''
+  const s = typeof val === 'string' ? val : String(val)
+  const cleaned = s.replace(/\s/g, '')
   const num = parseFloat(cleaned)
   if (!isNaN(num)) return String(num)
-  return val
+  return s
 }
 
 export function mpKey(mp: MeasurementPoint, idx: number): string {
@@ -121,8 +123,9 @@ export function mpKey(mp: MeasurementPoint, idx: number): string {
   return `${q}_idx_${idx}`
 }
 
-export function parseNum(val: string | null | undefined): number | null {
+export function parseNum(val: string | number | null | undefined): number | null {
   if (val == null) return null
+  if (typeof val === 'number') return isNaN(val) ? null : val
   const cleaned = val.replace(/[±\s]/g, '').replace(',', '')
   const num = parseFloat(cleaned)
   return isNaN(num) ? null : num
@@ -363,7 +366,7 @@ export function computeConformityTrend(
         const key = mpKey(mp, idx)
         if (!mpKeySet.has(key)) {
           mpKeySet.add(key)
-          const refNum = mp.기준값 != null ? parseFloat(mp.기준값.replace(/\s/g, '')) : NaN
+          const refNum = mp.기준값 != null ? parseFloat(String(mp.기준값).replace(/\s/g, '')) : NaN
           const label = mp.기준값 != null
             ? `${normalizeRef(mp.기준값)}${mp.기준단위 ? ' ' + mp.기준단위 : ''}`
             : `측정점 ${idx + 1}`

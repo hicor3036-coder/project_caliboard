@@ -695,8 +695,9 @@ function mergeUncertainty(
   confPoints: MeasurementPoint[],
   calPoints: MeasurementPoint[],
 ): void {
-  const normalizeNum = (v: string | null | undefined): string => {
-    if (!v) return ''
+  const normalizeNum = (v: string | number | null | undefined): string => {
+    if (v == null || v === '') return ''
+    if (typeof v === 'number') return isNaN(v) ? '' : String(v)
     return String(parseFloat(v.replace(/[±<>+\s]/g, '').replace(',', '')))
   }
 
@@ -796,33 +797,55 @@ function mergeUncertainty(
   }
 }
 
+// LLM이 숫자/문자열 혼용으로 반환 가능 → 문자열로 정규화
+function toStr(v: unknown): string | null {
+  if (v == null || v === '') return null
+  if (typeof v === 'string') return v
+  if (typeof v === 'number') return isNaN(v) ? null : String(v)
+  return String(v)
+}
+
 function conformityResultToMeasurements(
   llm: LlmConformityResult,
 ): MeasurementPoint[] {
-  return (llm.measurements || []).map(m => ({
-    // 기존 필드 (하위호환)
-    원본데이터: [m.ref, m.refUnit, m.indicated, m.indUnit, m.error, m.tolerance, m.result]
-      .filter((v): v is string => v != null && v !== ''),
-    숫자값: [m.ref, m.indicated, m.error, m.tolerance]
-      .map(v => v ? parseFloat(String(v).replace(/[±<>]/g, '').replace(/\s/g, '').replace(',', '')) : NaN)
-      .filter(n => !isNaN(n)),
-    판정: (m.result?.toUpperCase() === 'FAIL' ? 'FAIL' : 'PASS') as 'PASS' | 'FAIL',
-    셀: [],
-    // LLM 구조화 필드
-    기준값: m.ref ?? null,
-    기준단위: m.refUnit ?? null,
-    지시값: m.indicated ?? null,
-    지시단위: m.indUnit ?? null,
-    오차: m.error ?? null,
-    오차단위: m.errUnit ?? null,
-    허용오차: m.tolerance ?? null,
-    허용오차단위: m.tolUnit ?? null,
-    물리량: m.quantity ?? null,
-    // 측정불확도 (ISO 10012 §7.3.1)
-    불확도: m.uncertainty ?? null,
-    불확도단위: m.uncUnit ?? null,
-    불확도k: m.uncK ?? null,
-  }))
+  return (llm.measurements || []).map(m => {
+    const ref = toStr(m.ref)
+    const refUnit = toStr(m.refUnit)
+    const indicated = toStr(m.indicated)
+    const indUnit = toStr(m.indUnit)
+    const error = toStr(m.error)
+    const errUnit = toStr(m.errUnit)
+    const tolerance = toStr(m.tolerance)
+    const tolUnit = toStr(m.tolUnit)
+    const quantity = toStr(m.quantity)
+    const uncertainty = toStr(m.uncertainty)
+    const uncUnit = toStr(m.uncUnit)
+    const result = toStr(m.result)
+    return {
+      // 기존 필드 (하위호환)
+      원본데이터: [ref, refUnit, indicated, indUnit, error, tolerance, result]
+        .filter((v): v is string => v != null && v !== ''),
+      숫자값: [ref, indicated, error, tolerance]
+        .map(v => v ? parseFloat(v.replace(/[±<>]/g, '').replace(/\s/g, '').replace(',', '')) : NaN)
+        .filter(n => !isNaN(n)),
+      판정: (result?.toUpperCase() === 'FAIL' ? 'FAIL' : 'PASS') as 'PASS' | 'FAIL',
+      셀: [],
+      // LLM 구조화 필드
+      기준값: ref,
+      기준단위: refUnit,
+      지시값: indicated,
+      지시단위: indUnit,
+      오차: error,
+      오차단위: errUnit,
+      허용오차: tolerance,
+      허용오차단위: tolUnit,
+      물리량: quantity,
+      // 측정불확도 (ISO 10012 §7.3.1)
+      불확도: uncertainty,
+      불확도단위: uncUnit,
+      불확도k: typeof m.uncK === 'number' ? m.uncK : (m.uncK ? parseFloat(String(m.uncK)) || null : null),
+    }
+  })
 }
 
 // ─── 1단계: 다운로드 + 규칙기반 파싱 (빠름, 순차 OK) ───

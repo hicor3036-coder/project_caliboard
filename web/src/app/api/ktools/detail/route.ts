@@ -4,7 +4,7 @@ import { ktoolsLogin } from '@/lib/ktools-login'
 import { getSessionId, setSessionId } from '@/lib/cache'
 
 const API_URL = 'https://k-tools.ktl.re.kr/spm/api/spm0907_getConsignPrjcDtlEquipGroupList.ajax'
-const PRJC_CD_LIST = '[KL151000, KL161020, KL171020, KL171140, KL180940, KL181200, KL211420, KL221490, KL231360, KL241520, KL251650]'
+const PRJC_CD_LIST = '[KL230640, KL251650]'
 
 function getCredentials(request: NextRequest): { userId: string; userPwd: string } | null {
   const auth = request.cookies.get('ktools_auth')?.value

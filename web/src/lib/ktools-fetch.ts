@@ -13,7 +13,7 @@ async function ensureSpmAccess(sessionId: string): Promise<void> {
 }
 
 // KAI 과제코드 목록
-const PRJC_CD_LIST = '[KL151000, KL161020, KL171020, KL171140, KL180940, KL181200, KL211420, KL221490, KL231360, KL241520, KL251650]'
+const PRJC_CD_LIST = '[KL230640, KL251650]'
 
 export interface KtoolsItem {
   acptNo: string

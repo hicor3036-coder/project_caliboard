@@ -215,6 +215,17 @@ function Dashboard() {
       return <EquipmentProfiles equipmentItems={data?.전체장비 ?? null} />
     }
 
+    // 장비 상세: k-tools 데이터 없이도 직접 URL 접근 가능
+    if (activeView === 'equipment-detail' && selectedEquipment) {
+      return (
+        <EquipmentDetailPage
+          groupNm={selectedEquipment.groupNm}
+          equipmentName={selectedEquipment.equipmentName}
+          onBack={() => router.back()}
+        />
+      )
+    }
+
     // 초기 화면: 데이터 수집 전
     if (initialized && !data && !loading && !error) {
       return (
@@ -331,15 +342,7 @@ function Dashboard() {
       case 'report':
         return <ManagementReport analysisData={data} onOpenDetail={openEquipmentDetail} />
       case 'equipment-detail':
-        if (selectedEquipment) {
-          return (
-            <EquipmentDetailPage
-              groupNm={selectedEquipment.groupNm}
-              equipmentName={selectedEquipment.equipmentName}
-              onBack={() => router.back()}
-            />
-          )
-        }
+        // 상단에서 이미 처리됨 (data 없이도 접근 가능)
         return null
     }
   }
