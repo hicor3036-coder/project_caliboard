@@ -147,6 +147,7 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
   const [headerRowIdx, setHeaderRowIdx] = useState<number>(-1)
   const [keyCol, setKeyCol] = useState<number | null>(null)
   const [query, setQuery] = useState('')
+  const [editing, setEditing] = useState<{ r: number; c: number } | null>(null)
 
   const hasData = (items?.length ?? 0) > 0
 
@@ -229,10 +230,20 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
     setKeyCol(detectKeyColumn(g, hRow))
   }
 
+  function updateCell(r: number, c: number, value: string) {
+    setGrid(prev => {
+      if (!prev) return prev
+      const next = prev.map(row => row.slice())
+      next[r][c] = value
+      return next
+    })
+  }
+
   function handleClear() {
     setGrid(null)
     setHeaderRowIdx(-1)
     setKeyCol(null)
+    setEditing(null)
   }
 
   const colCount = grid ? (grid[0]?.length ?? 0) : 0
@@ -390,12 +401,6 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
               {summary.missing === 0 && summary.total > 0 && (
                 <span className="text-sm text-green-600 ml-1">{rt.allMatched}</span>
               )}
-              <button
-                onClick={handleClear}
-                className="ml-auto px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
-              >
-                {rt.clear}
-              </button>
             </div>
           )}
 
@@ -403,7 +408,18 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <p className="text-sm text-slate-600">{rt.columnPick}</p>
-              <span className="text-xs text-slate-400">{fmt(rt.rowsCols, grid.length, colCount)}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400">{fmt(rt.rowsCols, grid.length, colCount)}</span>
+                <button
+                  onClick={handleClear}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-slate-50 hover:text-slate-800 hover:border-gray-400 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  {rt.clear}
+                </button>
+              </div>
             </div>
 
             <div className="overflow-auto border border-slate-200 rounded-lg max-h-[600px]">
@@ -464,14 +480,34 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
                         </td>
                         {Array.from({ length: colCount }, (_, c) => {
                           const isKey = keyCol === c
+                          const isEditing = editing?.r === r && editing?.c === c
                           return (
                             <td
                               key={c}
-                              className={`border-b border-r border-slate-100 px-3 py-1 whitespace-nowrap ${
+                              onClick={() => { if (!isEditing) setEditing({ r, c }) }}
+                              className={`border-b border-r border-slate-100 px-3 py-1 whitespace-nowrap cursor-text ${
                                 isKey ? 'bg-blue-50 text-blue-800 font-medium' : 'text-slate-600'
-                              } ${isHeader ? 'font-semibold text-slate-700' : ''}`}
+                              } ${isHeader ? 'font-semibold text-slate-700' : ''} ${
+                                isEditing ? 'p-0' : 'hover:bg-blue-50/40'
+                              }`}
                             >
-                              {row[c]}
+                              {isEditing ? (
+                                <input
+                                  autoFocus
+                                  value={row[c]}
+                                  onChange={e => updateCell(r, c, e.target.value)}
+                                  onBlur={() => setEditing(null)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' || e.key === 'Escape') {
+                                      e.preventDefault()
+                                      setEditing(null)
+                                    }
+                                  }}
+                                  className="w-full min-w-[80px] px-3 py-1 text-xs bg-white border-2 border-blue-500 rounded outline-none text-slate-800"
+                                />
+                              ) : (
+                                row[c]
+                              )}
                             </td>
                           )
                         })}
