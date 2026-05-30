@@ -1,15 +1,18 @@
 // API Route: 데이터 수집 + 분석 + 메모리 캐싱
 // 동시 수집 방어는 fetchAll 내부에서 처리 (단일 진실)
+// 수집 성공 시 인증 쿠키 maxAge 갱신 → 데이터 신선도와 세션 만료가 함께 움직임
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchAll } from '@/lib/ktools-fetch'
 import { analyzeAll } from '@/lib/ktools-analyze'
 import { getCache, setCache, getCacheStatus, getSessionId } from '@/lib/cache'
+import { AUTH_COOKIE, refreshAuthCookie } from '@/lib/auth-session'
 
-function getCredentials(request: NextRequest): { userId: string; userPwd: string } | null {
-  const auth = request.cookies.get('ktools_auth')?.value
+function getCredentials(request: NextRequest): { userId: string; userPwd: string; raw: string } | null {
+  const auth = request.cookies.get(AUTH_COOKIE)?.value
   if (!auth) return null
   try {
-    return JSON.parse(Buffer.from(auth, 'base64').toString())
+    const parsed = JSON.parse(Buffer.from(auth, 'base64').toString())
+    return { ...parsed, raw: auth }
   } catch {
     return null
   }
@@ -27,6 +30,7 @@ export async function GET(request: NextRequest) {
     const cached = !refresh ? getCache() : null
 
     let items, fetchedAt: Date
+    let didFetch = false
 
     if (cached) {
       items = cached.items
@@ -38,14 +42,18 @@ export async function GET(request: NextRequest) {
       items = result.items
       fetchedAt = result.fetchedAt
       setCache(items, fetchedAt, result.sessionId)
+      didFetch = true
       console.log(`수집 완료 + 캐시 저장: ${items.length}건`)
     }
 
     const analysis = analyzeAll(items, fetchedAt)
-    return NextResponse.json({
+    const res = NextResponse.json({
       ...analysis,
       cache: getCacheStatus(),
     })
+    // 데이터를 새로 수집한 경우 세션 쿠키 만료 시각 연장
+    if (didFetch) refreshAuthCookie(res, creds.raw)
+    return res
   } catch (error) {
     console.error('API 오류:', error)
 

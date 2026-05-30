@@ -53,7 +53,7 @@ interface AnalysisData {
   월별접수추이: { month: string; 건수: number }[]
   제조사별분포: { label: string; value: number }[]
   담당자별처리량: { label: string; value: number }[]
-  cache?: { cached: boolean; remainingMs?: number }
+  cache?: { cached: boolean; remainingMs?: number; expiresAt?: string }
 }
 
 interface Progress {
@@ -217,6 +217,20 @@ function Dashboard() {
       setInitialized(true)
     })()
   }, [router, fetchCached, fetchWithProgress])
+
+  // 데이터 만료 시점 = 세션 만료 시점 → 자동 로그아웃
+  // 데이터가 갱신될 때마다 cache.expiresAt가 새 값으로 바뀌어 타이머도 자동으로 재설정됨
+  useEffect(() => {
+    const expiresAt = data?.cache?.expiresAt
+    if (!expiresAt) return
+    const ms = new Date(expiresAt).getTime() - Date.now()
+    if (ms <= 0) {
+      handleLogout()
+      return
+    }
+    const id = setTimeout(() => { handleLogout() }, ms)
+    return () => clearTimeout(id)
+  }, [data?.cache?.expiresAt])
 
   // 뷰별 콘텐츠 렌더링
   function renderContent() {

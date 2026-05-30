@@ -1,7 +1,9 @@
 // 로그인 API: k-tools 인증 검증 → 쿠키에 자격증명 저장 + 세션 ID 캐시
+// 쿠키 TTL = 데이터 신선도 TTL (6시간) — 데이터 갱신 시 세션도 함께 연장
 import { NextResponse } from 'next/server'
 import { ktoolsLogin } from '@/lib/ktools-login'
 import { setSessionId } from '@/lib/cache'
+import { setAuthCookie } from '@/lib/auth-session'
 
 export async function POST(request: Request) {
   try {
@@ -17,18 +19,8 @@ export async function POST(request: Request) {
     // 세션 ID를 단일 소스에 저장 → 다음 fetchAll에서 재사용 (재로그인 1회 절약)
     setSessionId(sessionId)
 
-    // 자격증명을 base64로 인코딩하여 httpOnly 쿠키에 저장
-    const credentials = Buffer.from(JSON.stringify({ userId, userPwd })).toString('base64')
-
     const res = NextResponse.json({ success: true })
-    res.cookies.set('ktools_auth', credentials, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24시간
-      path: '/',
-    })
-
+    setAuthCookie(res, { userId, userPwd })
     return res
   } catch (error) {
     console.error('로그인 실패:', error)
