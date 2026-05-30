@@ -1,8 +1,8 @@
-// 프록시: 비로그인 사용자 → /login 리다이렉트
+// 미들웨어: 비로그인 사용자 → /login 리다이렉트
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // 로그인 페이지, API, 정적 파일은 통과
