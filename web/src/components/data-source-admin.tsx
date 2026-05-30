@@ -17,6 +17,7 @@ interface CacheStatusFull {
   expired?: boolean
   hasSession?: boolean
   ttlMs: number
+  projectCodes?: readonly string[]
 }
 
 interface Progress {
@@ -159,7 +160,6 @@ export default function DataSourceAdmin({ onCacheChanged }: { onCacheChanged?: (
       <div>
         <h1 className="text-2xl font-bold text-slate-800">{t.dataSource.title}</h1>
         <p className="text-sm text-slate-500 mt-1">{t.dataSource.subtitle}</p>
-        <p className="text-xs text-slate-400 mt-0.5">{t.dataSource.principle}</p>
       </div>
 
       {/* 알림 */}
@@ -265,7 +265,29 @@ export default function DataSourceAdmin({ onCacheChanged }: { onCacheChanged?: (
         )}
       </section>
 
-      {/* 갱신 규칙 (고정) */}
+      {/* 연계 대상 과제 */}
+      {status?.projectCodes && status.projectCodes.length > 0 && (
+        <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-slate-800">{t.dataSource.projects}</h2>
+            <span className="text-xs text-slate-500">
+              {fmt(t.dataSource.projectsCount, status.projectCodes.length)}
+            </span>
+          </div>
+          <ul className="flex flex-wrap gap-2">
+            {status.projectCodes.map(code => (
+              <li
+                key={code}
+                className="inline-flex items-center px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-mono rounded-md border border-slate-200"
+              >
+                {code}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* 자동 갱신 규칙 */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <h2 className="text-lg font-bold text-slate-800 mb-3">{t.dataSource.rules}</h2>
         <ol className="space-y-2 text-sm text-slate-700">
@@ -282,12 +304,6 @@ export default function DataSourceAdmin({ onCacheChanged }: { onCacheChanged?: (
             <span>{t.dataSource.rule3}</span>
           </li>
         </ol>
-      </section>
-
-      {/* 저장 위치 안내 */}
-      <section className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-        <p className="text-xs font-semibold text-slate-600 mb-1">{t.dataSource.storage}</p>
-        <p className="text-xs text-slate-500">{t.dataSource.storageDesc}</p>
       </section>
     </div>
   )
