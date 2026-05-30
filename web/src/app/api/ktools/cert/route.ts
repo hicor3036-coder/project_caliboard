@@ -96,10 +96,10 @@ export async function GET(request: NextRequest) {
 
       try {
         // 1. 세션 확보
-        let sessionId = getSessionId()
+        let sessionId = await getSessionId()
         if (!sessionId) {
           sessionId = await ktoolsLogin(creds.userId, creds.userPwd)
-          setSessionId(sessionId)
+          await setSessionId(sessionId)
         }
 
         // 2. spm0907.do 접근 (API 전제조건)
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
         // 세션 만료 시 재로그인
         if (acptNos.length === 0) {
           sessionId = await ktoolsLogin(creds.userId, creds.userPwd)
-          setSessionId(sessionId)
+          await setSessionId(sessionId)
           await ensureSpmAccess(sessionId)
           acptNos = await fetchCompletedAcceptNos(sessionId, groupNm)
         }

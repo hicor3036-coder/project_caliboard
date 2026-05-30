@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const sessionId = await ktoolsLogin(userId, userPwd)
 
     // 세션 ID를 단일 소스에 저장 → 다음 fetchAll에서 재사용 (재로그인 1회 절약)
-    setSessionId(sessionId)
+    await setSessionId(sessionId)
 
     const res = NextResponse.json({ success: true })
     setAuthCookie(res, { userId, userPwd })

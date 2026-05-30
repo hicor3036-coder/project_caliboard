@@ -9,6 +9,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: '로그인 필요' }, { status: 401 })
   }
 
-  clearCache()
-  return NextResponse.json({ success: true, status: getCacheStatus() })
+  await clearCache()
+  return NextResponse.json({ success: true, status: await getCacheStatus() })
 }
