@@ -2,9 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ktoolsLogin } from '@/lib/ktools-login'
 import { getSessionId, setSessionId } from '@/lib/cache'
+import { KTOOLS_PROJECT_CODES_PARAM } from '@/lib/projects'
 
 const API_URL = 'https://k-tools.ktl.re.kr/spm/api/spm0907_getConsignPrjcDtlEquipGroupList.ajax'
-const PRJC_CD_LIST = '[KL230640, KL251650]'
 
 function getCredentials(request: NextRequest): { userId: string; userPwd: string } | null {
   const auth = request.cookies.get('ktools_auth')?.value
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
       pageCount: '100',
       cnsnClsIdx: '32',
       groupNm,
-      prjcCdList: PRJC_CD_LIST,
+      prjcCdList: KTOOLS_PROJECT_CODES_PARAM,
     })
 
     let json = await fetchDetail(sessionId, body)

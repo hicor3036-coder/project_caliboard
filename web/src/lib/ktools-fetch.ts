@@ -1,6 +1,7 @@
 // k-tools 데이터 수집 (페이지네이션)
 
 import { ktoolsLogin } from './ktools-login'
+import { KTOOLS_PROJECT_CODES_PARAM } from './projects'
 
 const BASE_URL = 'https://k-tools.ktl.re.kr'
 const API_URL = `${BASE_URL}/spm/api/spm0907_getConsignPrjcDtlEquipList.ajax`
@@ -11,9 +12,6 @@ async function ensureSpmAccess(sessionId: string): Promise<void> {
     headers: { 'Cookie': `KTOOLS_JSESSIONID=${sessionId}` },
   })
 }
-
-// KAI 과제코드 목록
-const PRJC_CD_LIST = '[KL230640, KL251650]'
 
 export interface KtoolsItem {
   acptNo: string
@@ -69,7 +67,7 @@ async function fetchPage(
     pgstNm: '',
     custEqpmSrno: '',
     cnsnClsIdx: '32',
-    prjcCdList: PRJC_CD_LIST,
+    prjcCdList: KTOOLS_PROJECT_CODES_PARAM,
     apcnNmList: '',
     apcnDvsnNmList: '',
     prjcCdFList: '',

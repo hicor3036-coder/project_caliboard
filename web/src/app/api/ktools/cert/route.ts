@@ -15,9 +15,9 @@ import { getSessionId, setSessionId } from '@/lib/cache'
 import { getCert, setCert, deleteCert } from '@/lib/cert-cache'
 import { downloadAndRuleParse, llmEnhanceCert, ensureSpmAccess } from '@/lib/cert-download'
 import type { DownloadResult } from '@/lib/cert-download'
+import { KTOOLS_PROJECT_CODES_PARAM } from '@/lib/projects'
 
 const DETAIL_API = 'https://k-tools.ktl.re.kr/spm/api/spm0907_getConsignPrjcDtlEquipGroupList.ajax'
-const PRJC_CD_LIST = '[KL230640, KL251650]'
 const DELAY_BETWEEN_MS = 300 // k-tools 부하 방지
 
 function getCredentials(request: NextRequest): { userId: string; userPwd: string } | null {
@@ -40,7 +40,7 @@ async function fetchCompletedAcceptNos(
     pageCount: '100',
     cnsnClsIdx: '32',
     groupNm,
-    prjcCdList: PRJC_CD_LIST,
+    prjcCdList: KTOOLS_PROJECT_CODES_PARAM,
   })
 
   const res = await fetch(DETAIL_API, {
