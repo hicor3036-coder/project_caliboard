@@ -2,11 +2,29 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useCallback } from 'react'
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { PieChart, Pie, Cell, Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useT } from '@/lib/i18n'
 
-// 모던 컬러 팔레트
-const COLORS = ['#3b82f6', '#0ea5e9', '#6366f1', '#8b5cf6', '#14b8a6', '#f59e0b', '#ef4444', '#64748b']
+// 차분한 B2B 팔레트 — 형광색 회피, 채도 한 단계 낮춤
+const COLORS = ['#2563eb', '#0891b2', '#4f46e5', '#7c3aed', '#0d9488', '#d97706', '#dc2626', '#475569']
+
+// 공통 차트 카드 래퍼 — 차트 4종 시각 통일
+function ChartCard({ title, dotColor, children, className = '' }: {
+  title: string
+  dotColor?: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={`bg-white rounded-md border border-slate-200 p-5 print-chart-compact ${className}`}>
+      <div className="flex items-center gap-2 mb-4">
+        {dotColor && <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />}
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-600">{title}</h2>
+      </div>
+      {children}
+    </div>
+  )
+}
 
 // 커스텀 툴팁
 function ChartTooltip({ active, payload, label, unit }: any) {
@@ -121,8 +139,7 @@ export function StatusPieChart({ data }: { data: { label: string; value: number 
   }, [labelLayout, unit])
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 print-chart-compact">
-      <h2 className="text-sm font-semibold text-slate-700 mb-4">{t.chart.statusDist}</h2>
+    <ChartCard title={t.chart.statusDist} dotColor="bg-blue-500">
       <ResponsiveContainer width="100%" height={320}>
         <PieChart margin={{ left: 100, right: 100 }}>
           <Pie
@@ -151,21 +168,26 @@ export function StatusPieChart({ data }: { data: { label: string; value: number 
           </text>
         </PieChart>
       </ResponsiveContainer>
-    </div>
+    </ChartCard>
   )
 }
 
-// 월별 접수 추이 바차트
+// 월별 접수 추이 — 라인차트 + 옅은 영역 (추세 강조)
 export function MonthlyBarChart({ data }: { data: { month: string; 건수: number }[] }) {
   const { t } = useT()
   const recent = data.slice(-12)
   const unit = t.chart.unit
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 print-chart-compact">
-      <h2 className="text-sm font-semibold text-slate-700 mb-4">{t.chart.monthlyTrend}</h2>
+    <ChartCard title={t.chart.monthlyTrend} dotColor="bg-blue-500">
       <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={recent} barCategoryGap="20%">
+        <AreaChart data={recent} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="monthlyAreaFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#2563eb" stopOpacity={0.18} />
+              <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
             dataKey="month"
@@ -179,44 +201,53 @@ export function MonthlyBarChart({ data }: { data: { month: string; 건수: numbe
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip content={<ChartTooltip unit={unit} />} cursor={{ fill: '#f8fafc' }} />
-          <Bar dataKey="건수" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-        </BarChart>
+          <Tooltip content={<ChartTooltip unit={unit} />} cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '3 3' }} />
+          <Area
+            type="monotone"
+            dataKey="건수"
+            stroke="#2563eb"
+            strokeWidth={2}
+            fill="url(#monthlyAreaFill)"
+            dot={{ r: 3, fill: '#2563eb', strokeWidth: 0 }}
+            activeDot={{ r: 5, fill: '#2563eb', stroke: '#fff', strokeWidth: 2 }}
+          />
+        </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </ChartCard>
   )
 }
 
-// 제조사별 / 담당자별 수평 바차트
+// 제조사별 / 담당자별 — div 기반 이중 바 (옅은 트랙 + 진한 값 바)
 export function HorizontalBarChart({ data, title }: { data: { label: string; value: number }[]; title: string }) {
   const { t } = useT()
   const display = data.slice(0, 10)
   const unit = t.chart.unit
+  const max = Math.max(...display.map(d => d.value), 1)
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 className="text-sm font-semibold text-slate-700 mb-4">{title}</h2>
-      <ResponsiveContainer width="100%" height={Math.max(200, display.length * 36)}>
-        <BarChart data={display} layout="vertical" margin={{ left: 80, right: 16 }} barCategoryGap="25%">
-          <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis
-            type="number"
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            type="category"
-            dataKey="label"
-            tick={{ fontSize: 12, fill: '#475569' }}
-            width={80}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<ChartTooltip unit={unit} />} cursor={{ fill: '#f8fafc' }} />
-          <Bar dataKey="value" name={unit || 'count'} fill="#1e3a5f" radius={[0, 6, 6, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <ChartCard title={title} dotColor="bg-slate-500">
+      <div className="space-y-2.5">
+        {display.map(row => {
+          const pct = (row.value / max) * 100
+          return (
+            <div key={row.label} className="group flex items-center gap-3 text-sm">
+              <span className="w-20 shrink-0 text-right text-slate-600 truncate" title={row.label}>
+                {row.label}
+              </span>
+              <div className="relative flex-1 h-6 rounded bg-slate-100 overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 bg-slate-800 rounded transition-all duration-500 ease-out group-hover:bg-blue-600"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className="w-16 shrink-0 text-right tabular-nums text-slate-700 font-medium">
+                {row.value.toLocaleString()}
+                {unit && <span className="text-slate-400 font-normal ml-0.5">{unit}</span>}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </ChartCard>
   )
 }

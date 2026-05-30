@@ -109,14 +109,19 @@ export default function Sidebar({
 
   return (
     <aside className={`${collapsed ? 'w-16' : 'w-56'} h-screen sticky top-0 bg-slate-800 text-white flex flex-col shrink-0 transition-all duration-200`}>
-      {/* 로고 */}
-      <div className="px-3 py-4 border-b border-slate-700 bg-gradient-to-b from-slate-700/50 to-transparent">
+      {/* 로고 — 클릭 시 홈, 다크 배경에서도 잘 보이게 화이트화 */}
+      <button
+        type="button"
+        onClick={() => onViewChange('home')}
+        title={t.nav.home}
+        className="text-left px-3 py-4 border-b border-slate-700 bg-gradient-to-b from-slate-700/50 to-transparent transition-opacity hover:opacity-80 cursor-pointer"
+      >
         {collapsed ? (
           <div className="flex justify-center">
             <img
               src="https://k-tools.ktl.re.kr/resource/templete/spm/images/ktools_logo.svg"
               alt="K-Tools"
-              className="h-7"
+              className="h-7 brightness-0 invert"
             />
           </div>
         ) : (
@@ -125,19 +130,19 @@ export default function Sidebar({
               <img
                 src="https://k-tools.ktl.re.kr/resource/templete/spm/images/ktools_logo.svg"
                 alt="K-Tools"
-                className="h-7"
+                className="h-7 brightness-0 invert"
               />
               <img
                 src="https://k-tools.ktl.re.kr/resource/templete/spm/images/ktools_text-logo.svg"
                 alt="K-Tools"
-                className="h-6"
+                className="h-6 brightness-0 invert opacity-80"
               />
             </div>
             <p className="text-sm font-bold text-white px-2">CaliBoard</p>
             <p className="text-[10px] text-slate-400 px-2 mt-0.5">ISO 10012 Calibration Management</p>
           </>
         )}
-      </div>
+      </button>
 
       {/* 메뉴 */}
       <nav className="flex-1 py-3 overflow-y-auto">
