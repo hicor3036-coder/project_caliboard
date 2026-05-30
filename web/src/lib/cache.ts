@@ -14,13 +14,20 @@ interface CacheData {
 }
 
 // HMR 대응: global 객체에 캐시 저장
+// ─ ktoolsCache: 수집 데이터 (TTL 6시간)
+// ─ ktoolsSessionId: k-tools 세션 ID (데이터 캐시와 독립 — 로그인 직후 데이터 없이도 세션만 보관 가능)
 declare global {
   // eslint-disable-next-line no-var
   var ktoolsCache: CacheData | null | undefined
+  // eslint-disable-next-line no-var
+  var ktoolsSessionId: string | null | undefined
 }
 
 if (global.ktoolsCache === undefined) {
   global.ktoolsCache = null
+}
+if (global.ktoolsSessionId === undefined) {
+  global.ktoolsSessionId = null
 }
 
 const getInternalCache = (): CacheData | null => global.ktoolsCache ?? null
@@ -56,14 +63,19 @@ export function setCache(items: KtoolsItem[], fetchedAt: Date, sessionId?: strin
     dataExpiresAt: new Date(fetchedAt.getTime() + DATA_TTL_MS),
     sessionId,
   })
+  // 데이터와 함께 받은 세션 ID는 독립 슬롯에도 동기화 (단일 진실)
+  if (sessionId) global.ktoolsSessionId = sessionId
 }
 
+// 세션 ID 조회 — 데이터 캐시(items)와 독립적으로 살아있음
 export function getSessionId(): string | null {
-  const cache = getInternalCache()
-  return cache?.sessionId ?? null
+  return global.ktoolsSessionId ?? getInternalCache()?.sessionId ?? null
 }
 
+// 세션 ID 저장 — 데이터 캐시는 건드리지 않음
+// 로그인 직후나 detail/cert 라우트의 재로그인 시 사용 → 다음 수집에서 재사용
 export function setSessionId(sessionId: string): void {
+  global.ktoolsSessionId = sessionId
   const cache = getInternalCache()
   if (cache) {
     cache.sessionId = sessionId
@@ -74,6 +86,7 @@ export function setSessionId(sessionId: string): void {
 export function clearCache(): void {
   console.log('[cache] 캐시 비움')
   setInternalCache(null)
+  // 세션 ID는 보존 — k-tools 재로그인 비용 절감
 }
 
 // 캐시 상태 메타데이터 (관리 화면용 — 만료된 캐시도 표시)
