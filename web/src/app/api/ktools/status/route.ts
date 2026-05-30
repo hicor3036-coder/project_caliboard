@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    ...(await getCacheStatus()),
+    ...getCacheStatus(),
     projectCodes: KTOOLS_PROJECT_CODES,
   })
 }

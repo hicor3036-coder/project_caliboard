@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const cached = !refresh ? await getCache() : null
+    const cached = !refresh ? getCache() : null
 
     let items, fetchedAt: Date
     let didFetch = false
@@ -38,10 +38,10 @@ export async function GET(request: NextRequest) {
       console.log(`캐시 사용: ${items.length}건`)
     } else {
       console.log('데이터 수집 시작...')
-      const result = await fetchAll(creds.userId, creds.userPwd, undefined, await getSessionId())
+      const result = await fetchAll(creds.userId, creds.userPwd, undefined, getSessionId())
       items = result.items
       fetchedAt = result.fetchedAt
-      await setCache(items, fetchedAt, result.sessionId)
+      setCache(items, fetchedAt, result.sessionId)
       didFetch = true
       console.log(`수집 완료 + 캐시 저장: ${items.length}건`)
     }
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const analysis = analyzeAll(items, fetchedAt)
     const res = NextResponse.json({
       ...analysis,
-      cache: await getCacheStatus(),
+      cache: getCacheStatus(),
     })
     // 데이터를 새로 수집한 경우 세션 쿠키 만료 시각 연장
     if (didFetch) refreshAuthCookie(res, creds.raw)

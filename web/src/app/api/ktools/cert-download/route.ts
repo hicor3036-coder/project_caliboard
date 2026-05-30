@@ -33,10 +33,10 @@ export async function GET(request: NextRequest) {
 
   try {
     // 1. 세션 확보
-    let sessionId = await getSessionId()
+    let sessionId = getSessionId()
     if (!sessionId) {
       sessionId = await ktoolsLogin(creds.userId, creds.userPwd)
-      await setSessionId(sessionId)
+      setSessionId(sessionId)
     }
 
     // 2. spm0907.do 접근 (API 전제조건)
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     // 4. 세션 만료 시 재로그인 1회 시도
     if (!buffer) {
       sessionId = await ktoolsLogin(creds.userId, creds.userPwd)
-      await setSessionId(sessionId)
+      setSessionId(sessionId)
       await ensureSpmAccess(sessionId)
       buffer = await downloadCertExcel(sessionId, apiAcceptNo)
     }

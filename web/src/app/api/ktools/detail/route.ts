@@ -75,10 +75,10 @@ export async function GET(request: NextRequest) {
 
   try {
     // 캐시된 세션 재사용, 없으면 로그인
-    let sessionId = await getSessionId()
+    let sessionId = getSessionId()
     if (!sessionId) {
       sessionId = await ktoolsLogin(creds.userId, creds.userPwd)
-      await setSessionId(sessionId)
+      setSessionId(sessionId)
     }
 
     const body = new URLSearchParams({
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     // 세션 만료 시 재로그인 후 재시도
     if (json.code === 401) {
       sessionId = await ktoolsLogin(creds.userId, creds.userPwd)
-      await setSessionId(sessionId)
+      setSessionId(sessionId)
       json = await fetchDetail(sessionId, body)
       if (json.code === 401) {
         return NextResponse.json({ error: '세션 만료' }, { status: 401 })

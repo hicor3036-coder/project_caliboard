@@ -44,16 +44,16 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        const cachedSession = await getSessionId()
+        const cachedSession = getSessionId()
         const result = await fetchAll(creds.userId, creds.userPwd, (info) => {
           send('progress', info)
         }, cachedSession)
 
         send('progress', { stage: 'analyze', current: 0, total: 0, message: '데이터 분석 중...' })
         const analysis = analyzeAll(result.items, result.fetchedAt)
-        await setCache(result.items, result.fetchedAt, result.sessionId)
+        setCache(result.items, result.fetchedAt, result.sessionId)
 
-        send('complete', { ...analysis, cache: await getCacheStatus() })
+        send('complete', { ...analysis, cache: getCacheStatus() })
       } catch (error) {
         const msg = error instanceof Error ? error.message : '알 수 없는 오류'
         send('error', { message: msg })

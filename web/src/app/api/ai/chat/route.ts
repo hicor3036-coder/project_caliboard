@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 캐시 확인 (데이터 필요)
-  const cached = await getCache()
+  const cached = getCache()
   if (!cached) {
     return new Response('데이터를 먼저 수집해주세요', { status: 400 })
   }
