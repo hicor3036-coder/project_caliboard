@@ -50,7 +50,15 @@ export async function GET(request: NextRequest) {
         }, cachedSession)
 
         send('progress', { stage: 'analyze', current: 0, total: 0, message: '데이터 분석 중...' })
+
+        // [diagnostic] 데이터 크기 측정 (KV 캐시 재시도 전략 결정용)
+        const itemsJson = JSON.stringify(result.items)
+        const itemsBytes = Buffer.byteLength(itemsJson, 'utf8')
         const analysis = analyzeAll(result.items, result.fetchedAt)
+        const analysisJson = JSON.stringify(analysis)
+        const analysisBytes = Buffer.byteLength(analysisJson, 'utf8')
+        console.log(`[size] items: ${(itemsBytes/1024/1024).toFixed(2)}MB (${result.items.length}건), analysis: ${(analysisBytes/1024).toFixed(1)}KB`)
+
         setCache(result.items, result.fetchedAt, result.sessionId)
 
         send('complete', { ...analysis, cache: getCacheStatus() })
