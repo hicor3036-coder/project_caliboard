@@ -9,6 +9,7 @@ web/out/
 .env
 .env.local
 .env*.local
+secret.txt
 
 # IDE
 .vscode/
