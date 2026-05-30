@@ -125,20 +125,66 @@ export type ProgressCallback = (info: {
 // 전체 데이터 수집 (페이지네이션 + 자동 재로그인)
 export type FetchAllResult = { items: KtoolsItem[]; fetchedAt: Date; sessionId: string }
 
+// 동시 수집 방어 (HMR 대응: global)
+// ─ 같은 시점에 여러 진입점(/api/ktools, /api/ktools/stream, 데이터 소스 화면 등)에서
+//   fetchAll이 호출되어도 k-tools에는 단 한 번만 요청
+// ─ 진행 중 요청에 추가로 들어오는 구독자에게도 동일한 progress 이벤트를 전달
+declare global {
+  // eslint-disable-next-line no-var
+  var ktoolsActiveFetch: {
+    promise: Promise<FetchAllResult>
+    subscribers: Set<ProgressCallback>
+  } | null | undefined
+}
+if (global.ktoolsActiveFetch === undefined) {
+  global.ktoolsActiveFetch = null
+}
+
 export async function fetchAll(
   userId: string,
   userPwd: string,
   onProgress?: ProgressCallback,
   existingSessionId?: string | null,
 ): Promise<FetchAllResult> {
+  // 이미 진행 중인 수집이 있으면 그 결과를 공유
+  if (global.ktoolsActiveFetch) {
+    console.log('[fetchAll] 진행 중인 수집에 합류')
+    if (onProgress) global.ktoolsActiveFetch.subscribers.add(onProgress)
+    return global.ktoolsActiveFetch.promise
+  }
 
+  // 새 수집 시작 — 모든 구독자에게 progress 브로드캐스트
+  const subscribers = new Set<ProgressCallback>()
+  if (onProgress) subscribers.add(onProgress)
+  const broadcast: ProgressCallback = (info) => {
+    for (const cb of subscribers) {
+      try { cb(info) } catch { /* 구독자 에러는 다른 구독자에 영향 X */ }
+    }
+  }
+
+  const promise = runFetch(userId, userPwd, broadcast, existingSessionId)
+  global.ktoolsActiveFetch = { promise, subscribers }
+
+  try {
+    return await promise
+  } finally {
+    global.ktoolsActiveFetch = null
+  }
+}
+
+async function runFetch(
+  userId: string,
+  userPwd: string,
+  onProgress: ProgressCallback,
+  existingSessionId?: string | null,
+): Promise<FetchAllResult> {
   // 로그인 or 세션 재사용
   let sessionId: string
   if (existingSessionId) {
     console.log('기존 세션 재사용')
     sessionId = existingSessionId
   } else {
-    onProgress?.({ stage: 'login', current: 0, total: 0, message: 'k-tools 로그인 중...' })
+    onProgress({ stage: 'login', current: 0, total: 0, message: 'k-tools 로그인 중...' })
     sessionId = await ktoolsLogin(userId, userPwd)
   }
 
@@ -157,7 +203,7 @@ export async function fetchAll(
     } catch (e) {
       if (e instanceof Error && e.message === 'SESSION_EXPIRED') {
         console.log('세션 만료 - 재로그인')
-        onProgress?.({ stage: 'login', current: 0, total: 0, message: '세션 만료 - 재로그인 중...' })
+        onProgress({ stage: 'login', current: 0, total: 0, message: '세션 만료 - 재로그인 중...' })
         sessionId = await ktoolsLogin(userId, userPwd)
         await ensureSpmAccess(sessionId)
         result = await fetchPage(sessionId, page, pageCount)
@@ -169,7 +215,7 @@ export async function fetchAll(
     // 첫 페이지에서 0건 → 세션 만료로 간주, 재로그인 시도
     if (page === 0 && result.totalCount === 0 && existingSessionId) {
       console.log('첫 페이지 0건 — 세션 만료로 판단, 재로그인')
-      onProgress?.({ stage: 'login', current: 0, total: 0, message: '세션 만료 - 재로그인 중...' })
+      onProgress({ stage: 'login', current: 0, total: 0, message: '세션 만료 - 재로그인 중...' })
       sessionId = await ktoolsLogin(userId, userPwd)
       await ensureSpmAccess(sessionId)
       result = await fetchPage(sessionId, page, pageCount)
@@ -177,7 +223,7 @@ export async function fetchAll(
 
     allItems.push(...result.list)
     console.log(`  page=${page}, 수신=${result.list.length}건, 누적=${allItems.length}/${result.totalCount}건`)
-    onProgress?.({
+    onProgress({
       stage: 'fetch',
       current: allItems.length,
       total: result.totalCount,

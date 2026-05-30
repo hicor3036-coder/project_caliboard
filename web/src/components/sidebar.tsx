@@ -3,14 +3,12 @@
 import { useState, type ReactNode } from 'react'
 import { useT } from '@/lib/i18n'
 
-export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'profiles' | 'report' | 'reception' | 'equipment-detail'
+export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'profiles' | 'report' | 'reception' | 'data-source' | 'equipment-detail'
 
 interface SidebarProps {
   activeView: ViewType
   onViewChange: (view: ViewType) => void
-  onRefresh: () => void
   onLogout: () => void
-  loading: boolean
   미처리건수?: number
   교정임박건수?: number
 }
@@ -18,9 +16,7 @@ interface SidebarProps {
 export default function Sidebar({
   activeView,
   onViewChange,
-  onRefresh,
   onLogout,
-  loading,
   미처리건수,
   교정임박건수,
 }: SidebarProps) {
@@ -89,6 +85,17 @@ export default function Sidebar({
       icon: (
         <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7l-2 2-1-1" />
+        </svg>
+      ),
+    },
+    {
+      id: 'data-source',
+      label: t.nav.dataSource,
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <ellipse cx="12" cy="6" rx="8" ry="3" strokeWidth={1.5} />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
         </svg>
       ),
     },
@@ -207,17 +214,6 @@ export default function Sidebar({
           )}
         </div>
 
-        <button
-          onClick={onRefresh}
-          disabled={loading}
-          title={collapsed ? (loading ? t.nav.refreshing : t.nav.refresh) : undefined}
-          className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'px-3'} gap-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50`}
-        >
-          <svg className={`w-4 h-4 shrink-0 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          {!collapsed && (loading ? t.nav.refreshing : t.nav.refresh)}
-        </button>
         <button
           onClick={onLogout}
           title={collapsed ? t.nav.logout : undefined}

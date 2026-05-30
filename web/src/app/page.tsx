@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar, { type ViewType } from '@/components/sidebar'
 import SummaryCards from '@/components/summary-cards'
@@ -12,6 +12,7 @@ import EquipmentDetailPage from '@/components/equipment-detail-page'
 import EquipmentProfiles from '@/components/equipment-profiles'
 import ManagementReport from '@/components/management-report'
 import ReceptionCheck from '@/components/reception-check'
+import DataSourceAdmin from '@/components/data-source-admin'
 import { useT, fmt } from '@/lib/i18n'
 
 interface EquipmentItem {
@@ -63,7 +64,7 @@ interface Progress {
 }
 
 // URL ↔ 상태 동기화 헬퍼
-const VALID_VIEWS: ViewType[] = ['home', 'search', 'unprocessed', 'upcoming', 'profiles', 'report', 'reception']
+const VALID_VIEWS: ViewType[] = ['home', 'search', 'unprocessed', 'upcoming', 'profiles', 'report', 'reception', 'data-source']
 
 function viewFromParams(params: URLSearchParams): { view: ViewType; equipment: { groupNm: string; equipmentName: string } | null } {
   const v = params.get('view')
@@ -189,28 +190,48 @@ function Dashboard() {
   }, [router])
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/login')
+    try { await fetch('/api/auth/logout', { method: 'POST' }) } catch { /* 무시 */ }
+    // 페이지를 통째로 교체하여 잔여 화면 깜빡임 방지
+    window.location.replace('/login')
   }
 
-  // 캐시 존재 여부만 빠르게 확인
+  // 로그인 직후 자동 진입 흐름:
+  // ① 캐시 신선 → 즉시 대시보드 표시 (fetchCached)
+  // ② 캐시 없거나 만료 → 진행률 바와 함께 자동 수집 (fetchWithProgress)
+  // ─ React Strict Mode에서 useEffect가 2번 실행되어도 부트스트랩은 단 1회만 수행
+  const bootedRef = useRef(false)
   useEffect(() => {
-    async function checkCache() {
+    if (bootedRef.current) return
+    bootedRef.current = true
+    ;(async () => {
       try {
         const res = await fetch('/api/ktools/status')
         if (res.status === 401) { router.push('/login'); return }
         const json = await res.json()
-        if (json.cached) {
-          fetchCached()
+        if (json.cached && !json.expired) {
+          await fetchCached()
+        } else {
+          await fetchWithProgress()
         }
       } catch { /* 무시 */ }
       setInitialized(true)
-    }
-    checkCache()
-  }, [router, fetchCached])
+    })()
+  }, [router, fetchCached, fetchWithProgress])
 
   // 뷰별 콘텐츠 렌더링
   function renderContent() {
+    // 데이터 소스 관리: k-tools 데이터 없이도 접근 가능 (캐시 자체를 관리하는 화면)
+    if (activeView === 'data-source') {
+      return (
+        <DataSourceAdmin
+          onCacheChanged={() => {
+            // 캐시가 새로고침/초기화되면 대시보드 데이터도 갱신
+            void fetchCached()
+          }}
+        />
+      )
+    }
+
     // 장비사전정보: k-tools 데이터 없이도 접근 가능
     if (activeView === 'profiles') {
       return <EquipmentProfiles equipmentItems={data?.전체장비 ?? null} />
@@ -227,34 +248,8 @@ function Dashboard() {
       )
     }
 
-    // 초기 화면: 데이터 수집 전
-    if (initialized && !data && !loading && !error) {
-      return (
-        <div className="flex flex-col items-center justify-center py-32">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center max-w-md">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-5">
-              <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">{t.collect.title}</h2>
-            <p className="text-slate-500 text-sm mb-6">
-              {t.collect.desc}<br />
-              {t.collect.subDesc}
-            </p>
-            <button
-              onClick={() => fetchWithProgress()}
-              className="px-6 py-3 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors"
-            >
-              {t.collect.start}
-            </button>
-          </div>
-        </div>
-      )
-    }
-
-    // 로딩 (최초 수집)
-    if (loading && !data) {
+    // 로딩 (최초 수집 또는 초기화 전)
+    if (!initialized || (loading && !data)) {
       return (
         <div className="flex flex-col items-center justify-center py-32">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center max-w-md w-full">
@@ -356,9 +351,7 @@ function Dashboard() {
       <Sidebar
         activeView={activeView}
         onViewChange={setActiveView}
-        onRefresh={fetchWithProgress}
         onLogout={handleLogout}
-        loading={loading}
         미처리건수={data?.summary.미처리건수}
         교정임박건수={data?.summary.교정임박건수}
       />

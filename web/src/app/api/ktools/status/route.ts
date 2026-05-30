@@ -1,4 +1,5 @@
-// 캐시 상태만 빠르게 확인 (데이터 수집 없음)
+// 단일 소스(global.ktoolsCache)의 메타데이터 조회
+// 만료된 캐시도 그대로 노출 (관리 화면이 정확한 상태를 알 수 있도록)
 import { NextRequest, NextResponse } from 'next/server'
 import { getCacheStatus } from '@/lib/cache'
 
