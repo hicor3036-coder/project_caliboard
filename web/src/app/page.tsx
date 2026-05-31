@@ -20,6 +20,7 @@ import ReceptionCheck from '@/components/reception-check'
 import EquipmentSearch from '@/components/equipment-search'
 import EquipmentDetailPage, { type SeedInfo } from '@/components/equipment-detail-page'
 import EquipmentProfiles from '@/components/equipment-profiles'
+import ManagementReport, { type AnalysisData } from '@/components/management-report'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import DataSourceAdmin from '@/components/data-source-admin'
 import { useT } from '@/lib/i18n'
@@ -176,9 +177,9 @@ export default function Home() {
     return () => { aborted = true }
   }, [view, receptionCache, currentSync])
 
-  // ── search/profiles 뷰 진입 시 페치 (동일 패턴 — profiles 컴포넌트도 search 13컬럼 사용)
+  // ── search/profiles/report 뷰 진입 시 페치 (동일 패턴 — 세 뷰 모두 13컬럼 전수 row 필요)
   useEffect(() => {
-    if (view !== 'search' && view !== 'profiles') return
+    if (view !== 'search' && view !== 'profiles' && view !== 'report') return
     if (searchCache && searchCache.cachedFor === currentSync) return
     let aborted = false
     fetchSearchItems()
@@ -223,6 +224,23 @@ export default function Home() {
     () => data ? mapMonthlyForUI(data.monthlyTrend) : [],
     [data],
   )
+
+  // ── ISO 10012 보고서용 AnalysisData (현재 atom 데이터로 통째 구성)
+  //   ─ ManagementReport 컴포넌트가 옛 형식 그대로 요구하므로 매핑만
+  //   ─ 전체장비는 searchCache.data (search/profiles와 공유)
+  const analysisData = useMemo<AnalysisData | null>(() => {
+    if (!data || !summaryForUI || !upcomingForUI || !searchCache) return null
+    return {
+      summary: summaryForUI,
+      전체장비: searchCache.data,
+      미처리현황: unprocessedForUI.map(i => ({ 체류일수: i.체류일수 })),
+      차기교정임박: upcomingForUI,
+      진행상태분포: data.byStatus,
+      월별접수추이: monthlyForUI,
+      제조사별분포: data.byManufacturer,
+      담당자별처리량: data.byManager,
+    }
+  }, [data, summaryForUI, upcomingForUI, searchCache, unprocessedForUI, monthlyForUI])
 
   // ── 렌더
   return (
@@ -386,9 +404,33 @@ export default function Home() {
             )}
 
             {view === 'report' && (
-              <div className="flex items-center justify-center h-96 text-slate-400 bg-white rounded-md border border-slate-200">
-                해당 화면은 후속 작업에서 연결 예정입니다.
-              </div>
+              searchError ? (
+                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                  {searchError}
+                </div>
+              ) : !analysisData ? (
+                <div className="flex items-center justify-center h-96 text-slate-400">보고서 데이터 불러오는 중...</div>
+              ) : (
+                <ManagementReport
+                  analysisData={analysisData}
+                  onOpenDetail={(groupNm, equipmentName) => {
+                    const row = searchCache?.data.find(r => r.groupNm === groupNm)
+                    const seedInfo: SeedInfo | null = row ? {
+                      prdnCmpnNm: row.prdnCmpnNm,
+                      stszNm: row.stszNm,
+                      mctlNo: row.mctlNo,
+                      custEqpmSrno: row.custEqpmSrno,
+                      entpPrdNm: row.entpPrdNm,
+                      mngmRsprNm: row.mngmRsprNm,
+                      nxtrExrsYmd: row.nxtrExrsYmd,
+                      exrsWrtnYmd: row.exrsWrtnYmd,
+                      groupCnt: row.groupCnt,
+                    } : null
+                    setDetailContext({ groupNm, equipmentName, origin: 'report', seedInfo })
+                    setView('equipment-detail')
+                  }}
+                />
+              )
             )}
           </>
         )}
