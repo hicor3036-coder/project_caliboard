@@ -18,7 +18,7 @@ import UnprocessedTable from '@/components/unprocessed-table'
 import UpcomingCalibration from '@/components/upcoming-calibration'
 import ReceptionCheck from '@/components/reception-check'
 import EquipmentSearch from '@/components/equipment-search'
-import EquipmentDetailPage from '@/components/equipment-detail-page'
+import EquipmentDetailPage, { type SeedInfo } from '@/components/equipment-detail-page'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import DataSourceAdmin from '@/components/data-source-admin'
 import { useT } from '@/lib/i18n'
@@ -55,8 +55,15 @@ export default function Home() {
   const [searchCache, setSearchCache] = useState<{ data: SearchItemForUI[]; cachedFor: string | null } | null>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
 
-  // ── 장비 상세 진입 컨텍스트 (search/홈 등에서 행 클릭 시 채워짐)
-  const [detailContext, setDetailContext] = useState<{ groupNm: string; equipmentName: string } | null>(null)
+  // ── 장비 상세 진입 컨텍스트 (search/unprocessed 등에서 행 클릭 시 채워짐)
+  // ─ origin: 뒤로가기 시 복귀할 뷰
+  // ─ seedInfo: 진입 시점에 이미 알고 있는 행 데이터 — k-tools 응답 전에 헤더/장비카드를 즉시 채우는 용도
+  const [detailContext, setDetailContext] = useState<{
+    groupNm: string
+    equipmentName: string
+    origin: ViewType
+    seedInfo: SeedInfo | null
+  } | null>(null)
 
   // ── 데이터 조회
   const loadData = useCallback(async () => {
@@ -212,7 +219,25 @@ export default function Home() {
             )}
 
             {view === 'unprocessed' && (
-              <UnprocessedTable items={unprocessedForUI} />
+              <UnprocessedTable
+                items={unprocessedForUI}
+                onOpenDetail={(groupNm, equipmentName) => {
+                  const row = unprocessedForUI.find(r => r.groupNm === groupNm)
+                  const seedInfo: SeedInfo | null = row ? {
+                    prdnCmpnNm: row.prdnCmpnNm,
+                    stszNm: row.stszNm,
+                    mctlNo: row.mctlNo,
+                    custEqpmSrno: row.custEqpmSrno,
+                    entpPrdNm: row.entpPrdNm,
+                    mngmRsprNm: row.mngmRsprNm,
+                    nxtrExrsYmd: '',
+                    exrsWrtnYmd: '',
+                    groupCnt: row.groupCnt,
+                  } : null
+                  setDetailContext({ groupNm, equipmentName, origin: 'unprocessed', seedInfo })
+                  setView('equipment-detail')
+                }}
+              />
             )}
 
             {view === 'upcoming' && upcomingForUI && (
@@ -257,7 +282,19 @@ export default function Home() {
                   <EquipmentSearch
                     items={searchCache.data}
                     onOpenDetail={(groupNm, equipmentName) => {
-                      setDetailContext({ groupNm, equipmentName })
+                      const row = searchCache.data.find(r => r.groupNm === groupNm)
+                      const seedInfo: SeedInfo | null = row ? {
+                        prdnCmpnNm: row.prdnCmpnNm,
+                        stszNm: row.stszNm,
+                        mctlNo: row.mctlNo,
+                        custEqpmSrno: row.custEqpmSrno,
+                        entpPrdNm: row.entpPrdNm,
+                        mngmRsprNm: row.mngmRsprNm,
+                        nxtrExrsYmd: row.nxtrExrsYmd,
+                        exrsWrtnYmd: row.exrsWrtnYmd,
+                        groupCnt: row.groupCnt,
+                      } : null
+                      setDetailContext({ groupNm, equipmentName, origin: 'search', seedInfo })
                       setView('equipment-detail')
                     }}
                   />
@@ -270,7 +307,12 @@ export default function Home() {
                 <EquipmentDetailPage
                   groupNm={detailContext.groupNm}
                   equipmentName={detailContext.equipmentName}
-                  onBack={() => { setDetailContext(null); setView('search') }}
+                  seedInfo={detailContext.seedInfo}
+                  onBack={() => {
+                    const origin = detailContext.origin
+                    setDetailContext(null)
+                    setView(origin)
+                  }}
                 />
               ) : (
                 <div className="flex items-center justify-center h-96 text-slate-400 bg-white rounded-md border border-slate-200">

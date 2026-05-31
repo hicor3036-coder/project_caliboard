@@ -38,15 +38,68 @@ const TAB_ICONS: Record<TabKey, string> = {
 
 // ──────────────────────────── Props ────────────────────────────
 
+/**
+ * 진입 시점에 호출자(search/unprocessed)가 이미 알고 있는 행 데이터.
+ * group-equip API 응답 전에 헤더·장비카드를 즉시 채우는 용도.
+ * — search 행: 9개 필드 채움 (nxtr/exrs 포함)
+ * — unprocessed 행: 7개 필드 채움 (nxtr/exrs 빈 문자열)
+ * — 나머지(prdNm, affcCyclCd 등)는 group-equip 응답 도착 후 채워짐
+ */
+export interface SeedInfo {
+  prdnCmpnNm: string
+  stszNm: string
+  mctlNo: string
+  custEqpmSrno: string
+  entpPrdNm: string
+  mngmRsprNm: string
+  nxtrExrsYmd: string
+  exrsWrtnYmd: string
+  groupCnt: number
+}
+
 interface Props {
   groupNm: string
   equipmentName: string
+  seedInfo?: SeedInfo | null
   onBack: () => void
+}
+
+/** seedInfo → DetailItem placeholder (모르는 필드는 빈 값) */
+function buildPlaceholderInfo(seed: SeedInfo): DetailItem {
+  return {
+    prjcCd: '',
+    acptNo: '',
+    rcpnYmd: '',
+    exrsWrtnYmd: seed.exrsWrtnYmd,
+    fnshScdlYmd: '',
+    snctYmd: '',
+    isncYmd: '',
+    smplOutDate: '',
+    pgstNm: '',
+    gyeoljeStatus: '',
+    mngmRsprNm: seed.mngmRsprNm,
+    mngmDvsnNm: '',
+    entpPrdNm: seed.entpPrdNm,
+    prdnCmpnNm: seed.prdnCmpnNm,
+    stszNm: seed.stszNm,
+    prdNm: '',  // search/unprocessed row에는 없음 — group-equip 응답 후 채워짐
+    mctlNo: seed.mctlNo,
+    custEqpmSrno: seed.custEqpmSrno,
+    affcCyclCd: '',  // group-equip 응답 후 채워짐
+    nxtrExrsYmd: seed.nxtrExrsYmd,
+    totalFee: 0,
+    totalVat: 0,
+    totalSum: 0,
+    apcnCmnm: '',
+    apcnNm: '',
+    apcnTlno: '',
+    apcnEmlAdrs: '',
+  }
 }
 
 // ──────────────────────────── 메인 ────────────────────────────
 
-export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: Props) {
+export default function EquipmentDetailPage({ groupNm, equipmentName, seedInfo, onBack }: Props) {
   const { t } = useT()
 
   // 탭 상태
@@ -110,11 +163,18 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 
   useEffect(() => { fetchDetail() }, [fetchDetail])
 
+  // 이미지 + profiles 조회용 키 — seedInfo가 있으면 즉시 사용, 없으면 items 도착 후
+  // ─ search/unprocessed에서 들어오면 group-equip 응답 대기 없이 바로 이미지/스펙 페치 가능
+  const lookupKey = useMemo(() => {
+    if (items[0]) return { prdnCmpnNm: items[0].prdnCmpnNm, stszNm: items[0].stszNm }
+    if (seedInfo) return { prdnCmpnNm: seedInfo.prdnCmpnNm, stszNm: seedInfo.stszNm }
+    return null
+  }, [items, seedInfo])
+
   // 장비 이미지 검색
   useEffect(() => {
-    if (!items.length) return
-    const info = items[0]
-    const q = [info.prdnCmpnNm, info.stszNm].filter(Boolean).join(' ')
+    if (!lookupKey) return
+    const q = [lookupKey.prdnCmpnNm, lookupKey.stszNm].filter(Boolean).join(' ')
     if (!q.trim()) { setImageLoading(false); return }
     setImageLoading(true)
     setImageError(false)
@@ -130,14 +190,13 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
       })
       .catch(() => setImageError(true))
       .finally(() => setImageLoading(false))
-  }, [items])
+  }, [lookupKey])
 
   // 장비 사전정보에서 허용오차 + MPE 조회
   useEffect(() => {
-    if (!items.length) return
-    const info = items[0]
-    if (!info.prdnCmpnNm || !info.stszNm) return
-    fetch(`/api/supabase/profiles?manufacturer=${encodeURIComponent(info.prdnCmpnNm)}&model=${encodeURIComponent(info.stszNm)}`)
+    if (!lookupKey) return
+    if (!lookupKey.prdnCmpnNm || !lookupKey.stszNm) return
+    fetch(`/api/supabase/profiles?manufacturer=${encodeURIComponent(lookupKey.prdnCmpnNm)}&model=${encodeURIComponent(lookupKey.stszNm)}`)
       .then(r => r.ok ? r.json() : null)
       .then(profile => {
         if (!profile?.spec) return
@@ -145,7 +204,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         if (profile.spec.mpe_percent != null) setMpePercent(profile.spec.mpe_percent)
       })
       .catch(() => {})
-  }, [items])
+  }, [lookupKey])
 
   // ESC로 모달 닫기 또는 뒤로가기
   useEffect(() => {
@@ -159,7 +218,9 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
     return () => document.removeEventListener('keydown', handleKey)
   }, [onBack, selectedCert])
 
-  const info = items[0]
+  // info: items 도착 전엔 seedInfo로 만든 placeholder, 도착 후엔 실제 items[0]
+  const info = items[0] ?? (seedInfo ? buildPlaceholderInfo(seedInfo) : null)
+  const isPlaceholder = items.length === 0 && info !== null
 
   // D-day 계산
   const dday = useMemo(() => {
@@ -186,56 +247,12 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
     preventive: t.detail.tabPreventive,
   }
 
-  // ──────────────────────────── 로딩 / 에러 ────────────────────────────
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </button>
-          <div className="h-6 w-48 bg-gray-200 rounded animate-pulse" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="h-64 bg-gray-100 rounded-xl animate-pulse" />
-          <div className="lg:col-span-2 h-64 bg-gray-100 rounded-xl animate-pulse" />
-        </div>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-48 bg-gray-100 rounded-xl animate-pulse" />
-        ))}
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-gray-700">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          {t.detail.back}
-        </button>
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-          <p className="text-red-700 font-medium">{error}</p>
-          <button onClick={fetchDetail} className="mt-3 px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200">
-            {t.detail.retry}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (!info) return null
-
   // ──────────────────────────── 렌더링 ────────────────────────────
+  // 로딩 중에도 헤더 + 탭 네비게이션은 즉시 렌더. 본문(info 의존)만 스켈레톤.
 
   return (
     <div className="space-y-0">
-      {/* ===== 헤더 (탭 상위 고정) ===== */}
+      {/* ===== 헤더 (탭 상위 고정, 로딩 무관 즉시 렌더) ===== */}
       <div className="flex items-center gap-4 mb-4">
         <button
           onClick={onBack}
@@ -247,11 +264,15 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold text-slate-800 truncate">{equipmentName || t.detail.equipmentDetail}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {info.prdNm && <span className="text-slate-600 font-medium">{info.prdNm}</span>}
-            {info.prdNm && (info.prdnCmpnNm || info.stszNm) && <span> · </span>}
-            {info.prdnCmpnNm}{info.stszNm && ` · ${info.stszNm}`}
-          </p>
+          {info ? (
+            <p className="text-sm text-slate-500 mt-0.5">
+              {info.prdNm && <span className="text-slate-600 font-medium">{info.prdNm}</span>}
+              {info.prdNm && (info.prdnCmpnNm || info.stszNm) && <span> · </span>}
+              {info.prdnCmpnNm}{info.stszNm && ` · ${info.stszNm}`}
+            </p>
+          ) : loading ? (
+            <div className="h-4 w-64 bg-gray-100 rounded animate-pulse mt-1.5" />
+          ) : null}
         </div>
         {dday !== null && <DdayBadge dday={dday} />}
       </div>
@@ -296,72 +317,86 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 
       {/* ===== 탭 콘텐츠 ===== */}
       <div className="min-h-[400px]">
-        {activeTab === 'identification' && (
-          <TabIdentification
-            groupNm={groupNm}
-            info={info}
-            items={items}
-            imageUrl={imageUrl}
-            thumbnailUrl={thumbnailUrl}
-            imageLoading={imageLoading}
-            imageError={imageError}
-            setThumbnailUrl={setThumbnailUrl}
-            setImageError={setImageError}
-            equipmentName={equipmentName}
-            tolerance={tolerance}
-            mpePercent={mpePercent}
-            onSpecChange={(tol, mpe) => { setTolerance(tol); setMpePercent(mpe) }}
-            certs={certs}
-            certErrors={certErrors}
-            certProgress={certProgress}
-            certLoading={certLoading}
-            certDone={certDone}
-            fetchCerts={fetchCerts}
-          />
-        )}
+        {error ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <p className="text-red-700 font-medium">{error}</p>
+            <button onClick={fetchDetail} className="mt-3 px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200">
+              {t.detail.retry}
+            </button>
+          </div>
+        ) : !info ? (
+          <IdentificationSkeleton />
+        ) : (
+          <>
+            {activeTab === 'identification' && (
+              <TabIdentification
+                groupNm={groupNm}
+                info={info}
+                items={items}
+                historyLoading={isPlaceholder && loading}
+                imageUrl={imageUrl}
+                thumbnailUrl={thumbnailUrl}
+                imageLoading={imageLoading}
+                imageError={imageError}
+                setThumbnailUrl={setThumbnailUrl}
+                setImageError={setImageError}
+                equipmentName={equipmentName}
+                tolerance={tolerance}
+                mpePercent={mpePercent}
+                onSpecChange={(tol, mpe) => { setTolerance(tol); setMpePercent(mpe) }}
+                certs={certs}
+                certErrors={certErrors}
+                certProgress={certProgress}
+                certLoading={certLoading}
+                certDone={certDone}
+                fetchCerts={fetchCerts}
+              />
+            )}
 
-        {activeTab === 'confirmation' && (
-          conformityTrend ? (
-            <TabConfirmation
-              conformityTrend={conformityTrend}
-              tolerance={tolerance}
-              mpePercent={mpePercent}
-              onGoIdentity={() => setActiveTab('identification')}
-            />
-          ) : (
-            <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
-          )
-        )}
+            {activeTab === 'confirmation' && (
+              conformityTrend ? (
+                <TabConfirmation
+                  conformityTrend={conformityTrend}
+                  tolerance={tolerance}
+                  mpePercent={mpePercent}
+                  onGoIdentity={() => setActiveTab('identification')}
+                />
+              ) : (
+                <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
+              )
+            )}
 
-        {activeTab === 'traceability' && (
-          <TabTraceability
-            certs={certs}
-            certDone={certDone}
-            onGoOverview={() => setActiveTab('identification')}
-          />
-        )}
+            {activeTab === 'traceability' && (
+              <TabTraceability
+                certs={certs}
+                certDone={certDone}
+                onGoOverview={() => setActiveTab('identification')}
+              />
+            )}
 
-        {activeTab === 'nonconformity' && (
-          certs.size > 0 ? (
-            <TabNonconformity
-              groupNm={groupNm}
-              certs={certs}
-            />
-          ) : (
-            <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
-          )
-        )}
+            {activeTab === 'nonconformity' && (
+              certs.size > 0 ? (
+                <TabNonconformity
+                  groupNm={groupNm}
+                  certs={certs}
+                />
+              ) : (
+                <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
+              )
+            )}
 
-        {activeTab === 'preventive' && (
-          conformityTrend ? (
-            <TabPreventive
-              conformityTrend={conformityTrend}
-              info={info}
-              equipmentName={equipmentName}
-            />
-          ) : (
-            <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
-          )
+            {activeTab === 'preventive' && (
+              conformityTrend ? (
+                <TabPreventive
+                  conformityTrend={conformityTrend}
+                  info={info}
+                  equipmentName={equipmentName}
+                />
+              ) : (
+                <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
+              )
+            )}
+          </>
         )}
       </div>
 
@@ -378,6 +413,20 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
 }
 
 // ──────────────────────────── 보조 컴포넌트 ────────────────────────────
+
+// 식별 탭 본문 스켈레톤 — 실제 레이아웃(좌측 이미지/상태 + 우측 정보 + 하단 이력) 윤곽을 흉내냄
+function IdentificationSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="h-64 bg-gray-100 rounded-xl" />
+        <div className="lg:col-span-2 h-64 bg-gray-100 rounded-xl" />
+      </div>
+      <div className="h-48 bg-gray-100 rounded-xl" />
+      <div className="h-64 bg-gray-100 rounded-xl" />
+    </div>
+  )
+}
 
 function NoCertPlaceholder({ onLoadCerts, loading }: { onLoadCerts: () => void; loading: boolean }) {
   const { t } = useT()

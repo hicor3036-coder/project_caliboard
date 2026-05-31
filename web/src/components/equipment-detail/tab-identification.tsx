@@ -25,6 +25,8 @@ interface Props {
   groupNm: string
   info: DetailItem
   items: DetailItem[]
+  /** items 도착 전(placeholder 상태)이면 true — 이력 타임라인/테이블 자리에 스켈레톤 노출 */
+  historyLoading?: boolean
   imageUrl: string | null
   thumbnailUrl: string | null
   imageLoading: boolean
@@ -44,7 +46,7 @@ interface Props {
 }
 
 export default function TabIdentification({
-  groupNm, info, items, imageUrl, thumbnailUrl, imageLoading, imageError,
+  groupNm, info, items, historyLoading, imageUrl, thumbnailUrl, imageLoading, imageError,
   setThumbnailUrl, setImageError, equipmentName, tolerance, mpePercent, onSpecChange,
   certs, certErrors, certProgress, certLoading, certDone, fetchCerts,
 }: Props) {
@@ -252,7 +254,7 @@ export default function TabIdentification({
               <InfoRow label={t.detail.calCycle} value={info.affcCyclCd ? `${info.affcCyclCd}${t.detail.months}` : '-'} />
               <InfoRow label={t.detail.nextCal} value={fmtDate(info.nxtrExrsYmd)} />
               <InfoRow label={t.detail.latestCal} value={fmtDate(info.exrsWrtnYmd)} />
-              <InfoRow label={t.detail.calHistory} value={fmt(t.detail.historyUnit, items.length)} />
+              <InfoRow label={t.detail.calHistory} value={historyLoading ? '-' : fmt(t.detail.historyUnit, items.length)} />
               <InfoRow label={t.detail.manager} value={info.mngmRsprNm} />
             </div>
             {/* 성적서 불러오기 + 프로그레스 */}
@@ -312,6 +314,35 @@ export default function TabIdentification({
       />
 
       {/* ════════ 섹션 3: 교정 타임라인 ════════ */}
+      {historyLoading && timelineData.length === 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-700">{t.detail.calTimeline}</h3>
+                <span className="px-2 py-0.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-md border border-indigo-200">ISO 10012 §6.2.3 : 기록 (Records) / §7.1.2 : 확인주기 (Confirmation intervals)</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">{t.detail.reqS712}</p>
+            </div>
+          </div>
+          <div className="space-y-4 animate-pulse">
+            <div className="flex items-start gap-8 px-4 pb-2">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="flex flex-col items-center min-w-[120px]">
+                  <div className="w-3.5 h-3.5 rounded-full bg-gray-200" />
+                  <div className="mt-3 h-3 w-20 bg-gray-100 rounded" />
+                  <div className="mt-2 h-3 w-16 bg-gray-100 rounded" />
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 border-t border-gray-100 pt-5 space-y-2">
+              <div className="h-8 bg-gray-100 rounded" />
+              <div className="h-8 bg-gray-50 rounded" />
+              <div className="h-8 bg-gray-50 rounded" />
+            </div>
+          </div>
+        </div>
+      )}
       {timelineData.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-5">
