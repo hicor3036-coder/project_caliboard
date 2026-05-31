@@ -59,6 +59,14 @@ export async function GET(request: NextRequest) {
         const analysisBytes = Buffer.byteLength(analysisJson, 'utf8')
         console.log(`[size] items: ${(itemsBytes/1024/1024).toFixed(2)}MB (${result.items.length}건), analysis: ${(analysisBytes/1024).toFixed(1)}KB`)
 
+        // [diagnostic] gzip 압축 후 크기 측정 (KV 한도 10MB 통과 가능 여부 확인)
+        const { gzipSync } = await import('zlib')
+        const t0 = Date.now()
+        const itemsGzipped = gzipSync(itemsJson)
+        const compressMs = Date.now() - t0
+        const itemsB64 = itemsGzipped.toString('base64')
+        console.log(`[gzip] items: ${itemsBytes} → ${itemsGzipped.length}bytes (${(itemsGzipped.length/1024/1024).toFixed(2)}MB), base64: ${(itemsB64.length/1024/1024).toFixed(2)}MB, compress: ${compressMs}ms`)
+
         setCache(result.items, result.fetchedAt, result.sessionId)
 
         send('complete', { ...analysis, cache: getCacheStatus() })
