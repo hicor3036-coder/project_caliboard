@@ -19,6 +19,7 @@ import UpcomingCalibration from '@/components/upcoming-calibration'
 import ReceptionCheck from '@/components/reception-check'
 import EquipmentSearch from '@/components/equipment-search'
 import EquipmentDetailPage, { type SeedInfo } from '@/components/equipment-detail-page'
+import EquipmentProfiles from '@/components/equipment-profiles'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import DataSourceAdmin from '@/components/data-source-admin'
 import { useT } from '@/lib/i18n'
@@ -26,6 +27,8 @@ import { STALE_THRESHOLD_MS } from '@/lib/freshness'
 import { useKtoolsRefresh } from '@/lib/use-ktools-refresh'
 import {
   fetchDashboardData,
+  fetchSummaryOnly,
+  fetchRestOfDashboard,
   fetchReceptionItems,
   fetchSearchItems,
   mapUnprocessed,
@@ -37,6 +40,24 @@ import {
   type ReceptionItemForUI,
   type SearchItemForUI,
 } from '@/lib/supabase-fetch'
+
+// ── 대시보드 sessionStorage 캐시 (탭/창 닫으면 사라짐, F5 후엔 유지)
+// ─ value 키 cachedFor는 summary.lastSyncedAt 스냅샷
+const DASHBOARD_CACHE_KEY = 'caliboard:dashboard:v1'
+function readDashboardCache(): { data: DashboardData } | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(DASHBOARD_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch { return null }
+}
+function writeDashboardCache(data: DashboardData) {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ data }))
+  } catch { /* quota 초과 등 무시 */ }
+}
 
 export default function Home() {
   const router = useRouter()
@@ -66,12 +87,42 @@ export default function Home() {
   } | null>(null)
 
   // ── 데이터 조회
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  // sessionStorage 캐시 정책:
+  //   1) 캐시 있으면 즉시 화면 표시 (loading 풀림)
+  //   2) summary 1개만 호출해 신선도 검사
+  //   3) lastSyncedAt 같으면 끝, 다르면 나머지 8개 atom 페치 + 화면 갱신
+  // ktools 새로고침 직후엔 force=true로 캐시 무시 (어차피 lastSyncedAt 달라짐)
+  const loadData = useCallback(async (opts?: { force?: boolean }) => {
     setError(null)
+    const force = opts?.force === true
+
+    // 1) sessionStorage 캐시 즉시 표시
+    const cached = !force ? readDashboardCache() : null
+    if (cached) {
+      setData(cached.data)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+
     try {
-      const d = await fetchDashboardData()
-      setData(d)
+      // 2) summary 신선도 검사 (force면 곧장 9개 페치)
+      if (!force && cached) {
+        const summary = await fetchSummaryOnly()
+        if (summary.lastSyncedAt === cached.data.summary.lastSyncedAt) {
+          return  // 캐시 신선
+        }
+        // stale — 나머지 8개 페치 후 통합
+        const fresh = await fetchRestOfDashboard(summary)
+        setData(fresh)
+        writeDashboardCache(fresh)
+        return
+      }
+
+      // 3) 캐시 없음 또는 force — 9개 전부
+      const fresh = await fetchDashboardData()
+      setData(fresh)
+      writeDashboardCache(fresh)
     } catch (e) {
       const msg = e instanceof Error ? e.message : '알 수 없는 오류'
       // 401 류 — 로그인 페이지로
@@ -88,8 +139,9 @@ export default function Home() {
   useEffect(() => { loadData() }, [loadData])
 
   // ── ktools 동기화 훅 (page가 단일 소스 — sidebar/data-source-admin이 같은 상태 공유)
+  // 수집 완료 후엔 force=true — summary 검사 없이 9개 즉시 페치
   const refreshHook = useKtoolsRefresh({
-    onRefreshed: loadData,
+    onRefreshed: () => loadData({ force: true }),
     onSessionExpired: () => router.replace('/login'),
   })
 
@@ -124,9 +176,9 @@ export default function Home() {
     return () => { aborted = true }
   }, [view, receptionCache, currentSync])
 
-  // ── search 뷰 진입 시 페치 (동일 패턴)
+  // ── search/profiles 뷰 진입 시 페치 (동일 패턴 — profiles 컴포넌트도 search 13컬럼 사용)
   useEffect(() => {
-    if (view !== 'search') return
+    if (view !== 'search' && view !== 'profiles') return
     if (searchCache && searchCache.cachedFor === currentSync) return
     let aborted = false
     fetchSearchItems()
@@ -321,7 +373,19 @@ export default function Home() {
               )
             )}
 
-            {(view === 'profiles' || view === 'report') && (
+            {view === 'profiles' && (
+              searchError ? (
+                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                  {searchError}
+                </div>
+              ) : !searchCache || searchCache.cachedFor !== currentSync ? (
+                <div className="flex items-center justify-center h-96 text-slate-400">장비 목록 불러오는 중...</div>
+              ) : (
+                <EquipmentProfiles equipmentItems={searchCache.data} />
+              )
+            )}
+
+            {view === 'report' && (
               <div className="flex items-center justify-center h-96 text-slate-400 bg-white rounded-md border border-slate-200">
                 해당 화면은 후속 작업에서 연결 예정입니다.
               </div>

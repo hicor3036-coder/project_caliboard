@@ -313,6 +313,33 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   }
 }
 
+// summary 1개만 — sessionStorage 캐시 신선도 검사용 (가벼운 RPC)
+export async function fetchSummaryOnly(): Promise<SummaryResp> {
+  return getJson<SummaryResp>('/api/supabase/summary')
+}
+
+// summary 제외 8개 atom — 캐시 stale 시 추가 페치용
+export async function fetchRestOfDashboard(summary: SummaryResp): Promise<DashboardData> {
+  const [
+    byStatus, byManager, byManufacturer, byProject,
+    monthlyTrend, duration, unprocessed, upcoming,
+  ] = await Promise.all([
+    getJson<ByRow[]>('/api/supabase/by-status'),
+    getJson<ByRow[]>('/api/supabase/by-manager'),
+    getJson<ByRow[]>('/api/supabase/by-manufacturer'),
+    getJson<ProjectRow[]>('/api/supabase/by-project'),
+    getJson<MonthlyRow[]>('/api/supabase/monthly-trend'),
+    getJson<DurationResp>('/api/supabase/duration'),
+    getJson<UnprocessedRowRaw[]>('/api/supabase/unprocessed'),
+    getJson<UpcomingResp>('/api/supabase/upcoming'),
+  ])
+
+  return {
+    summary, byStatus, byManager, byManufacturer, byProject,
+    monthlyTrend, duration, unprocessed, upcoming,
+  }
+}
+
 // reception 뷰 진입 시에만 호출 (lazy) — 9311건 전체 row 받음 (~1MB)
 export async function fetchReceptionItems(): Promise<ReceptionRowRaw[]> {
   return getJson<ReceptionRowRaw[]>('/api/supabase/reception-items')
