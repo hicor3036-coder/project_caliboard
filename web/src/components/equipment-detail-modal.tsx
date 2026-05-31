@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import DataTable, { type Column, fmtDate } from './data-table'
 
 interface DetailItem {
@@ -98,11 +98,20 @@ export default function EquipmentDetailModal({ groupNm, equipmentName, onClose }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const inflightGroupRef = useRef<string | null>(null)
   const fetchDetail = useCallback(async () => {
+    if (inflightGroupRef.current === groupNm) return
+    inflightGroupRef.current = groupNm
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/ktools/detail?groupNm=${encodeURIComponent(groupNm)}`)
+      const sessionRes = await fetch('/api/ktools/session', { method: 'POST' })
+      if (!sessionRes.ok) throw new Error(`session ${sessionRes.status}`)
+      const { sessionId } = await sessionRes.json() as { sessionId: string }
+
+      const res = await fetch(
+        `/api/ktools/group-equip?sessionId=${encodeURIComponent(sessionId)}&groupNm=${encodeURIComponent(groupNm)}`,
+      )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
@@ -111,6 +120,7 @@ export default function EquipmentDetailModal({ groupNm, equipmentName, onClose }
       setError(e instanceof Error ? e.message : '조회 실패')
     } finally {
       setLoading(false)
+      inflightGroupRef.current = null
     }
   }, [groupNm])
 

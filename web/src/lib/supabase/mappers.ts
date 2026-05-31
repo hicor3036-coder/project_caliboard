@@ -6,27 +6,42 @@
 import { KtoolsItem } from '../ktools-fetch'
 import { KtoolsItemRow } from './types'
 
+// k-tools가 보내는 "비어있음" 표현 (대소문자 무시)
+// — 빈 문자열, "None" (Python str(None)), "null" (Java null.toString())
+function isEmpty(s: string): boolean {
+  if (s === '') return true
+  const lower = s.toLowerCase()
+  return lower === 'none' || lower === 'null'
+}
+
 // k-tools "YYYYMMDD" 8자리 문자열 → Postgres DATE "YYYY-MM-DD"
+// 일부 필드는 "YYYY-MM-DD" 그대로 오기도 함 → 양쪽 다 허용
 function toDate(s: unknown): string | null {
   if (typeof s !== 'string') return null
-  if (s === '' || s === 'None') return null
+  if (isEmpty(s)) return null
+  if (s.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(s)) return s
   if (s.length !== 8) return null
   const y = s.slice(0, 4)
   const m = s.slice(4, 6)
   const d = s.slice(6, 8)
-  // 형식만 체크, 실제 유효성은 Postgres가 거부함
   if (!/^\d{4}$/.test(y) || !/^\d{2}$/.test(m) || !/^\d{2}$/.test(d)) return null
   return `${y}-${m}-${d}`
 }
 
 function toText(s: unknown): string | null {
   if (typeof s !== 'string') return null
-  if (s === '' || s === 'None') return null
+  if (isEmpty(s)) return null
   return s
 }
 
+// k-tools는 숫자 필드도 문자열("0", "12345")로 보냄 → 변환 수용
 function toNumber(n: unknown): number | null {
   if (typeof n === 'number' && Number.isFinite(n)) return n
+  if (typeof n === 'string') {
+    if (isEmpty(n)) return null
+    const parsed = Number(n)
+    return Number.isFinite(parsed) ? parsed : null
+  }
   return null
 }
 
@@ -60,6 +75,20 @@ export function toRow(item: KtoolsItem, syncedAt?: string): KtoolsItemRow {
 
     group_nm:  toText(raw.groupNm),
     group_cnt: toNumber(raw.groupCnt),
+
+    // equipment-detail용 (Phase D)
+    snct_ymd:       toDate(item.snctYmd),
+    isnc_ymd:       toDate(item.isncYmd),
+    smpl_out_date:  toDate(item.smplOutDate),
+    gyeolje_status: toText(item.gyeoljeStatus),
+    mngm_dvsn_nm:   toText(item.mngmDvsnNm),
+    affc_cycl_cd:   toText(item.affcCyclCd),
+    total_fee:      toNumber(item.totalFee),
+    total_vat:      toNumber(item.totalVat),
+    apcn_cmnm:      toText(item.apcnCmnm),
+    apcn_nm:        toText(item.apcnNm),
+    apcn_tlno:      toText(item.apcnTlno),
+    apcn_eml_adrs:  toText(item.apcnEmlAdrs),
 
     synced_at: syncedAt ?? new Date().toISOString(),
   }

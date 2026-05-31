@@ -3,6 +3,8 @@
 // ─ 도메인: 여러 도메인(ktools, supabase)을 합법적으로 조합하는 유일한 계층
 // ─ 입력: { sessionId, prjcCdList[], pageCount? }
 // ─ 세션 유효성은 호출자 책임 — task는 SESSION_EXPIRED 시 분기처리만
+// ─ Phase D: equipment-detail용 12개 컬럼 매핑 추가 (mappers.ts 갱신 반영)
+// ─ Phase D2: 페이지 단위 POST를 500건씩 분할 (3000건 단일 POST에서 30건 silent loss 발생 이력)
 // ─ 응답: SSE 스트림 (진행률 + 결과)
 //
 // 흐름:
@@ -110,29 +112,40 @@ export async function POST(request: NextRequest) {
           if (list.length === 0) break
 
           // [3-b] supabase items POST (upsert, syncedAt=startedAt)
-          send('progress', {
-            stage: 'upsert',
-            current: totalUpserted,
-            total: totalCount,
-            message: `${list.length}건 DB 저장 중...`,
-          })
-
-          const upsertRes = await fetch(`${origin}/api/supabase/items`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: list, syncedAt: startedAtIso }),
-          })
-          if (!upsertRes.ok) {
-            const errBody = await upsertRes.text().catch(() => '')
-            lastError = {
+          // 페이지(3000건)를 500건 단위로 분할 POST — Next.js route body 한도 회피 +
+          // sub-MB JSON으로 안전. supabase/items 라우트도 정합성 검증(사후 SELECT) 보유.
+          const SUB_CHUNK = 500
+          let pageUpserted = 0
+          let pageUpsertFailed = false
+          for (let s = 0; s < list.length; s += SUB_CHUNK) {
+            const slice = list.slice(s, s + SUB_CHUNK)
+            send('progress', {
               stage: 'upsert',
-              message: `supabase upsert 실패: ${errBody}`,
-              sessionExpired: false,
+              current: totalUpserted + pageUpserted,
+              total: totalCount,
+              message: `${slice.length}건 DB 저장 중... (page=${page}, offset=${s})`,
+            })
+
+            const upsertRes = await fetch(`${origin}/api/supabase/items`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ items: slice, syncedAt: startedAtIso }),
+            })
+            if (!upsertRes.ok) {
+              const errBody = await upsertRes.text().catch(() => '')
+              lastError = {
+                stage: 'upsert',
+                message: `supabase upsert 실패 (page=${page}, offset=${s}): ${errBody}`,
+                sessionExpired: false,
+              }
+              pageUpsertFailed = true
+              break
             }
-            break
+            const upsertJson = await upsertRes.json() as { upserted: number }
+            pageUpserted += upsertJson.upserted
           }
-          const upsertJson = await upsertRes.json() as { upserted: number }
-          totalUpserted += upsertJson.upserted
+          if (pageUpsertFailed) break
+          totalUpserted += pageUpserted
 
           // 진행률 갱신
           send('progress', {

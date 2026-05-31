@@ -5,9 +5,10 @@
 // ─ atom 응답(snake_case) → 컴포넌트 친화 형태로 매핑은 lib/supabase-fetch.ts 책임
 // ─ ktools 수집 SSE는 useKtoolsRefresh 훅이 단일 소스 — sidebar/data-source-admin이 같은 상태 공유
 // ─ 자동 트리거: 로그인/홈 진입 시 12h 초과면 1회 자동 수집 (옵션 B: 단일 브라우저 in-flight 가드)
-// ─ 활성 뷰: home / unprocessed / upcoming / reception / search / data-source
-//   미연결: profiles / report / equipment-detail (Phase C2)
+// ─ 활성 뷰: home / unprocessed / upcoming / reception / search / equipment-detail / data-source
+//   미연결: profiles / report (후속 작업)
 // ─ reception/search: 전체 row 필요 → 뷰 진입 시 lazy fetch (캐시)
+// ─ equipment-detail: search 행 클릭 → detailContext 채워지면 EquipmentDetailPage 렌더
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -17,6 +18,7 @@ import UnprocessedTable from '@/components/unprocessed-table'
 import UpcomingCalibration from '@/components/upcoming-calibration'
 import ReceptionCheck from '@/components/reception-check'
 import EquipmentSearch from '@/components/equipment-search'
+import EquipmentDetailPage from '@/components/equipment-detail-page'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import DataSourceAdmin from '@/components/data-source-admin'
 import { useT } from '@/lib/i18n'
@@ -52,6 +54,9 @@ export default function Home() {
   const [receptionError, setReceptionError] = useState<string | null>(null)
   const [searchCache, setSearchCache] = useState<{ data: SearchItemForUI[]; cachedFor: string | null } | null>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
+
+  // ── 장비 상세 진입 컨텍스트 (search/홈 등에서 행 클릭 시 채워짐)
+  const [detailContext, setDetailContext] = useState<{ groupNm: string; equipmentName: string } | null>(null)
 
   // ── 데이터 조회
   const loadData = useCallback(async () => {
@@ -251,15 +256,32 @@ export default function Home() {
                 <Suspense fallback={<div className="flex items-center justify-center h-96 text-slate-400">로딩 중...</div>}>
                   <EquipmentSearch
                     items={searchCache.data}
-                    onOpenDetail={() => setView('equipment-detail')}
+                    onOpenDetail={(groupNm, equipmentName) => {
+                      setDetailContext({ groupNm, equipmentName })
+                      setView('equipment-detail')
+                    }}
                   />
                 </Suspense>
               )
             )}
 
-            {(view === 'profiles' || view === 'report' || view === 'equipment-detail') && (
+            {view === 'equipment-detail' && (
+              detailContext ? (
+                <EquipmentDetailPage
+                  groupNm={detailContext.groupNm}
+                  equipmentName={detailContext.equipmentName}
+                  onBack={() => { setDetailContext(null); setView('search') }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-96 text-slate-400 bg-white rounded-md border border-slate-200">
+                  장비를 선택하려면 &ldquo;장비 검색&rdquo;에서 행을 클릭하세요.
+                </div>
+              )
+            )}
+
+            {(view === 'profiles' || view === 'report') && (
               <div className="flex items-center justify-center h-96 text-slate-400 bg-white rounded-md border border-slate-200">
-                해당 화면은 Phase C2에서 연결 예정입니다.
+                해당 화면은 후속 작업에서 연결 예정입니다.
               </div>
             )}
           </>

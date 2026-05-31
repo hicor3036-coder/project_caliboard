@@ -1,5 +1,6 @@
 // 아토믹 엔드포인트: ktools_items 테이블 CRUD
 // ─ 도메인 규칙: Supabase 클라이언트만 호출 (k-tools 호출 X)
+// ─ Phase D: equipment-detail용 12개 컬럼 매핑 (mappers.ts 갱신 반영)
 //
 // GET    /api/supabase/items?q=&pgstNm=&mngmRsprNm=&prdnCmpnNm=&prjcCd=&page=1&pageSize=50&sort=rcpn_ymd&order=desc
 //   → 검색·필터·페이지네이션
@@ -132,6 +133,15 @@ export async function POST(request: NextRequest) {
   const supabase = getSupabase()
   const rows = items.map(item => toRow(item, body.syncedAt))
 
+  // 사전 검증: 받은 payload 안에 acpt_no 중복이 있는지 (있으면 정합성 사고)
+  const acptCounts = new Map<string, number>()
+  for (const r of rows) acptCounts.set(r.acpt_no, (acptCounts.get(r.acpt_no) ?? 0) + 1)
+  const payloadDups: string[] = []
+  for (const [a, c] of acptCounts.entries()) if (c > 1) payloadDups.push(`${a}(${c})`)
+  if (payloadDups.length > 0) {
+    console.warn(`[supabase/items POST] payload 내 acpt_no 중복 ${payloadDups.length}건:`, payloadDups.slice(0, 5))
+  }
+
   let upserted = 0
   for (let i = 0; i < rows.length; i += UPSERT_CHUNK_SIZE) {
     const chunk = rows.slice(i, i + UPSERT_CHUNK_SIZE)
@@ -149,7 +159,33 @@ export async function POST(request: NextRequest) {
     upserted += chunk.length
   }
 
-  console.log(`[supabase/items POST] upsert 완료: ${upserted}건`)
+  // 사후 검증: 이번 batch의 acpt_no가 모두 DB에 존재하는지
+  // — payload는 받았는데 silent로 누락된 row가 있으면 즉시 감지
+  const expectedAcptNos = Array.from(new Set(rows.map(r => r.acpt_no)))
+  const { count: actualCount, error: verifyErr } = await supabase
+    .from('ktools_items')
+    .select('acpt_no', { count: 'exact', head: true })
+    .in('acpt_no', expectedAcptNos)
+
+  if (verifyErr) {
+    console.error('[supabase/items POST] 사후 검증 SELECT 실패:', verifyErr)
+  } else if (actualCount !== expectedAcptNos.length) {
+    const missing = expectedAcptNos.length - (actualCount ?? 0)
+    console.error(
+      `[supabase/items POST] 정합성 사고 — 받은 unique acpt_no ${expectedAcptNos.length}, ` +
+      `DB 실제 ${actualCount}, 누락 ${missing}건. payload크기=${items.length}, chunks=${Math.ceil(rows.length / UPSERT_CHUNK_SIZE)}`,
+    )
+    return NextResponse.json(
+      {
+        error: `정합성 사고: ${missing}건 누락 (received=${expectedAcptNos.length}, inDb=${actualCount})`,
+        upserted,
+        missing,
+      },
+      { status: 500 }
+    )
+  }
+
+  console.log(`[supabase/items POST] upsert 완료: ${upserted}건 (사후 검증 OK)`)
   return NextResponse.json({ upserted })
 }
 

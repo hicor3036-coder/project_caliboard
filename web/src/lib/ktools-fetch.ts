@@ -4,9 +4,11 @@
 
 const BASE_URL = 'https://k-tools.ktl.re.kr'
 const API_URL = `${BASE_URL}/spm/api/spm0907_getConsignPrjcDtlEquipList.ajax`
+const GROUP_API_URL = `${BASE_URL}/spm/api/spm0907_getConsignPrjcDtlEquipGroupList.ajax`
 const SPM_PAGE_URL = `${BASE_URL}/spm/contents/spm0907.do?cnsnClsIdx=32`
 
 // k-tools 응답 1건의 타입 — 실제 응답은 ~110개 필드라 [key: string]: unknown 유지
+// equipment-detail용 12개 필드도 명시 (Phase D — 2026-05-31)
 export interface KtoolsItem {
   acptNo: string
   rcpnYmd: string | null
@@ -23,6 +25,21 @@ export interface KtoolsItem {
   totalSum: number
   custEqpmSrno: string | null
   mctlNo: string | null
+
+  // equipment-detail용 (Phase D)
+  snctYmd?: string | null
+  isncYmd?: string | null
+  smplOutDate?: string | null
+  gyeoljeStatus?: string | null
+  mngmDvsnNm?: string | null
+  affcCyclCd?: string | null
+  totalFee?: number | null
+  totalVat?: number | null
+  apcnCmnm?: string | null
+  apcnNm?: string | null
+  apcnTlno?: string | null
+  apcnEmlAdrs?: string | null
+
   [key: string]: unknown
 }
 
@@ -135,4 +152,52 @@ export async function fetchPage(
     list: data.list,
     totalCount: data.totalCount ?? 0,
   }
+}
+
+// k-tools 그룹 단위 상세 조회 — 한 group_nm의 전체 이력 (과거 포함)
+// ─ 기본 fetchPage는 그룹 대표 1건씩만 반환 (group_cnt=N 정보만)
+// ─ 이 호출로 실제 N건 받음
+export async function fetchGroupEquip(
+  sessionId: string,
+  groupNm: string,
+  prjcCdListParam: string,
+): Promise<KtoolsItem[]> {
+  const body = new URLSearchParams({
+    page: '0',
+    pageCount: '500',
+    cnsnClsIdx: '32',
+    groupNm,
+    prjcCdList: prjcCdListParam,
+  })
+
+  const res = await fetch(GROUP_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'Cookie': `KTOOLS_JSESSIONID=${sessionId}`,
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: body.toString(),
+  })
+
+  const text = await res.text()
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(text)
+  } catch {
+    console.error('[fetchGroupEquip] JSON 파싱 실패, 응답:', text.slice(0, 300))
+    throw new Error('SESSION_EXPIRED')
+  }
+
+  if (json.code === 401) {
+    throw new Error('SESSION_EXPIRED')
+  }
+
+  const data = json.data as { list?: KtoolsItem[] } | undefined
+  if (!data || !Array.isArray(data.list)) {
+    console.error('[fetchGroupEquip] 예상치 못한 응답 구조:', JSON.stringify(json).slice(0, 500))
+    throw new Error('SESSION_EXPIRED')
+  }
+
+  return data.list
 }

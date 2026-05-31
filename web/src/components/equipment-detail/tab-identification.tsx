@@ -688,7 +688,23 @@ function useHistoryColumns(
               if (excelDownloading) return
               setExcelDownloading(i.acptNo)
               try {
-                const res = await fetch(`/api/ktools/cert-download?acptNo=${encodeURIComponent(i.acptNo)}`)
+                // 1) sessionId 발급 (ktools 자격증명 쿠키 → JSESSIONID)
+                const sessionRes = await fetch('/api/ktools/session', { method: 'POST' })
+                if (!sessionRes.ok) {
+                  const err = await sessionRes.json().catch(() => ({ error: `HTTP ${sessionRes.status}` }))
+                  alert(err.error || '세션 발급 실패')
+                  return
+                }
+                const { sessionId } = await sessionRes.json() as { sessionId: string }
+
+                // 2) cert-excel 호출 (ktools에서 Excel 다운로드)
+                const res = await fetch(
+                  `/api/ktools/cert-excel?sessionId=${encodeURIComponent(sessionId)}&acptNo=${encodeURIComponent(i.acptNo)}`,
+                )
+                if (res.status === 204) {
+                  alert('성적서가 발급되지 않은 건입니다.')
+                  return
+                }
                 if (!res.ok) {
                   const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
                   alert(err.error || '다운로드 실패')

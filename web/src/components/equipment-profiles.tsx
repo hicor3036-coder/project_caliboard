@@ -680,7 +680,7 @@ export default function EquipmentProfiles({ equipmentItems }: Props) {
   // 프로필 로드
   const fetchProfiles = useCallback(async () => {
     try {
-      const res = await fetch('/api/profiles')
+      const res = await fetch('/api/supabase/profiles')
       const json = await res.json()
       setProfiles(json.profiles ?? [])
     } catch (err) {
@@ -734,7 +734,7 @@ export default function EquipmentProfiles({ equipmentItems }: Props) {
   async function handleSave(profile: EquipmentProfile) {
     try {
       profile.source = 'manual_input'
-      await fetch('/api/profiles', {
+      await fetch('/api/supabase/profiles', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profile),

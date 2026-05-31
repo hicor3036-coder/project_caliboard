@@ -30,6 +30,20 @@ export interface KtoolsItemRow {
   group_nm: string | null
   group_cnt: number | null
 
+  // equipment-detail용 (Phase D, 0004 migration)
+  snct_ymd: string | null
+  isnc_ymd: string | null
+  smpl_out_date: string | null
+  gyeolje_status: string | null
+  mngm_dvsn_nm: string | null
+  affc_cycl_cd: string | null
+  total_fee: number | null
+  total_vat: number | null
+  apcn_cmnm: string | null
+  apcn_nm: string | null
+  apcn_tlno: string | null
+  apcn_eml_adrs: string | null
+
   // 메타
   synced_at: string  // ISO timestamp
 }

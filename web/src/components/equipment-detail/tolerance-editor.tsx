@@ -47,7 +47,7 @@ export default function ToleranceEditor({ tolerance, mpePercent, manufacturer, m
         ? { value: parseFloat(editTolValue), unit: editTolUnit, note: editTolNote || null }
         : null
       const newMpe = editMpe ? parseFloat(editMpe) : 100
-      const res = await fetch(`/api/profiles?manufacturer=${encodeURIComponent(manufacturer)}&model=${encodeURIComponent(model)}`)
+      const res = await fetch(`/api/supabase/profiles?manufacturer=${encodeURIComponent(manufacturer)}&model=${encodeURIComponent(model)}`)
       let profile = res.ok ? await res.json() : null
       if (!profile) {
         profile = {
@@ -66,7 +66,7 @@ export default function ToleranceEditor({ tolerance, mpePercent, manufacturer, m
       profile.spec.tolerance = newTol
       profile.spec.mpe_percent = newMpe
       profile.spec.manual_tolerance = null
-      await fetch('/api/profiles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) })
+      await fetch('/api/supabase/profiles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) })
       onSpecChange(newTol, newMpe)
       setEditOpen(false)
     } finally { setSaving(false) }
@@ -75,13 +75,13 @@ export default function ToleranceEditor({ tolerance, mpePercent, manufacturer, m
   const deleteSpec = async () => {
     setSaving(true)
     try {
-      const res = await fetch(`/api/profiles?manufacturer=${encodeURIComponent(manufacturer)}&model=${encodeURIComponent(model)}`)
+      const res = await fetch(`/api/supabase/profiles?manufacturer=${encodeURIComponent(manufacturer)}&model=${encodeURIComponent(model)}`)
       const profile = res.ok ? await res.json() : null
       if (profile) {
         profile.spec.tolerance = null
         profile.spec.mpe_percent = null
         profile.spec.manual_tolerance = null
-        await fetch('/api/profiles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) })
+        await fetch('/api/supabase/profiles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) })
       }
       onSpecChange(null, null)
       setEditOpen(false)

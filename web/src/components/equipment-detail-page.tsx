@@ -4,7 +4,7 @@
  */
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useT } from '@/lib/i18n'
 import type { CertResult } from '@/lib/cert-cache'
@@ -76,12 +76,26 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
     if (cached.size > 0) setCerts(cached)
   }, [items, certs.size, certLoading, certDone, setCerts])
 
-  // 상세 데이터 로딩
+  // 상세 데이터 로딩 — k-tools 실시간 호출 (그룹 단위 전체 이력 N건)
+  // 1) /api/ktools/session POST → sessionId
+  // 2) /api/ktools/group-equip?sessionId=...&groupNm=... → items
+  // ─ Supabase DB는 그룹 대표 1건만 보관, 과거 이력은 k-tools 실시간 조회
+  // ─ Strict Mode 이중 호출 가드: 같은 groupNm에 대해 진행 중이면 두 번째 호출 무시
+  //   (session 발급 두 번 → 옛 sessionId 무효화 → 첫 호출 401 방지)
+  const inflightGroupRef = useRef<string | null>(null)
   const fetchDetail = useCallback(async () => {
+    if (inflightGroupRef.current === groupNm) return
+    inflightGroupRef.current = groupNm
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/ktools/detail?groupNm=${encodeURIComponent(groupNm)}`)
+      const sessionRes = await fetch('/api/ktools/session', { method: 'POST' })
+      if (!sessionRes.ok) throw new Error(`session ${sessionRes.status}`)
+      const { sessionId } = await sessionRes.json() as { sessionId: string }
+
+      const res = await fetch(
+        `/api/ktools/group-equip?sessionId=${encodeURIComponent(sessionId)}&groupNm=${encodeURIComponent(groupNm)}`,
+      )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
@@ -90,8 +104,9 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
       setError(e instanceof Error ? e.message : t.detail.queryFail)
     } finally {
       setLoading(false)
+      inflightGroupRef.current = null
     }
-  }, [groupNm])
+  }, [groupNm, t.detail.queryFail])
 
   useEffect(() => { fetchDetail() }, [fetchDetail])
 
@@ -122,7 +137,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, onBack }: 
     if (!items.length) return
     const info = items[0]
     if (!info.prdnCmpnNm || !info.stszNm) return
-    fetch(`/api/profiles?manufacturer=${encodeURIComponent(info.prdnCmpnNm)}&model=${encodeURIComponent(info.stszNm)}`)
+    fetch(`/api/supabase/profiles?manufacturer=${encodeURIComponent(info.prdnCmpnNm)}&model=${encodeURIComponent(info.stszNm)}`)
       .then(r => r.ok ? r.json() : null)
       .then(profile => {
         if (!profile?.spec) return

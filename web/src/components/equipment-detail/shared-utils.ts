@@ -285,7 +285,7 @@ export function useCertData(groupNm: string) {
 
     const params = new URLSearchParams({ groupNm })
     if (refresh) params.set('refresh', 'true')
-    const es = new EventSource(`/api/ktools/cert?${params}`)
+    const es = new EventSource(`/task/cert-batch?${params}`)
     esRef.current = es
 
     es.addEventListener('progress', (e) => {
