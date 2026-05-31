@@ -1,8 +1,11 @@
-// 로그인 API: k-tools 인증 검증 → 쿠키에 자격증명 저장 + 세션 ID 캐시
-// 쿠키 TTL = 데이터 신선도 TTL (6시간) — 데이터 갱신 시 세션도 함께 연장
+// 아토믹 엔드포인트: k-tools 로그인
+// ─ 도메인 규칙: k-tools 호출만
+// ─ 동작: k-tools에 실제 로그인 → 자격증명 검증 → 쿠키 발급
+// ─ 출력: { success: true }
+//
+// 세션 ID 캐싱·재사용은 별도 atom에서 다룰 일이며, 여기는 "로그인" 행위만.
 import { NextResponse } from 'next/server'
 import { ktoolsLogin } from '@/lib/ktools-login'
-import { setSessionId } from '@/lib/cache'
 import { setAuthCookie } from '@/lib/auth-session'
 
 export async function POST(request: Request) {
@@ -13,11 +16,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '아이디와 비밀번호를 입력하세요' }, { status: 400 })
     }
 
-    // k-tools에 실제 로그인 시도하여 검증 + JSESSIONID 확보
-    const sessionId = await ktoolsLogin(userId, userPwd)
-
-    // 세션 ID를 단일 소스에 저장 → 다음 fetchAll에서 재사용 (재로그인 1회 절약)
-    setSessionId(sessionId)
+    // k-tools에 실제 로그인 시도하여 자격증명 검증
+    await ktoolsLogin(userId, userPwd)
 
     const res = NextResponse.json({ success: true })
     setAuthCookie(res, { userId, userPwd })

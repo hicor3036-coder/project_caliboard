@@ -1,12 +1,9 @@
-// 로그인 세션 쿠키 관리 — 데이터 신선도와 동일한 시계로 운영
-// ─ 쿠키 maxAge = DATA_TTL_MS (6시간)
-// ─ 데이터 수집(신규/갱신)이 일어날 때마다 쿠키 maxAge가 갱신되어 세션도 연장됨
-// ─ 데이터 만료 = 세션 만료 = 자동 로그아웃 (단일 시계)
+// 로그인 세션 쿠키 관리
+// ─ 쿠키 maxAge = 6시간 (k-tools 데이터 동기화 주기와 동일하게 운영)
 import type { NextResponse } from 'next/server'
-import { DATA_TTL_MS } from './cache'
 
 export const AUTH_COOKIE = 'ktools_auth'
-export const AUTH_COOKIE_MAX_AGE_SEC = Math.floor(DATA_TTL_MS / 1000)
+export const AUTH_COOKIE_MAX_AGE_SEC = 6 * 60 * 60
 
 interface Credentials {
   userId: string

@@ -39,3 +39,8 @@ nul
 
 # Test artifacts
 test/
+
+# Local dev logs
+dev.log
+dev.err.log
+*.log

@@ -1,77 +1,105 @@
-// k-tools 데이터 수집 (페이지네이션)
-
-import { ktoolsLogin } from './ktools-login'
-import { KTOOLS_PROJECT_CODES_PARAM } from './projects'
+// k-tools 단일 페이지 조회 — atom 1회 호출에 대응
+// ─ 페이지 순회, 자동 재로그인, 동시 수집 방어는 모두 task 책임 (이 파일에 없음)
+// ─ 검색 파라미터 전부 외부 노출
 
 const BASE_URL = 'https://k-tools.ktl.re.kr'
 const API_URL = `${BASE_URL}/spm/api/spm0907_getConsignPrjcDtlEquipList.ajax`
+const SPM_PAGE_URL = `${BASE_URL}/spm/contents/spm0907.do?cnsnClsIdx=32`
 
-// spm0907.do 페이지 접근 (API 호출 전제조건 — 세션에 cnsnClsIdx 설정)
-async function ensureSpmAccess(sessionId: string): Promise<void> {
-  await fetch(`${BASE_URL}/spm/contents/spm0907.do?cnsnClsIdx=32`, {
-    headers: { 'Cookie': `KTOOLS_JSESSIONID=${sessionId}` },
-  })
-}
-
+// k-tools 응답 1건의 타입 — 실제 응답은 ~110개 필드라 [key: string]: unknown 유지
 export interface KtoolsItem {
   acptNo: string
   rcpnYmd: string | null
   exrsWrtnYmd: string | null
   fnshScdlYmd: string | null
   nxtrExrsYmd: string | null
-  snctYmd: string | null
-  isncYmd: string | null
-  smplOutDate: string | null
-  rectYmd: string | null
   prdNm: string | null
   entpPrdNm: string | null
   prdnCmpnNm: string | null
   stszNm: string | null
   pgstNm: string | null
   prjcCd: string | null
-  mngmDvsnNm: string | null
   mngmRsprNm: string | null
-  mngmRsprTel: string | null
-  apcnCmnm: string | null
-  apcnNm: string | null
-  totalFee: number
   totalSum: number
-  affcCyclCd: string | null
-  gyeoljeStatus: string | null
-  sieDsncCd: string | null
   custEqpmSrno: string | null
   mctlNo: string | null
   [key: string]: unknown
 }
 
-// 단일 페이지 조회
-async function fetchPage(
+// k-tools API 검색 파라미터 — 전부 노출 (atom의 입력)
+// 빈 문자열은 "조건 없음" 의미 (k-tools 측 약속)
+export interface FetchPageParams {
+  // 페이지
+  page: number
+  pageCount: number
+
+  // 날짜 범위
+  startDt?: string
+  endDt?: string
+  exrsWrtnYmdStart?: string
+  exrsWrtnYmdEnd?: string
+
+  // 텍스트 검색
+  entpPrdNm?: string
+  prdnCmpnNm?: string
+  stszNm?: string
+  mctlNo?: string
+  mctlNoTwo?: string
+  acptNo?: string
+  exrsCmnm?: string
+  pgstNm?: string
+  custEqpmSrno?: string
+
+  // 분류/필터
+  cnsnClsIdx?: string         // 기본 '32'
+  prjcCdList?: string         // 콤마 구분 과제코드
+  apcnNmList?: string
+  apcnDvsnNmList?: string
+  prjcCdFList?: string
+  filterCol?: string          // 기본 'PRJC_CD'
+}
+
+export interface FetchPageResult {
+  list: KtoolsItem[]
+  totalCount: number
+}
+
+// k-tools 세션 전제조건: spm0907.do 페이지 1회 방문 → 세션에 cnsnClsIdx 설정
+// atom이 매 호출마다 부르면 됨 (k-tools는 idempotent)
+export async function ensureSpmAccess(sessionId: string): Promise<void> {
+  await fetch(SPM_PAGE_URL, {
+    headers: { 'Cookie': `KTOOLS_JSESSIONID=${sessionId}` },
+  })
+}
+
+// k-tools API 1회 호출 — 단일 페이지 조회
+// 세션 만료 시 SESSION_EXPIRED 에러 throw (재로그인은 호출자 책임)
+export async function fetchPage(
   sessionId: string,
-  page: number = 0,
-  pageCount: number = 3000
-): Promise<{ list: KtoolsItem[]; totalCount: number }> {
+  params: FetchPageParams,
+): Promise<FetchPageResult> {
   const body = new URLSearchParams({
-    page: String(page),
-    pageCount: String(pageCount),
-    startDt: '',
-    endDt: '',
-    exrsWrtnYmdStart: '',
-    exrsWrtnYmdEnd: '',
-    entpPrdNm: '',
-    prdnCmpnNm: '',
-    stszNm: '',
-    mctlNo: '',
-    mctlNoTwo: '',
-    acptNo: '',
-    exrsCmnm: '',
-    pgstNm: '',
-    custEqpmSrno: '',
-    cnsnClsIdx: '32',
-    prjcCdList: KTOOLS_PROJECT_CODES_PARAM,
-    apcnNmList: '',
-    apcnDvsnNmList: '',
-    prjcCdFList: '',
-    filterCol: 'PRJC_CD',
+    page: String(params.page),
+    pageCount: String(params.pageCount),
+    startDt: params.startDt ?? '',
+    endDt: params.endDt ?? '',
+    exrsWrtnYmdStart: params.exrsWrtnYmdStart ?? '',
+    exrsWrtnYmdEnd: params.exrsWrtnYmdEnd ?? '',
+    entpPrdNm: params.entpPrdNm ?? '',
+    prdnCmpnNm: params.prdnCmpnNm ?? '',
+    stszNm: params.stszNm ?? '',
+    mctlNo: params.mctlNo ?? '',
+    mctlNoTwo: params.mctlNoTwo ?? '',
+    acptNo: params.acptNo ?? '',
+    exrsCmnm: params.exrsCmnm ?? '',
+    pgstNm: params.pgstNm ?? '',
+    custEqpmSrno: params.custEqpmSrno ?? '',
+    cnsnClsIdx: params.cnsnClsIdx ?? '32',
+    prjcCdList: params.prjcCdList ?? '',
+    apcnNmList: params.apcnNmList ?? '',
+    apcnDvsnNmList: params.apcnDvsnNmList ?? '',
+    prjcCdFList: params.prjcCdFList ?? '',
+    filterCol: params.filterCol ?? 'PRJC_CD',
   })
 
   const res = await fetch(API_URL, {
@@ -89,17 +117,14 @@ async function fetchPage(
   try {
     json = JSON.parse(text)
   } catch {
-    // JSON 파싱 실패 → HTML 리다이렉트(로그인 페이지) 등
     console.error('[fetchPage] JSON 파싱 실패, 응답:', text.slice(0, 300))
     throw new Error('SESSION_EXPIRED')
   }
 
-  // 세션 만료 체크
   if (json.code === 401) {
     throw new Error('SESSION_EXPIRED')
   }
 
-  // 응답 구조 체크
   const data = json.data as { list?: KtoolsItem[]; totalCount?: number } | undefined
   if (!data || !Array.isArray(data.list)) {
     console.error('[fetchPage] 예상치 못한 응답 구조:', JSON.stringify(json).slice(0, 500))
@@ -110,131 +135,4 @@ async function fetchPage(
     list: data.list,
     totalCount: data.totalCount ?? 0,
   }
-}
-
-// 진행 상황 콜백 타입
-export type ProgressCallback = (info: {
-  stage: 'login' | 'fetch' | 'analyze' | 'done'
-  current: number
-  total: number
-  message: string
-}) => void
-
-// 전체 데이터 수집 (페이지네이션 + 자동 재로그인)
-export type FetchAllResult = { items: KtoolsItem[]; fetchedAt: Date; sessionId: string }
-
-// 동시 수집 방어 (HMR 대응: global)
-// ─ 같은 시점에 여러 진입점(/api/ktools, /api/ktools/stream, 데이터 소스 화면 등)에서
-//   fetchAll이 호출되어도 k-tools에는 단 한 번만 요청
-// ─ 진행 중 요청에 추가로 들어오는 구독자에게도 동일한 progress 이벤트를 전달
-declare global {
-  // eslint-disable-next-line no-var
-  var ktoolsActiveFetch: {
-    promise: Promise<FetchAllResult>
-    subscribers: Set<ProgressCallback>
-  } | null | undefined
-}
-if (global.ktoolsActiveFetch === undefined) {
-  global.ktoolsActiveFetch = null
-}
-
-export async function fetchAll(
-  userId: string,
-  userPwd: string,
-  onProgress?: ProgressCallback,
-  existingSessionId?: string | null,
-): Promise<FetchAllResult> {
-  // 이미 진행 중인 수집이 있으면 그 결과를 공유
-  if (global.ktoolsActiveFetch) {
-    console.log('[fetchAll] 진행 중인 수집에 합류')
-    if (onProgress) global.ktoolsActiveFetch.subscribers.add(onProgress)
-    return global.ktoolsActiveFetch.promise
-  }
-
-  // 새 수집 시작 — 모든 구독자에게 progress 브로드캐스트
-  const subscribers = new Set<ProgressCallback>()
-  if (onProgress) subscribers.add(onProgress)
-  const broadcast: ProgressCallback = (info) => {
-    for (const cb of subscribers) {
-      try { cb(info) } catch { /* 구독자 에러는 다른 구독자에 영향 X */ }
-    }
-  }
-
-  const promise = runFetch(userId, userPwd, broadcast, existingSessionId)
-  global.ktoolsActiveFetch = { promise, subscribers }
-
-  try {
-    return await promise
-  } finally {
-    global.ktoolsActiveFetch = null
-  }
-}
-
-async function runFetch(
-  userId: string,
-  userPwd: string,
-  onProgress: ProgressCallback,
-  existingSessionId?: string | null,
-): Promise<FetchAllResult> {
-  // 로그인 or 세션 재사용
-  let sessionId: string
-  if (existingSessionId) {
-    console.log('기존 세션 재사용')
-    sessionId = existingSessionId
-  } else {
-    onProgress({ stage: 'login', current: 0, total: 0, message: 'k-tools 로그인 중...' })
-    sessionId = await ktoolsLogin(userId, userPwd)
-  }
-
-  // spm0907.do 페이지 접근 (API 호출 전제조건)
-  await ensureSpmAccess(sessionId)
-
-  const allItems: KtoolsItem[] = []
-  const pageCount = 3000
-  let page = 0
-
-  while (true) {
-    let result: { list: KtoolsItem[]; totalCount: number }
-
-    try {
-      result = await fetchPage(sessionId, page, pageCount)
-    } catch (e) {
-      if (e instanceof Error && e.message === 'SESSION_EXPIRED') {
-        console.log('세션 만료 - 재로그인')
-        onProgress({ stage: 'login', current: 0, total: 0, message: '세션 만료 - 재로그인 중...' })
-        sessionId = await ktoolsLogin(userId, userPwd)
-        await ensureSpmAccess(sessionId)
-        result = await fetchPage(sessionId, page, pageCount)
-      } else {
-        throw e
-      }
-    }
-
-    // 첫 페이지에서 0건 → 세션 만료로 간주, 재로그인 시도
-    if (page === 0 && result.totalCount === 0 && existingSessionId) {
-      console.log('첫 페이지 0건 — 세션 만료로 판단, 재로그인')
-      onProgress({ stage: 'login', current: 0, total: 0, message: '세션 만료 - 재로그인 중...' })
-      sessionId = await ktoolsLogin(userId, userPwd)
-      await ensureSpmAccess(sessionId)
-      result = await fetchPage(sessionId, page, pageCount)
-    }
-
-    allItems.push(...result.list)
-    console.log(`  page=${page}, 수신=${result.list.length}건, 누적=${allItems.length}/${result.totalCount}건`)
-    onProgress({
-      stage: 'fetch',
-      current: allItems.length,
-      total: result.totalCount,
-      message: `${allItems.length.toLocaleString()} / ${result.totalCount.toLocaleString()}건 수집`,
-    })
-
-    if (result.list.length === 0 || allItems.length >= result.totalCount) {
-      break
-    }
-
-    page += pageCount
-  }
-
-  console.log(`수집 완료: 총 ${allItems.length}건`)
-  return { items: allItems, fetchedAt: new Date(), sessionId }
 }

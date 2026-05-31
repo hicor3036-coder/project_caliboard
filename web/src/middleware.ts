@@ -5,10 +5,13 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // 로그인 페이지, API, 정적 파일은 통과
+  // 로그인 페이지, API, task, 정적 파일은 통과
+  // ─ /api/* : 아토믹 엔드포인트 (인증은 각 atom 책임)
+  // ─ /task/* : 여러 아토믹을 조합한 워크플로우 (인증은 각 task 책임)
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/') ||
+    pathname.startsWith('/task/') ||
     pathname.startsWith('/_next/') ||
     pathname.includes('.')
   ) {
