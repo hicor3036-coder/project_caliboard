@@ -1,24 +1,14 @@
 'use client'
 
-// 데이터 소스 관리 화면 — 단일 소스(global.ktoolsCache)를 관리하는 유일한 창구
-// ─ 캐시 상태(수집시각·건수·만료) 표시
-// ─ [지금 새로고침] / [캐시 비우기] 두 버튼
-// ─ 갱신 규칙은 고정 (① 비어있음 ② 6시간 경과 ③ 수동) — 정책 변경 UI 없음
+// 접수정보 동기화 화면 (Phase C — Supabase 기반)
+// ─ 데이터 신선도 = sync_runs 최신 success.finished_at (summary atom의 lastSyncedAt)
+// ─ 새로고침 = /api/ktools/session → /task/ktools-refresh SSE → 진행률 + 완료 후 onRefreshed()
+// ─ 캐시 비우기 제거 (DB는 source of truth, 비우기 의미 없음)
+// ─ 자동 갱신 규칙 제거 (Phase C부터는 수동 새로고침만)
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useT, fmt } from '@/lib/i18n'
-
-interface CacheStatusFull {
-  cached: boolean
-  itemCount?: number
-  fetchedAt?: string
-  expiresAt?: string
-  ageMs?: number
-  remainingMs?: number
-  expired?: boolean
-  hasSession?: boolean
-  ttlMs: number
-  projectCodes?: readonly string[]
-}
+import { KTOOLS_PROJECT_CODES } from '@/lib/projects'
 
 interface Progress {
   stage: string
@@ -26,6 +16,20 @@ interface Progress {
   total: number
   message: string
 }
+
+interface DataSourceStatus {
+  total: number
+  lastSyncedAt: string | null
+}
+
+interface Props {
+  status: DataSourceStatus
+  onRefreshed?: () => void           // 새로고침 완료 시 호출 (page가 데이터 재조회)
+  onSessionExpired?: () => void      // 401 시 로그인 페이지로
+}
+
+// "24시간 이전이면 갱신 필요"
+const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000
 
 function formatAge(ms: number, t: ReturnType<typeof useT>['t']): string {
   if (ms < 60_000) return fmt(t.dataSource.secondsAgo, Math.floor(ms / 1000))
@@ -35,120 +39,112 @@ function formatAge(ms: number, t: ReturnType<typeof useT>['t']): string {
   return fmt(t.dataSource.hoursAgo, h, m)
 }
 
-function formatRemaining(ms: number, t: ReturnType<typeof useT>['t']): string {
-  if (ms <= 0) return t.dataSource.expired
-  if (ms < 3_600_000) return fmt(t.dataSource.minutesLeft, Math.ceil(ms / 60_000))
-  const h = Math.floor(ms / 3_600_000)
-  const m = Math.floor((ms % 3_600_000) / 60_000)
-  return fmt(t.dataSource.hoursLeft, h, m)
-}
-
-export default function DataSourceAdmin({ onCacheChanged }: { onCacheChanged?: () => void }) {
+export default function DataSourceAdmin({ status, onRefreshed, onSessionExpired }: Props) {
   const { t, lang } = useT()
-  const [status, setStatus] = useState<CacheStatusFull | null>(null)
-  const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<Progress | null>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
-  const onCacheChangedRef = useRef(onCacheChanged)
-  onCacheChangedRef.current = onCacheChanged
+  const onRefreshedRef = useRef(onRefreshed)
+  const onSessionExpiredRef = useRef(onSessionExpired)
+  onRefreshedRef.current = onRefreshed
+  onSessionExpiredRef.current = onSessionExpired
 
-  // 1초마다 now 갱신 → 경과/남은 시간 실시간 표시
+  // 1초마다 갱신 → 경과 시간 실시간 표시
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
 
-  const loadStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/ktools/status')
-      if (!res.ok) return
-      const json = (await res.json()) as CacheStatusFull
-      setStatus(json)
-    } catch {
-      /* 무시 */
-    }
-  }, [])
-
-  useEffect(() => { loadStatus() }, [loadStatus])
-
-  // SSE 스트리밍으로 강제 새로고침 (k-tools 재수집)
   const handleRefresh = useCallback(async () => {
+    if (loading) return
     setLoading(true)
     setError(null)
-    setNotice(null)
-    setProgress({ stage: 'login', current: 0, total: 0, message: t.collect.connecting })
+    setProgress({ stage: 'init', current: 0, total: 0, message: t.collect.connecting })
 
     try {
-      const res = await fetch('/api/ktools/stream')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      // 1) k-tools 세션 발급
+      const sessionRes = await fetch('/api/ktools/session', { method: 'POST' })
+      if (!sessionRes.ok) {
+        if (sessionRes.status === 401) {
+          onSessionExpiredRef.current?.()
+          return
+        }
+        throw new Error(`세션 발급 실패 (${sessionRes.status})`)
+      }
+      const { sessionId } = await sessionRes.json() as { sessionId: string }
 
-      const reader = res.body?.getReader()
-      if (!reader) throw new Error(t.collect.streamFail)
+      // 2) task SSE 시작
+      const taskRes = await fetch('/task/ktools-refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          prjcCdList: [...KTOOLS_PROJECT_CODES],
+        }),
+      })
+      if (!taskRes.ok || !taskRes.body) {
+        throw new Error(`task 시작 실패 (${taskRes.status})`)
+      }
 
+      // 3) SSE 파싱
+      const reader = taskRes.body.getReader()
       const decoder = new TextDecoder()
-      let buffer = ''
-      let eventType = ''
+      let buf = ''
+      let done = false
+      while (!done) {
+        const { value, done: rdone } = await reader.read()
+        done = rdone
+        if (value) buf += decoder.decode(value, { stream: true })
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7)
-          } else if (line.startsWith('data: ')) {
-            const payload = JSON.parse(line.slice(6))
-            if (eventType === 'progress') {
-              setProgress(payload)
-            } else if (eventType === 'complete') {
-              setProgress(null)
-            } else if (eventType === 'error') {
-              throw new Error(payload.message)
+        let idx
+        while ((idx = buf.indexOf('\n\n')) !== -1) {
+          const raw = buf.slice(0, idx)
+          buf = buf.slice(idx + 2)
+          const lines = raw.split('\n')
+          const evLine = lines.find(l => l.startsWith('event: '))?.slice(7)
+          const dtLine = lines.find(l => l.startsWith('data: '))?.slice(6)
+          if (!evLine || !dtLine) continue
+          const dt = JSON.parse(dtLine)
+          if (evLine === 'progress') {
+            setProgress(dt as Progress)
+          } else if (evLine === 'done') {
+            setProgress({
+              stage: 'done',
+              current: dt.upserted,
+              total: dt.upserted,
+              message: `완료 (${dt.upserted.toLocaleString()}건 / ${Math.round(dt.durationMs / 1000)}초)`,
+            })
+          } else if (evLine === 'error') {
+            if (dt.sessionExpired) {
+              onSessionExpiredRef.current?.()
+              return
             }
-            eventType = ''
+            throw new Error(dt.message ?? '동기화 실패')
           }
         }
       }
 
-      await loadStatus()
-      onCacheChangedRef.current?.()
+      // 4) 부모에게 데이터 재조회 요청
+      onRefreshedRef.current?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : t.dataSource.fetchFailed)
-      setProgress(null)
     } finally {
       setLoading(false)
+      // 진행률은 잠깐 더 보여주고 자동 해제
+      setTimeout(() => setProgress(null), 2500)
     }
-  }, [loadStatus, t])
+  }, [loading, t])
 
-  const handleClear = useCallback(async () => {
-    if (!window.confirm(t.dataSource.clearConfirm)) return
-    setError(null)
-    setNotice(null)
-    try {
-      const res = await fetch('/api/ktools/cache', { method: 'DELETE' })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      await loadStatus()
-      setNotice(t.dataSource.cleared)
-      onCacheChangedRef.current?.()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t.dataSource.clearFailed)
-    }
-  }, [loadStatus, t])
+  // ── 신선도 판정
+  const hasSync = !!status.lastSyncedAt
+  const lastSyncMs = hasSync ? new Date(status.lastSyncedAt!).getTime() : 0
+  const ageMs = hasSync ? now - lastSyncMs : 0
+  const isStale = hasSync && ageMs > STALE_THRESHOLD_MS
 
-  const isCached = !!status?.cached
-  const ageMs = isCached && status.fetchedAt ? now - new Date(status.fetchedAt).getTime() : 0
-  const remainingMs = isCached && status.expiresAt ? new Date(status.expiresAt).getTime() - now : 0
-  const isExpired = isCached && remainingMs <= 0
-
-  const statusBadge = !isCached
+  const statusBadge = !hasSync
     ? { color: 'bg-slate-100 text-slate-600 border-slate-300', dot: 'bg-slate-400', label: t.dataSource.statusEmpty }
-    : isExpired
+    : isStale
       ? { color: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', label: t.dataSource.statusExpired }
       : { color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', label: t.dataSource.statusFresh }
 
@@ -168,13 +164,8 @@ export default function DataSourceAdmin({ onCacheChanged }: { onCacheChanged?: (
           {error}
         </div>
       )}
-      {notice && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-700">
-          {notice}
-        </div>
-      )}
 
-      {/* 캐시 상태 카드 */}
+      {/* 신선도 카드 */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-800">{t.dataSource.cacheStatus}</h2>
@@ -188,37 +179,16 @@ export default function DataSourceAdmin({ onCacheChanged }: { onCacheChanged?: (
           <div>
             <dt className="text-slate-500 mb-0.5">{t.dataSource.recordCount}</dt>
             <dd className="font-semibold text-slate-800">
-              {isCached ? `${status.itemCount?.toLocaleString() ?? 0}${t.common.unit}` : '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-slate-500 mb-0.5">{t.dataSource.session}</dt>
-            <dd className="font-semibold text-slate-800">
-              {isCached
-                ? (status.hasSession ? t.dataSource.sessionAlive : t.dataSource.sessionNone)
-                : '—'}
+              {status.total.toLocaleString()}{t.common.unit}
             </dd>
           </div>
           <div>
             <dt className="text-slate-500 mb-0.5">{t.dataSource.fetchedAt}</dt>
             <dd className="font-mono text-xs text-slate-700">
-              {isCached && status.fetchedAt
-                ? new Date(status.fetchedAt).toLocaleString(localeStr)
-                : '—'}
+              {hasSync ? new Date(status.lastSyncedAt!).toLocaleString(localeStr) : '—'}
             </dd>
-            {isCached && (
+            {hasSync && (
               <p className="text-xs text-slate-400 mt-0.5">{formatAge(ageMs, t)}</p>
-            )}
-          </div>
-          <div>
-            <dt className="text-slate-500 mb-0.5">{t.dataSource.expiresIn}</dt>
-            <dd className={`font-semibold ${isExpired ? 'text-amber-600' : 'text-slate-800'}`}>
-              {isCached ? formatRemaining(remainingMs, t) : '—'}
-            </dd>
-            {isCached && status.expiresAt && (
-              <p className="font-mono text-xs text-slate-400 mt-0.5">
-                {new Date(status.expiresAt).toLocaleString(localeStr)}
-              </p>
             )}
           </div>
         </dl>
@@ -235,20 +205,13 @@ export default function DataSourceAdmin({ onCacheChanged }: { onCacheChanged?: (
             </svg>
             {loading ? t.dataSource.refreshing : t.dataSource.refresh}
           </button>
-          <button
-            onClick={handleClear}
-            disabled={loading || !isCached}
-            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors"
-          >
-            {t.dataSource.clear}
-          </button>
         </div>
 
         {/* 진행률 */}
         {progress && (
           <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
             <p className="text-sm text-slate-700 mb-2">{progress.message}</p>
-            {progress.stage === 'fetch' && progress.total > 0 ? (
+            {progress.total > 0 && (
               <>
                 <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                   <div
@@ -260,50 +223,29 @@ export default function DataSourceAdmin({ onCacheChanged }: { onCacheChanged?: (
                   {progress.current.toLocaleString()} / {progress.total.toLocaleString()} ({Math.round((progress.current / progress.total) * 100)}%)
                 </p>
               </>
-            ) : null}
+            )}
           </div>
         )}
       </section>
 
       {/* 연계 대상 과제 */}
-      {status?.projectCodes && status.projectCodes.length > 0 && (
-        <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-slate-800">{t.dataSource.projects}</h2>
-            <span className="text-xs text-slate-500">
-              {fmt(t.dataSource.projectsCount, status.projectCodes.length)}
-            </span>
-          </div>
-          <ul className="flex flex-wrap gap-2">
-            {status.projectCodes.map(code => (
-              <li
-                key={code}
-                className="inline-flex items-center px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-mono rounded-md border border-slate-200"
-              >
-                {code}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* 자동 갱신 규칙 */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 className="text-lg font-bold text-slate-800 mb-3">{t.dataSource.rules}</h2>
-        <ol className="space-y-2 text-sm text-slate-700">
-          <li className="flex gap-2">
-            <span className="font-mono text-slate-400">1.</span>
-            <span>{t.dataSource.rule1}</span>
-          </li>
-          <li className="flex gap-2">
-            <span className="font-mono text-slate-400">2.</span>
-            <span>{t.dataSource.rule2}</span>
-          </li>
-          <li className="flex gap-2">
-            <span className="font-mono text-slate-400">3.</span>
-            <span>{t.dataSource.rule3}</span>
-          </li>
-        </ol>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-slate-800">{t.dataSource.projects}</h2>
+          <span className="text-xs text-slate-500">
+            {fmt(t.dataSource.projectsCount, KTOOLS_PROJECT_CODES.length)}
+          </span>
+        </div>
+        <ul className="flex flex-wrap gap-2">
+          {KTOOLS_PROJECT_CODES.map(code => (
+            <li
+              key={code}
+              className="inline-flex items-center px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-mono rounded-md border border-slate-200"
+            >
+              {code}
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   )
