@@ -3,25 +3,33 @@
 // 대시보드 메인 페이지 (Phase C)
 // ─ 9개 supabase READ atom을 useEffect로 병렬 호출
 // ─ atom 응답(snake_case) → 컴포넌트 친화 형태로 매핑은 lib/supabase-fetch.ts 책임
-// ─ 새로고침: data-source 뷰 안의 DataSourceAdmin 컴포넌트가 task SSE 호출
-// ─ 활성 뷰: home / unprocessed / upcoming / data-source
-//   미연결: search / profiles / report / reception / equipment-detail (Phase C2)
+// ─ ktools 수집 SSE는 useKtoolsRefresh 훅이 단일 소스 — sidebar/data-source-admin이 같은 상태 공유
+// ─ 자동 트리거: 로그인/홈 진입 시 12h 초과면 1회 자동 수집 (옵션 B: 단일 브라우저 in-flight 가드)
+// ─ 활성 뷰: home / unprocessed / upcoming / reception / data-source
+//   미연결: search / profiles / report / equipment-detail (Phase C2)
+// ─ reception: 전체 row 필요 → 뷰 진입 시 lazy fetch (캐시)
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar, { type ViewType } from '@/components/sidebar'
 import SummaryCards from '@/components/summary-cards'
 import UnprocessedTable from '@/components/unprocessed-table'
 import UpcomingCalibration from '@/components/upcoming-calibration'
+import ReceptionCheck from '@/components/reception-check'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import DataSourceAdmin from '@/components/data-source-admin'
 import { useT } from '@/lib/i18n'
+import { STALE_THRESHOLD_MS } from '@/lib/freshness'
+import { useKtoolsRefresh } from '@/lib/use-ktools-refresh'
 import {
   fetchDashboardData,
+  fetchReceptionItems,
   mapUnprocessed,
   mapUpcoming,
   mapMonthlyForUI,
+  mapReceptionItems,
   type DashboardData,
+  type ReceptionItemForUI,
 } from '@/lib/supabase-fetch'
 
 export default function Home() {
@@ -32,6 +40,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<ViewType>('home')
+
+  // reception 전용 lazy state (대시보드 9개 atom과 별도, 뷰 진입 시 1회 페치)
+  const [receptionItems, setReceptionItems] = useState<ReceptionItemForUI[] | null>(null)
+  const [receptionError, setReceptionError] = useState<string | null>(null)
 
   // ── 데이터 조회
   const loadData = useCallback(async () => {
@@ -54,6 +66,41 @@ export default function Home() {
   }, [router])
 
   useEffect(() => { loadData() }, [loadData])
+
+  // ── ktools 동기화 훅 (page가 단일 소스 — sidebar/data-source-admin이 같은 상태 공유)
+  const refreshHook = useKtoolsRefresh({
+    onRefreshed: loadData,
+    onSessionExpired: () => router.replace('/login'),
+  })
+
+  // ── 자동 트리거: 12h 초과 시 1회 자동 수집 (옵션 B — 단일 브라우저 in-flight 가드)
+  const autoTriggeredRef = useRef(false)
+  useEffect(() => {
+    if (autoTriggeredRef.current) return
+    if (!data) return
+    if (refreshHook.running) return
+
+    const last = data.summary.lastSyncedAt ? new Date(data.summary.lastSyncedAt).getTime() : 0
+    const age = Date.now() - last
+    if (!last || age > STALE_THRESHOLD_MS) {
+      autoTriggeredRef.current = true
+      refreshHook.refresh('auto')
+    }
+  }, [data, refreshHook])
+
+  // ── reception 뷰 진입 시에만 1회 페치 (이후 캐시)
+  useEffect(() => {
+    if (view !== 'reception' || receptionItems !== null) return
+    let aborted = false
+    fetchReceptionItems()
+      .then(rows => { if (!aborted) setReceptionItems(mapReceptionItems(rows)) })
+      .catch(e => {
+        if (aborted) return
+        const msg = e instanceof Error ? e.message : '알 수 없는 오류'
+        setReceptionError(msg)
+      })
+    return () => { aborted = true }
+  }, [view, receptionItems])
 
   // ── 로그아웃
   const handleLogout = useCallback(async () => {
@@ -97,6 +144,7 @@ export default function Home() {
         onLogout={handleLogout}
         미처리건수={data?.summary.unprocessed}
         교정임박건수={data?.summary.upcoming30}
+        syncing={refreshHook.running}
       />
 
       <main className="flex-1 p-6 lg:p-8 overflow-x-auto">
@@ -144,12 +192,29 @@ export default function Home() {
             {view === 'data-source' && (
               <DataSourceAdmin
                 status={{ total: data.summary.total, lastSyncedAt: data.summary.lastSyncedAt }}
-                onRefreshed={loadData}
-                onSessionExpired={() => router.replace('/login')}
+                refresh={{
+                  running: refreshHook.running,
+                  progress: refreshHook.progress,
+                  error: refreshHook.error,
+                  source: refreshHook.source,
+                  onRefresh: () => refreshHook.refresh('manual'),
+                }}
               />
             )}
 
-            {(view === 'search' || view === 'profiles' || view === 'report' || view === 'reception' || view === 'equipment-detail') && (
+            {view === 'reception' && (
+              receptionError ? (
+                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                  {receptionError}
+                </div>
+              ) : receptionItems === null ? (
+                <div className="flex items-center justify-center h-96 text-slate-400">접수 데이터 불러오는 중...</div>
+              ) : (
+                <ReceptionCheck items={receptionItems} />
+              )
+            )}
+
+            {(view === 'search' || view === 'profiles' || view === 'report' || view === 'equipment-detail') && (
               <div className="flex items-center justify-center h-96 text-slate-400 bg-white rounded-md border border-slate-200">
                 해당 화면은 Phase C2에서 연결 예정입니다.
               </div>

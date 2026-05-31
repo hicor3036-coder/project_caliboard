@@ -11,6 +11,7 @@ interface SidebarProps {
   onLogout: () => void
   미처리건수?: number
   교정임박건수?: number
+  syncing?: boolean       // 데이터 수집 진행 중 — data-source 메뉴 아이콘에 회전 효과
 }
 
 export default function Sidebar({
@@ -19,6 +20,7 @@ export default function Sidebar({
   onLogout,
   미처리건수,
   교정임박건수,
+  syncing = false,
 }: SidebarProps) {
   const { t, lang, setLang } = useT()
   const [collapsed, setCollapsed] = useState(false)
@@ -149,20 +151,21 @@ export default function Sidebar({
         {menuItems.map(item => {
           const badge = getBadge(item.id)
           const isActive = activeView === item.id
+          const showSyncing = item.id === 'data-source' && syncing
           return (
             <button
               key={item.id}
               onClick={() => onViewChange(item.id)}
-              title={collapsed ? item.label : undefined}
+              title={collapsed ? (showSyncing ? `${item.label} (수집 중...)` : item.label) : undefined}
               className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'px-5'} gap-3 py-2.5 text-sm transition-colors ${
                 isActive
                   ? 'bg-slate-700 text-white font-medium'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              <span className="relative">
+              <span className={`relative ${showSyncing ? 'animate-spin text-emerald-300' : ''}`}>
                 {item.icon}
-                {collapsed && badge !== undefined && (
+                {collapsed && badge !== undefined && !showSyncing && (
                   <span className={`absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full ${
                     item.id === 'unprocessed' ? 'bg-red-400' : 'bg-amber-400'
                   }`} />
@@ -170,14 +173,16 @@ export default function Sidebar({
               </span>
               {!collapsed && (
                 <>
-                  <span>{item.label}</span>
-                  {badge !== undefined && (
+                  <span className={showSyncing ? 'text-emerald-300' : ''}>{item.label}</span>
+                  {showSyncing ? (
+                    <span className="ml-auto text-[10px] text-emerald-300 animate-pulse">수집 중</span>
+                  ) : badge !== undefined ? (
                     <span className={`ml-auto text-xs px-1.5 py-0.5 rounded-full ${
                       item.id === 'unprocessed' ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'
                     }`}>
                       {badge}
                     </span>
-                  )}
+                  ) : null}
                 </>
               )}
             </button>

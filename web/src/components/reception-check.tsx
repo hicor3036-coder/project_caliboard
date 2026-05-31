@@ -4,15 +4,15 @@ import { useMemo, useState, type ClipboardEvent } from 'react'
 import { useT, fmt } from '@/lib/i18n'
 import ReceptionCheckHelp from './reception-check-help'
 
-// page.tsx 의 전체장비 항목 중 대조에 필요한 필드
+// 대조에 필요한 필드 (supabase reception-items atom 응답 + 매퍼 산출물)
 interface ReceptionItem {
-  acptNo: string       // 마크애니 성적서 조회용
+  acptNo: string
   entpPrdNm: string
   prdnCmpnNm: string
   stszNm: string
   mctlNo: string
   custEqpmSrno: string
-  rcpnYmd: string      // YYYY-MM-DD (toEquipmentList에서 포맷됨)
+  rcpnYmd: string      // YYYY-MM-DD
   pgstNm: string       // 진행상태
   mngmRsprNm: string   // 담당자
 }
@@ -135,7 +135,6 @@ function detectKeyColumn(grid: Grid, headerRowIdx: number): number | null {
 type Status = 'matched' | 'missing' | 'empty'
 interface RowResult {
   status: Status          // empty = 데이터 행이 아님(헤더/빈 키)
-  acptNo: string          // 마크애니 성적서 조회용 (matched일 때만 채워짐)
   접수일: string
   경과일: number | null
   담당자: string
@@ -152,7 +151,6 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<{ r: number; c: number } | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
-  const [markanyLoading, setMarkanyLoading] = useState<string | null>(null)  // 로딩 중인 acptNo
 
   const hasData = (items?.length ?? 0) > 0
 
@@ -174,12 +172,11 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
       const norm = normalizeKey(raw)
       const isHeaderKw = KEY_HEADER_KEYWORDS.some(k => norm.includes(normalizeKey(k)))
       if (r === headerRowIdx || !norm || isHeaderKw) {
-        return { status: 'empty' as const, acptNo: '', 접수일: '', 경과일: null, 담당자: '', 진행상태: '' }
+        return { status: 'empty' as const, 접수일: '', 경과일: null, 담당자: '', 진행상태: '' }
       }
       const hit = ktoolsIndex.get(norm)
       return {
         status: (hit ? 'matched' : 'missing') as Status,
-        acptNo: hit?.acptNo || '',
         접수일: hit?.rcpnYmd || '',
         경과일: hit ? elapsedDays(hit.rcpnYmd) : null,
         담당자: hit?.mngmRsprNm || '',
@@ -478,7 +475,6 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
                     <th className="bg-slate-700 text-white border-b border-slate-600 px-3 py-1.5 whitespace-nowrap font-semibold text-center">{rt.colElapsed}</th>
                     <th className="bg-slate-700 text-white border-b border-slate-600 px-3 py-1.5 whitespace-nowrap font-semibold">{rt.colManager}</th>
                     <th className="bg-slate-700 text-white border-b border-slate-600 px-3 py-1.5 whitespace-nowrap font-semibold">{rt.colProgress}</th>
-                    <th className="bg-slate-700 text-white border-b border-slate-600 px-3 py-1.5 whitespace-nowrap font-semibold text-center">성적서</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -536,9 +532,9 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
                         })}
                         {/* 결과 셀 */}
                         {isHeader ? (
-                          <td colSpan={6} className="border-b border-slate-100 px-3 py-1 text-slate-300 border-l-2 border-l-slate-300" />
+                          <td colSpan={5} className="border-b border-slate-100 px-3 py-1 text-slate-300 border-l-2 border-l-slate-300" />
                         ) : isEmpty ? (
-                          <td colSpan={6} className="border-b border-slate-100 px-3 py-1 border-l-2 border-l-slate-300" />
+                          <td colSpan={5} className="border-b border-slate-100 px-3 py-1 border-l-2 border-l-slate-300" />
                         ) : (
                           <>
                             <td className="border-b border-slate-100 px-3 py-1 whitespace-nowrap border-l-2 border-l-slate-300">
@@ -570,51 +566,6 @@ export default function ReceptionCheck({ items }: { items: ReceptionItem[] | nul
                             </td>
                             <td className="border-b border-slate-100 px-3 py-1 whitespace-nowrap text-slate-600">
                               {isMissing ? <span className="text-slate-400">-</span> : (res.진행상태 || '-')}
-                            </td>
-                            <td className="border-b border-slate-100 px-3 py-1 whitespace-nowrap text-center">
-                              {(() => {
-                                if (isMissing || !res.acptNo) return <span className="text-slate-300">-</span>
-                                const isCompleted = (res.진행상태 || '').includes('완료')
-                                if (!isCompleted) return <span className="text-slate-300">-</span>
-                                const isLoading = markanyLoading === res.acptNo
-                                return (
-                                  <button
-                                    disabled={!!markanyLoading}
-                                    title="마크애니 성적서 보기"
-                                    className="inline-flex items-center justify-center p-1 rounded hover:bg-indigo-50 text-indigo-500 hover:text-indigo-700 transition-colors disabled:opacity-50"
-                                    onClick={async (e) => {
-                                      e.stopPropagation()
-                                      if (markanyLoading) return
-                                      setMarkanyLoading(res.acptNo)
-                                      try {
-                                        const r = await fetch(`/api/ktools/edms?acptNo=${encodeURIComponent(res.acptNo)}`)
-                                        if (!r.ok) {
-                                          const err = await r.json().catch(() => ({ error: `HTTP ${r.status}` }))
-                                          alert(err.error || '성적서 조회 실패')
-                                          return
-                                        }
-                                        const data = await r.json()
-                                        window.open(data.url, '_blank', 'width=1200,height=900,scrollbars=yes,resizable=yes')
-                                      } catch {
-                                        alert('성적서 열기 중 오류가 발생했습니다.')
-                                      } finally {
-                                        setMarkanyLoading(null)
-                                      }
-                                    }}
-                                  >
-                                    {isLoading ? (
-                                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                      </svg>
-                                    ) : (
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                    )}
-                                  </button>
-                                )
-                              })()}
                             </td>
                           </>
                         )}

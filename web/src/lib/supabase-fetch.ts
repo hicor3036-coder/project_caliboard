@@ -62,6 +62,18 @@ export interface UpcomingResp {
   urgent_count: number
 }
 
+export interface ReceptionRowRaw {
+  acpt_no: string
+  entp_prd_nm: string | null
+  prdn_cmpn_nm: string | null
+  stsz_nm: string | null
+  mctl_no: string | null
+  cust_eqpm_srno: string | null
+  rcpn_ymd: string | null
+  pgst_nm: string | null
+  mngm_rspr_nm: string | null
+}
+
 // =====================================================================
 // 컴포넌트 친화 타입 (camelCase + 한글 키 — 기존 컴포넌트 prop과 일치)
 // =====================================================================
@@ -110,6 +122,19 @@ export interface UpcomingDataForUI {
   items: UpcomingItemForUI[]
   제조사별: { label: string; value: number }[]
   시급건수: number
+}
+
+// reception-check.tsx ReceptionItem 과 1:1 (camelCase)
+export interface ReceptionItemForUI {
+  acptNo: string
+  entpPrdNm: string
+  prdnCmpnNm: string
+  stszNm: string
+  mctlNo: string
+  custEqpmSrno: string
+  rcpnYmd: string
+  pgstNm: string
+  mngmRsprNm: string
 }
 
 // =====================================================================
@@ -176,6 +201,20 @@ export function mapMonthlyForUI(rows: MonthlyRow[]): { month: string; 건수: nu
   return rows.map(r => ({ month: r.month, 건수: r.count }))
 }
 
+export function mapReceptionItems(rows: ReceptionRowRaw[]): ReceptionItemForUI[] {
+  return rows.map(r => ({
+    acptNo: r.acpt_no,
+    entpPrdNm: s(r.entp_prd_nm),
+    prdnCmpnNm: s(r.prdn_cmpn_nm),
+    stszNm: s(r.stsz_nm),
+    mctlNo: s(r.mctl_no),
+    custEqpmSrno: s(r.cust_eqpm_srno),
+    rcpnYmd: s(r.rcpn_ymd),
+    pgstNm: s(r.pgst_nm),
+    mngmRsprNm: s(r.mngm_rspr_nm),
+  }))
+}
+
 // =====================================================================
 // 호출 헬퍼 (한 번에 다 받기)
 // =====================================================================
@@ -221,4 +260,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     summary, byStatus, byManager, byManufacturer, byProject,
     monthlyTrend, duration, unprocessed, upcoming,
   }
+}
+
+// reception 뷰 진입 시에만 호출 (lazy) — 9311건 전체 row 받음 (~1MB)
+export async function fetchReceptionItems(): Promise<ReceptionRowRaw[]> {
+  return getJson<ReceptionRowRaw[]>('/api/supabase/reception-items')
 }
