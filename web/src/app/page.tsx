@@ -5,17 +5,18 @@
 // ─ atom 응답(snake_case) → 컴포넌트 친화 형태로 매핑은 lib/supabase-fetch.ts 책임
 // ─ ktools 수집 SSE는 useKtoolsRefresh 훅이 단일 소스 — sidebar/data-source-admin이 같은 상태 공유
 // ─ 자동 트리거: 로그인/홈 진입 시 12h 초과면 1회 자동 수집 (옵션 B: 단일 브라우저 in-flight 가드)
-// ─ 활성 뷰: home / unprocessed / upcoming / reception / data-source
-//   미연결: search / profiles / report / equipment-detail (Phase C2)
-// ─ reception: 전체 row 필요 → 뷰 진입 시 lazy fetch (캐시)
+// ─ 활성 뷰: home / unprocessed / upcoming / reception / search / data-source
+//   미연결: profiles / report / equipment-detail (Phase C2)
+// ─ reception/search: 전체 row 필요 → 뷰 진입 시 lazy fetch (캐시)
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar, { type ViewType } from '@/components/sidebar'
 import SummaryCards from '@/components/summary-cards'
 import UnprocessedTable from '@/components/unprocessed-table'
 import UpcomingCalibration from '@/components/upcoming-calibration'
 import ReceptionCheck from '@/components/reception-check'
+import EquipmentSearch from '@/components/equipment-search'
 import { StatusPieChart, MonthlyBarChart, HorizontalBarChart } from '@/components/charts'
 import DataSourceAdmin from '@/components/data-source-admin'
 import { useT } from '@/lib/i18n'
@@ -24,12 +25,15 @@ import { useKtoolsRefresh } from '@/lib/use-ktools-refresh'
 import {
   fetchDashboardData,
   fetchReceptionItems,
+  fetchSearchItems,
   mapUnprocessed,
   mapUpcoming,
   mapMonthlyForUI,
   mapReceptionItems,
+  mapSearchItems,
   type DashboardData,
   type ReceptionItemForUI,
+  type SearchItemForUI,
 } from '@/lib/supabase-fetch'
 
 export default function Home() {
@@ -41,9 +45,13 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<ViewType>('home')
 
-  // reception 전용 lazy state (대시보드 9개 atom과 별도, 뷰 진입 시 1회 페치)
-  const [receptionItems, setReceptionItems] = useState<ReceptionItemForUI[] | null>(null)
+  // ── lazy 캐시: data + cachedFor (summary.lastSyncedAt 스냅샷)
+  // ─ cachedFor가 현재 summary.lastSyncedAt과 다르면 stale → 재페치
+  // ─ DB 갱신(내/타인 트리거 무관)되면 loadData가 새 lastSyncedAt 받음 → 자동 무효화
+  const [receptionCache, setReceptionCache] = useState<{ data: ReceptionItemForUI[]; cachedFor: string | null } | null>(null)
   const [receptionError, setReceptionError] = useState<string | null>(null)
+  const [searchCache, setSearchCache] = useState<{ data: SearchItemForUI[]; cachedFor: string | null } | null>(null)
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   // ── 데이터 조회
   const loadData = useCallback(async () => {
@@ -88,19 +96,36 @@ export default function Home() {
     }
   }, [data, refreshHook])
 
-  // ── reception 뷰 진입 시에만 1회 페치 (이후 캐시)
+  // ── reception 뷰 진입 시 페치 (lastSyncedAt 변하면 자동 재페치)
+  const currentSync = data?.summary.lastSyncedAt ?? null
   useEffect(() => {
-    if (view !== 'reception' || receptionItems !== null) return
+    if (view !== 'reception') return
+    if (receptionCache && receptionCache.cachedFor === currentSync) return  // 캐시 유효
     let aborted = false
     fetchReceptionItems()
-      .then(rows => { if (!aborted) setReceptionItems(mapReceptionItems(rows)) })
+      .then(rows => { if (!aborted) setReceptionCache({ data: mapReceptionItems(rows), cachedFor: currentSync }) })
       .catch(e => {
         if (aborted) return
         const msg = e instanceof Error ? e.message : '알 수 없는 오류'
         setReceptionError(msg)
       })
     return () => { aborted = true }
-  }, [view, receptionItems])
+  }, [view, receptionCache, currentSync])
+
+  // ── search 뷰 진입 시 페치 (동일 패턴)
+  useEffect(() => {
+    if (view !== 'search') return
+    if (searchCache && searchCache.cachedFor === currentSync) return
+    let aborted = false
+    fetchSearchItems()
+      .then(rows => { if (!aborted) setSearchCache({ data: mapSearchItems(rows), cachedFor: currentSync }) })
+      .catch(e => {
+        if (aborted) return
+        const msg = e instanceof Error ? e.message : '알 수 없는 오류'
+        setSearchError(msg)
+      })
+    return () => { aborted = true }
+  }, [view, searchCache, currentSync])
 
   // ── 로그아웃
   const handleLogout = useCallback(async () => {
@@ -207,14 +232,32 @@ export default function Home() {
                 <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
                   {receptionError}
                 </div>
-              ) : receptionItems === null ? (
+              ) : !receptionCache || receptionCache.cachedFor !== currentSync ? (
                 <div className="flex items-center justify-center h-96 text-slate-400">접수 데이터 불러오는 중...</div>
               ) : (
-                <ReceptionCheck items={receptionItems} />
+                <ReceptionCheck items={receptionCache.data} />
               )
             )}
 
-            {(view === 'search' || view === 'profiles' || view === 'report' || view === 'equipment-detail') && (
+            {view === 'search' && (
+              searchError ? (
+                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                  {searchError}
+                </div>
+              ) : !searchCache || searchCache.cachedFor !== currentSync ? (
+                <div className="flex items-center justify-center h-96 text-slate-400">장비 목록 불러오는 중...</div>
+              ) : (
+                // useSearchParams가 SSR 분기에서 Suspense 요구 — boundary 명시
+                <Suspense fallback={<div className="flex items-center justify-center h-96 text-slate-400">로딩 중...</div>}>
+                  <EquipmentSearch
+                    items={searchCache.data}
+                    onOpenDetail={() => setView('equipment-detail')}
+                  />
+                </Suspense>
+              )
+            )}
+
+            {(view === 'profiles' || view === 'report' || view === 'equipment-detail') && (
               <div className="flex items-center justify-center h-96 text-slate-400 bg-white rounded-md border border-slate-200">
                 해당 화면은 Phase C2에서 연결 예정입니다.
               </div>

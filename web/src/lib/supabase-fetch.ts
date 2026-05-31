@@ -74,6 +74,22 @@ export interface ReceptionRowRaw {
   mngm_rspr_nm: string | null
 }
 
+export interface SearchRowRaw {
+  acpt_no: string
+  entp_prd_nm: string | null
+  prdn_cmpn_nm: string | null
+  stsz_nm: string | null
+  mctl_no: string | null
+  cust_eqpm_srno: string | null
+  rcpn_ymd: string | null
+  pgst_nm: string | null
+  mngm_rspr_nm: string | null
+  nxtr_exrs_ymd: string | null
+  exrs_wrtn_ymd: string | null
+  group_nm: string | null
+  group_cnt: number | null
+}
+
 // =====================================================================
 // 컴포넌트 친화 타입 (camelCase + 한글 키 — 기존 컴포넌트 prop과 일치)
 // =====================================================================
@@ -135,6 +151,23 @@ export interface ReceptionItemForUI {
   rcpnYmd: string
   pgstNm: string
   mngmRsprNm: string
+}
+
+// equipment-search.tsx EquipmentItem 과 1:1 (camelCase)
+export interface SearchItemForUI {
+  acptNo: string
+  entpPrdNm: string
+  prdnCmpnNm: string
+  stszNm: string
+  mctlNo: string
+  custEqpmSrno: string
+  rcpnYmd: string
+  pgstNm: string
+  mngmRsprNm: string
+  nxtrExrsYmd: string
+  exrsWrtnYmd: string
+  groupNm: string
+  groupCnt: number
 }
 
 // =====================================================================
@@ -215,6 +248,24 @@ export function mapReceptionItems(rows: ReceptionRowRaw[]): ReceptionItemForUI[]
   }))
 }
 
+export function mapSearchItems(rows: SearchRowRaw[]): SearchItemForUI[] {
+  return rows.map(r => ({
+    acptNo: r.acpt_no,
+    entpPrdNm: s(r.entp_prd_nm),
+    prdnCmpnNm: s(r.prdn_cmpn_nm),
+    stszNm: s(r.stsz_nm),
+    mctlNo: s(r.mctl_no),
+    custEqpmSrno: s(r.cust_eqpm_srno),
+    rcpnYmd: s(r.rcpn_ymd),
+    pgstNm: s(r.pgst_nm),
+    mngmRsprNm: s(r.mngm_rspr_nm),
+    nxtrExrsYmd: s(r.nxtr_exrs_ymd),
+    exrsWrtnYmd: s(r.exrs_wrtn_ymd),
+    groupNm: s(r.group_nm),
+    groupCnt: n(r.group_cnt) || 1,
+  }))
+}
+
 // =====================================================================
 // 호출 헬퍼 (한 번에 다 받기)
 // =====================================================================
@@ -265,4 +316,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 // reception 뷰 진입 시에만 호출 (lazy) — 9311건 전체 row 받음 (~1MB)
 export async function fetchReceptionItems(): Promise<ReceptionRowRaw[]> {
   return getJson<ReceptionRowRaw[]>('/api/supabase/reception-items')
+}
+
+// search 뷰 진입 시에만 호출 (lazy) — 9311건 × 13컬럼 ≈ 1.5~2MB
+export async function fetchSearchItems(): Promise<SearchRowRaw[]> {
+  return getJson<SearchRowRaw[]>('/api/supabase/search-items')
 }
