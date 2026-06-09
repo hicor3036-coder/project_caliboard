@@ -350,6 +350,7 @@ const ko = {
     tabTraceability: '소급성·기록',
     tabNonconformity: '부적합·시정',
     tabPreventive: 'AI 예방분석',
+    tabCycleAnalysis: '교정주기 분석',
     // 소급성·환경 탭
     traceEnvTitle: '교정 환경',
     traceEnvTemp: '온도',
@@ -1029,6 +1030,7 @@ const en: typeof ko = {
     tabTraceability: 'Traceability',
     tabNonconformity: 'Nonconformity',
     tabPreventive: 'AI Prevention',
+    tabCycleAnalysis: 'Cycle Analysis',
     // traceability tab
     traceEnvTitle: 'Cal. Environment',
     traceEnvTemp: 'Temperature',

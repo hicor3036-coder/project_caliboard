@@ -21,12 +21,13 @@ import CertDetailModal from './equipment-detail/cert-detail-modal'
 const TabConfirmation = dynamic(() => import('./equipment-detail/tab-confirmation'), { ssr: false })
 const TabNonconformity = dynamic(() => import('./equipment-detail/tab-nonconformity'), { ssr: false })
 const TabPreventive = dynamic(() => import('./equipment-detail/tab-preventive'), { ssr: false })
+const TabCycleAnalysis = dynamic(() => import('./equipment-detail/tab-cycle-analysis'), { ssr: false })
 
 // ──────────────────────────── 탭 정의 ────────────────────────────
 
-type TabKey = 'identification' | 'confirmation' | 'traceability' | 'nonconformity' | 'preventive'
+type TabKey = 'identification' | 'confirmation' | 'traceability' | 'nonconformity' | 'preventive' | 'cycleAnalysis'
 
-const TAB_ORDER: TabKey[] = ['identification', 'confirmation', 'traceability', 'nonconformity', 'preventive']
+const TAB_ORDER: TabKey[] = ['identification', 'confirmation', 'traceability', 'nonconformity', 'preventive', 'cycleAnalysis']
 
 const TAB_ICONS: Record<TabKey, string> = {
   identification: 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0',
@@ -34,6 +35,7 @@ const TAB_ICONS: Record<TabKey, string> = {
   traceability:   'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
   nonconformity:  'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
   preventive:     'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
+  cycleAnalysis:  'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
 }
 
 // ──────────────────────────── Props ────────────────────────────
@@ -245,6 +247,7 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, seedInfo, 
     traceability: t.detail.tabTraceability,
     nonconformity: t.detail.tabNonconformity,
     preventive: t.detail.tabPreventive,
+    cycleAnalysis: t.detail.tabCycleAnalysis,
   }
 
   // ──────────────────────────── 렌더링 ────────────────────────────
@@ -395,6 +398,16 @@ export default function EquipmentDetailPage({ groupNm, equipmentName, seedInfo, 
               ) : (
                 <NoCertPlaceholder onLoadCerts={() => fetchCerts()} loading={certLoading} />
               )
+            )}
+
+            {activeTab === 'cycleAnalysis' && (
+              <TabCycleAnalysis
+                manufacturer={info.prdnCmpnNm}
+                model={info.stszNm}
+                ktoolsAffcCyclCd={info.affcCyclCd}
+                series={conformityTrend?.series ?? []}
+                calDates={conformityTrend?.calDates ?? []}
+              />
             )}
           </>
         )}
