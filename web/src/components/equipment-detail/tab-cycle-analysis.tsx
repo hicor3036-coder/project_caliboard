@@ -769,63 +769,208 @@ function UncertaintyRiskDetails({ data }: { data: UncertaintyRiskData }) {
   }
 
   const total = data.overall.total
-  const conformantPct = total > 0 ? (data.overall.conformant / total) * 100 : 0
-  const condPassPct = total > 0 ? (data.overall.conditionalPass / total) * 100 : 0
-  const condFailPct = total > 0 ? (data.overall.conditionalFail / total) * 100 : 0
-  const nonConfPct = total > 0 ? (data.overall.nonConformant / total) * 100 : 0
-  const unknownPct = total > 0 ? (data.overall.unknown / total) * 100 : 0
 
   return (
-    <div className="space-y-4">
-      {/* Guard Band 누적 분포 (스택 바) */}
+    <div className="space-y-5">
+      {/* ─── 섹션 1: 종합 위험 신호 (가장 중요) ─── */}
+      <SignalsSection data={data} />
+
+      {/* ─── 섹션 2: Guard Band 누적 분포 ─── */}
+      <GuardBandDistributionSection data={data} total={total} />
+
+      {/* ─── 섹션 3: 포인트별 U/T 비율 ─── */}
       <div>
-        <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 flex items-center justify-between">
-          <span>Guard Band 누적 분포</span>
-          <span className="text-slate-400 normal-case tracking-normal text-[10px]">전체 {total}회 측정</span>
-        </div>
-        <div className="flex h-3 rounded-full overflow-hidden bg-slate-100">
-          {conformantPct > 0 && <div className="bg-emerald-400" style={{ width: `${conformantPct}%` }} title={`완전 합격 ${data.overall.conformant}회`} />}
-          {condPassPct > 0 && <div className="bg-amber-300" style={{ width: `${condPassPct}%` }} title={`경계 합격 ${data.overall.conditionalPass}회`} />}
-          {condFailPct > 0 && <div className="bg-rose-400" style={{ width: `${condFailPct}%` }} title={`실질 위험 ${data.overall.conditionalFail}회`} />}
-          {nonConfPct > 0 && <div className="bg-rose-700" style={{ width: `${nonConfPct}%` }} title={`명백 부적합 ${data.overall.nonConformant}회`} />}
-          {unknownPct > 0 && <div className="bg-slate-300" style={{ width: `${unknownPct}%` }} title={`데이터 없음 ${data.overall.unknown}회`} />}
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
-          <LegendDot color="bg-emerald-400" label={`완전 합격 ${data.overall.conformant}`} />
-          {data.overall.conditionalPass > 0 && <LegendDot color="bg-amber-300" label={`경계 ${data.overall.conditionalPass}`} />}
-          {data.overall.conditionalFail > 0 && <LegendDot color="bg-rose-400" label={`실질 위험 ${data.overall.conditionalFail}`} />}
-          {data.overall.nonConformant > 0 && <LegendDot color="bg-rose-700" label={`부적합 ${data.overall.nonConformant}`} />}
-          {data.overall.unknown > 0 && <LegendDot color="bg-slate-300" label={`미기재 ${data.overall.unknown}`} />}
-        </div>
-      </div>
-
-      {/* 메트릭 박스 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        <UncertaintyMetric
-          label="최근 위험 발생"
-          value={`${data.summary.pointsWithRecentDanger}`}
-          suffix="포인트"
-          tone={data.summary.pointsWithRecentDanger > 0 ? 'rose' : 'emerald'}
+        <SubsectionHeader
+          icon="📈"
+          title="포인트별 U/T 비율"
+          subtitle={`위험도 순 — 측정 포인트 ${data.points.length}개`}
         />
-        <UncertaintyMetric
+        <PointsSection points={data.points} />
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 섹션 헤더 (③ 카드 내부 서브 섹션용)
+// ─────────────────────────────────────────────────────────────────
+
+function SubsectionHeader({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-2.5">
+      <span className="text-base">{icon}</span>
+      <div>
+        <h4 className="text-xs font-bold text-slate-700">{title}</h4>
+        <p className="text-[10px] text-slate-400">{subtitle}</p>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 종합 위험 신호 (3개 큰 메트릭)
+// ─────────────────────────────────────────────────────────────────
+
+function SignalsSection({ data }: { data: UncertaintyRiskData }) {
+  // 각 메트릭의 판정/색상 결정
+  const utValue = data.summary.maxUtRatioOverall
+  const utTone: SignalTone =
+    utValue == null ? 'slate' :
+    utValue > 50 ? 'rose' :
+    utValue > 33 ? 'amber' :
+    'emerald'
+  const utJudgment =
+    utValue == null ? '데이터 없음' :
+    utValue > 50 ? '시스템 점검 필요' :
+    utValue > 33 ? '높음' :
+    utValue > 25 ? '일반적 수준' :
+    '양호'
+
+  const dangerCount = data.summary.pointsWithRecentDanger
+  const dangerTone: SignalTone = dangerCount > 0 ? 'rose' : 'emerald'
+  const dangerJudgment = dangerCount > 0 ? `${dangerCount}개 포인트 주의` : '양호'
+
+  const cpRatio = data.summary.conditionalPassRatio
+  const cpTone: SignalTone =
+    cpRatio >= 30 ? 'rose' :
+    cpRatio > 0 ? 'amber' :
+    'emerald'
+  const cpJudgment =
+    cpRatio >= 30 ? '높음' :
+    cpRatio > 0 ? '일부 경계' :
+    '없음'
+
+  return (
+    <div>
+      <SubsectionHeader
+        icon="🛡️"
+        title="종합 위험 신호"
+        subtitle="이 장비의 측정 불확도 상태"
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <SignalCard
           label="최신 U/T 최댓값"
-          value={data.summary.maxUtRatioOverall != null ? `${data.summary.maxUtRatioOverall.toFixed(1)}%` : '—'}
-          tone={
-            data.summary.maxUtRatioOverall == null ? 'slate' :
-            data.summary.maxUtRatioOverall > 50 ? 'rose' :
-            data.summary.maxUtRatioOverall > 33 ? 'amber' :
-            'emerald'
-          }
+          value={utValue != null ? `${utValue.toFixed(1)}%` : '—'}
+          judgment={utJudgment}
+          tone={utTone}
+          hint="허용오차 대비 측정 불확도"
         />
-        <UncertaintyMetric
+        <SignalCard
+          label="최근 위험 판정"
+          value={`${dangerCount}`}
+          unit="포인트"
+          judgment={dangerJudgment}
+          tone={dangerTone}
+          hint="실질 위험/부적합 발생"
+        />
+        <SignalCard
           label="경계 누적 비율"
-          value={`${data.summary.conditionalPassRatio.toFixed(1)}%`}
-          tone={data.summary.conditionalPassRatio >= 30 ? 'rose' : data.summary.conditionalPassRatio > 0 ? 'amber' : 'emerald'}
+          value={`${cpRatio.toFixed(1)}%`}
+          judgment={cpJudgment}
+          tone={cpTone}
+          hint="불확도 감안 시 초과 가능"
         />
       </div>
+    </div>
+  )
+}
 
-      {/* 포인트별 상세 — 위험도 순 정렬 + 안전 포인트 접기 */}
-      <PointsSection points={data.points} />
+type SignalTone = 'rose' | 'amber' | 'emerald' | 'slate'
+
+function SignalCard({
+  label,
+  value,
+  unit,
+  judgment,
+  tone,
+  hint,
+}: {
+  label: string
+  value: string
+  unit?: string
+  judgment: string
+  tone: SignalTone
+  hint: string
+}) {
+  const styles =
+    tone === 'rose'
+      ? { card: 'bg-gradient-to-br from-rose-50 to-white border-rose-200', label: 'text-rose-700', value: 'text-rose-700', badge: 'bg-rose-100 text-rose-700', icon: '❌' }
+      : tone === 'amber'
+      ? { card: 'bg-gradient-to-br from-amber-50 to-white border-amber-200', label: 'text-amber-700', value: 'text-amber-700', badge: 'bg-amber-100 text-amber-700', icon: '⚠' }
+      : tone === 'emerald'
+      ? { card: 'bg-gradient-to-br from-emerald-50 to-white border-emerald-200', label: 'text-emerald-700', value: 'text-emerald-700', badge: 'bg-emerald-100 text-emerald-700', icon: '✓' }
+      : { card: 'bg-slate-50 border-slate-200', label: 'text-slate-500', value: 'text-slate-500', badge: 'bg-slate-100 text-slate-500', icon: '—' }
+
+  return (
+    <div className={`border rounded-xl p-3 ${styles.card}`}>
+      <div className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${styles.label}`}>{label}</div>
+      <div className="flex items-baseline gap-1 mb-2">
+        <span className={`text-2xl font-bold ${styles.value}`}>{value}</span>
+        {unit && <span className="text-xs text-slate-500 font-medium">{unit}</span>}
+      </div>
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${styles.badge}`}>
+          <span className="mr-0.5">{styles.icon}</span>
+          {judgment}
+        </span>
+      </div>
+      <p className="text-[10px] text-slate-400 leading-tight">{hint}</p>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Guard Band 누적 분포 (수평 바 + 값)
+// ─────────────────────────────────────────────────────────────────
+
+function GuardBandDistributionSection({ data, total }: { data: UncertaintyRiskData; total: number }) {
+  const rows: { color: string; label: string; count: number; tone: 'safe' | 'warn' | 'danger' | 'neutral' }[] = [
+    { color: 'bg-emerald-400', label: '완전 합격', count: data.overall.conformant, tone: 'safe' },
+    { color: 'bg-amber-300',   label: '경계 합격', count: data.overall.conditionalPass, tone: 'warn' },
+    { color: 'bg-rose-400',    label: '실질 위험', count: data.overall.conditionalFail, tone: 'danger' },
+    { color: 'bg-rose-700',    label: '명백 부적합', count: data.overall.nonConformant, tone: 'danger' },
+    { color: 'bg-slate-300',   label: '미기재',    count: data.overall.unknown, tone: 'neutral' },
+  ]
+
+  // 값이 있는 행만 + 큰 순서로 정렬
+  const visibleRows = rows.filter(r => r.count > 0).sort((a, b) => b.count - a.count)
+
+  return (
+    <div>
+      <SubsectionHeader
+        icon="📊"
+        title="Guard Band 누적 분포"
+        subtitle={`전 이력 ${total}회 측정 — ILAC G-8 기반 4단계 판정`}
+      />
+      <div className="bg-white border border-slate-200 rounded-lg p-3">
+        <div className="space-y-2">
+          {visibleRows.map(row => {
+            const pct = total > 0 ? (row.count / total) * 100 : 0
+            const labelColor =
+              row.tone === 'safe' ? 'text-emerald-700' :
+              row.tone === 'warn' ? 'text-amber-700' :
+              row.tone === 'danger' ? 'text-rose-700' :
+              'text-slate-500'
+            return (
+              <div key={row.label} className="flex items-center gap-2 text-[11px]">
+                <span className={`w-20 font-semibold shrink-0 ${labelColor}`}>{row.label}</span>
+                <div className="flex-1 relative h-5 bg-slate-50 rounded">
+                  <div
+                    className={`absolute top-0 bottom-0 left-0 rounded ${row.color} transition-all`}
+                    style={{ width: `${pct}%` }}
+                  />
+                  <div className="absolute inset-0 flex items-center px-2">
+                    <span className={`text-[10px] font-bold ${pct > 25 ? 'text-white' : 'text-slate-700'}`} style={{ textShadow: pct > 25 ? '0 0 2px rgba(0,0,0,0.3)' : 'none' }}>
+                      {pct.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <span className="text-slate-500 w-12 text-right shrink-0 font-semibold">{row.count}회</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -861,19 +1006,38 @@ function PointsSection({ points }: { points: import('@/lib/cycle-analysis').Poin
   const risky = sorted.filter(isRiskyPoint)
   const safe = sorted.filter(p => !isRiskyPoint(p))
 
+  // 차트 스케일 계산 (위험 포인트의 U/T 최댓값 기준)
+  const utValues = risky.map(p => p.latestUtRatio).filter((v): v is number => v != null)
+  const utMax = utValues.length > 0 ? Math.max(100, ...utValues) : 100
+
   return (
     <div className="space-y-3">
-      {/* 위험/주의 포인트 — 항상 표시 */}
+      {/* 위험/주의 포인트 — 가로 막대 차트 */}
       {risky.length > 0 && (
-        <div>
-          <div className="text-[10px] text-rose-600 uppercase tracking-wide mb-2 font-semibold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-            위험·주의 포인트 ({risky.length})
+        <div className="bg-white border border-slate-200 rounded-lg p-3">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-bold text-rose-700 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+              위험·주의 포인트 ({risky.length})
+            </div>
+            <div className="text-[10px] text-slate-400">U/T 비율 기준</div>
           </div>
-          <div className="space-y-1.5">
+
+          {/* 경계선 범례 + 축 */}
+          <UtChartAxis utMax={utMax} />
+
+          {/* 차트 행 */}
+          <div className="space-y-1 mt-2">
             {risky.map((p, i) => (
-              <PointUncertaintyRow key={i} point={p} />
+              <UtChartRow key={i} point={p} utMax={utMax} />
             ))}
+          </div>
+
+          {/* 범례 */}
+          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center gap-3 text-[10px] text-slate-500 flex-wrap">
+            <LegendDot color="bg-rose-500" label="U/T > 50% (시스템 점검)" />
+            <LegendDot color="bg-amber-400" label="U/T > 33% (높음)" />
+            <LegendDot color="bg-rose-200" label="경계 합격 / 위험 판정" />
           </div>
         </div>
       )}
@@ -911,7 +1075,87 @@ function PointsSection({ points }: { points: import('@/lib/cycle-analysis').Poin
   )
 }
 
-// 안전 포인트용 1줄 컴팩트 표시 (이력 1회짜리도 대응)
+// U/T 차트 축 (33%/50% 경계선 표시)
+function UtChartAxis({ utMax }: { utMax: number }) {
+  // 차트 영역은 라벨(40% 폭) 다음 우측 60% 폭
+  const pct33 = (33 / utMax) * 100
+  const pct50 = (50 / utMax) * 100
+  const pct100 = (100 / utMax) * 100
+
+  return (
+    <div className="relative h-4 ml-[40%] border-b border-slate-200">
+      {/* 33% 경계선 */}
+      {pct33 < 100 && (
+        <div className="absolute top-0 bottom-0 border-l border-dashed border-amber-400" style={{ left: `${pct33}%` }}>
+          <span className="absolute -top-3 left-0.5 text-[9px] text-amber-600 whitespace-nowrap">33%</span>
+        </div>
+      )}
+      {/* 50% 경계선 */}
+      {pct50 < 100 && (
+        <div className="absolute top-0 bottom-0 border-l border-dashed border-rose-400" style={{ left: `${pct50}%` }}>
+          <span className="absolute -top-3 left-0.5 text-[9px] text-rose-600 whitespace-nowrap">50%</span>
+        </div>
+      )}
+      {/* 100% 경계선 */}
+      {pct100 <= 100 && (
+        <div className="absolute top-0 bottom-0 border-l border-slate-300" style={{ left: `${pct100}%` }}>
+          <span className="absolute -top-3 -translate-x-1/2 text-[9px] text-slate-500 whitespace-nowrap" style={{ left: `${pct100}%` }}>100%</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// U/T 차트 한 행 — 라벨 + 막대 + 값 + 배지
+function UtChartRow({ point, utMax }: { point: import('@/lib/cycle-analysis').PointUncertaintyAnalysis; utMax: number }) {
+  const ut = point.latestUtRatio
+  const widthPct = ut != null ? (ut / utMax) * 100 : 0
+
+  // 색상 결정 (U/T 비율 + Guard Band 판정)
+  const isVerdictDanger = point.latestGuardBand === 'non-conformant' || point.latestGuardBand === 'conditional-fail'
+  const barColor =
+    ut != null && ut > 50 ? 'bg-rose-500' :
+    ut != null && ut > 33 ? 'bg-amber-400' :
+    isVerdictDanger ? 'bg-rose-300' :
+    point.latestGuardBand === 'conditional-pass' ? 'bg-amber-300' :
+    'bg-emerald-400'
+
+  const verdictBadge =
+    point.latestGuardBand === 'non-conformant' ? { label: '부적합', cls: 'bg-rose-200 text-rose-800' } :
+    point.latestGuardBand === 'conditional-fail' ? { label: '실질위험', cls: 'bg-rose-100 text-rose-700' } :
+    point.latestGuardBand === 'conditional-pass' ? { label: '경계', cls: 'bg-amber-100 text-amber-700' } :
+    point.latestGuardBand === 'conformant' ? { label: '합격', cls: 'bg-emerald-100 text-emerald-700' } :
+    null
+
+  return (
+    <div className="flex items-center gap-2 text-[11px] hover:bg-slate-50 rounded px-1 py-0.5">
+      {/* 라벨 (좌측 40%) */}
+      <div className="w-[40%] flex items-center gap-1.5 min-w-0">
+        {verdictBadge && (
+          <span className={`text-[9px] font-bold px-1 py-0.5 rounded shrink-0 ${verdictBadge.cls}`}>{verdictBadge.label}</span>
+        )}
+        <span className="text-slate-700 font-medium truncate" title={point.label}>{point.label}</span>
+      </div>
+      {/* 차트 막대 (우측 60%) */}
+      <div className="flex-1 relative h-5 bg-slate-50 rounded">
+        <div
+          className={`absolute top-0 bottom-0 left-0 rounded ${barColor} transition-all`}
+          style={{ width: `${Math.min(100, widthPct)}%` }}
+        />
+        {/* 막대 안에 값 표시 (막대가 충분히 크면) */}
+        <div className="absolute inset-0 flex items-center justify-end pr-1.5">
+          <span className={`text-[10px] font-bold ${widthPct > 20 ? 'text-white' : 'text-slate-700'}`} style={{ textShadow: widthPct > 20 ? '0 0 2px rgba(0,0,0,0.3)' : 'none' }}>
+            {ut != null ? `${ut.toFixed(1)}%` : '—'}
+          </span>
+        </div>
+      </div>
+      {/* 이력 회수 (선택적) */}
+      <span className="text-[10px] text-slate-400 w-8 text-right shrink-0">{point.guardBandStats.total}회</span>
+    </div>
+  )
+}
+
+// 안전 포인트용 1줄 컴팩트 표시
 function CompactSafeRow({ point }: { point: import('@/lib/cycle-analysis').PointUncertaintyAnalysis }) {
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded text-[11px]">
@@ -935,82 +1179,6 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   )
 }
 
-function UncertaintyMetric({
-  label,
-  value,
-  suffix,
-  tone,
-}: {
-  label: string
-  value: string
-  suffix?: string
-  tone: 'rose' | 'amber' | 'emerald' | 'slate'
-}) {
-  const cls =
-    tone === 'rose' ? 'bg-rose-50 border-rose-200 text-rose-700' :
-    tone === 'amber' ? 'bg-amber-50 border-amber-200 text-amber-700' :
-    tone === 'emerald' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-    'bg-slate-50 border-slate-200 text-slate-500'
-  return (
-    <div className={`px-3 py-2 border rounded-lg ${cls}`}>
-      <div className="text-[10px] uppercase tracking-wide opacity-70 mb-0.5">{label}</div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-base font-bold">{value}</span>
-        {suffix && <span className="text-[10px] opacity-60">{suffix}</span>}
-      </div>
-    </div>
-  )
-}
-
-function PointUncertaintyRow({ point }: { point: import('@/lib/cycle-analysis').PointUncertaintyAnalysis }) {
-  const verdictBadge =
-    point.latestGuardBand === 'non-conformant' ? { label: '명백 부적합', cls: 'bg-rose-200 text-rose-800' } :
-    point.latestGuardBand === 'conditional-fail' ? { label: '실질 위험', cls: 'bg-rose-100 text-rose-700' } :
-    point.latestGuardBand === 'conditional-pass' ? { label: '경계 합격', cls: 'bg-amber-100 text-amber-700' } :
-    point.latestGuardBand === 'conformant' ? { label: '완전 합격', cls: 'bg-emerald-100 text-emerald-700' } :
-    { label: '—', cls: 'bg-slate-100 text-slate-400' }
-
-  const stats = point.guardBandStats
-  // 이력 ≥ 2회 + Guard Band 데이터가 다양해야 미니 바가 의미 있음
-  const showMiniBar = stats.total >= 2 && (
-    (stats.conformant > 0 && stats.total - stats.conformant > 0) ||  // 합격/위험 혼합
-    stats.conditionalPass > 0 || stats.conditionalFail > 0 || stats.nonConformant > 0
-  )
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${verdictBadge.cls}`}>{verdictBadge.label}</span>
-        <span className="text-xs font-medium text-slate-700 truncate flex-1">{point.label}</span>
-        <span className="text-[10px] text-slate-400">{stats.total}회</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 text-[11px]">
-        <DataMini
-          label="최신 U/T"
-          value={point.latestUtRatio != null ? `${point.latestUtRatio.toFixed(1)}%` : '—'}
-          highlight={point.latestUtRatio != null && point.latestUtRatio > 33}
-        />
-        <DataMini
-          label="최대 U/T"
-          value={point.maxUtRatio != null ? `${point.maxUtRatio.toFixed(1)}%` : '—'}
-          highlight={point.maxUtRatio != null && point.maxUtRatio > 50}
-        />
-      </div>
-
-      {/* Guard Band 누적 미니 바 (이력 다양한 경우만) */}
-      {showMiniBar && (
-        <div className="mt-2 flex h-1.5 rounded-full overflow-hidden bg-slate-100">
-          {stats.conformant > 0 && <div className="bg-emerald-400" style={{ width: `${(stats.conformant / stats.total) * 100}%` }} />}
-          {stats.conditionalPass > 0 && <div className="bg-amber-300" style={{ width: `${(stats.conditionalPass / stats.total) * 100}%` }} />}
-          {stats.conditionalFail > 0 && <div className="bg-rose-400" style={{ width: `${(stats.conditionalFail / stats.total) * 100}%` }} />}
-          {stats.nonConformant > 0 && <div className="bg-rose-700" style={{ width: `${(stats.nonConformant / stats.total) * 100}%` }} />}
-          {stats.unknown > 0 && <div className="bg-slate-300" style={{ width: `${(stats.unknown / stats.total) * 100}%` }} />}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─────────────────────────────────────────────────────────────────
 // 최종 단계 상세 (Breakdown)
