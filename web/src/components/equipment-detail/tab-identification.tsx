@@ -294,6 +294,18 @@ export default function TabIdentification({
                     className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
                   >{t.detail.refresh}</button>
                 </div>
+              ) : certDone ? (
+                // 완료됐는데 성공 0건 — 이력 없음 또는 전부 실패
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                    {t.detail.certEmpty}
+                    {certErrors.size > 0 && <span className="text-red-400 ml-1">({fmt(t.detail.certFail, certErrors.size)})</span>}
+                  </span>
+                  <button onClick={() => fetchCerts(true)}
+                    className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                  >{t.detail.refresh}</button>
+                </div>
               ) : (
                 <button onClick={() => fetchCerts()}
                   className="w-full py-2 text-xs font-medium bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1.5"
