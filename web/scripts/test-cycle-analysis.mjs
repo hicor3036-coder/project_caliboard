@@ -226,4 +226,86 @@ for (const [latest, nearCount, accel, expected, label] of riskTests) {
 }
 console.log(`  ${riskPass}/${riskTests.length} 통과`)
 
+// ─────────────────────────────────────────────────────────────────
+// Step 3 (Uncertainty Risk) — 결정 로직 시나리오 검증
+// ─────────────────────────────────────────────────────────────────
+
+console.log('\n━━━ step3 Guard Band 결정 로직 시나리오 ━━━')
+
+function decideGbAdjustment(latestVerdicts, conditionalPassCount, totalMeasurements) {
+  const recentNonConformant = latestVerdicts.filter(v => v === 'non-conformant').length
+  const recentConditionalFail = latestVerdicts.filter(v => v === 'conditional-fail').length
+  const cpRatio = totalMeasurements > 0 ? (conditionalPassCount / totalMeasurements) * 100 : 0
+
+  if (recentNonConformant > 0) return -6
+  if (recentConditionalFail > 0) return -3
+  if (cpRatio >= 30) return -3
+  if (conditionalPassCount > 0) return 0
+  return 0
+}
+
+const gbTests = [
+  // [latestVerdicts, conditionalPassCount, total, expected, label]
+  [['non-conformant'], 0, 5, -6, '최신 non-conformant 1개 → -6'],
+  [['conditional-fail', 'conformant'], 0, 10, -3, '최신 conditional-fail 1개 → -3'],
+  [['conformant', 'conformant'], 4, 10, -3, 'cond-pass 비율 40% → -3'],
+  [['conformant'], 2, 10, 0, 'cond-pass 2/10 (20%) → 0 (관찰)'],
+  [['conformant', 'conformant'], 0, 10, 0, '전부 conformant → 0'],
+]
+let gbPass = 0
+for (const [latest, cpCount, total, expected, label] of gbTests) {
+  const got = decideGbAdjustment(latest, cpCount, total)
+  const ok = got === expected
+  if (ok) gbPass++
+  console.log(`  ${ok ? '✅' : '❌'} ${label} → ${got} ${ok ? '' : `(예상: ${expected})`}`)
+}
+console.log(`  ${gbPass}/${gbTests.length} 통과`)
+
+console.log('\n━━━ step3 U/T 비율 결정 로직 시나리오 ━━━')
+
+function decideUtAdjustment(maxUtRatio) {
+  if (maxUtRatio == null) return 0
+  if (maxUtRatio > 50) return -3
+  if (maxUtRatio > 33) return -1
+  return 0
+}
+
+const utTests = [
+  [55, -3, 'U/T 55% (>50%) → -3'],
+  [40, -1, 'U/T 40% (>33%) → -1'],
+  [25, 0, 'U/T 25% → 0 (양호)'],
+  [12, 0, 'U/T 12% → 0 (매우 양호)'],
+  [null, 0, 'U/T 데이터 없음 → 0'],
+]
+let utPass = 0
+for (const [ut, expected, label] of utTests) {
+  const got = decideUtAdjustment(ut)
+  const ok = got === expected
+  if (ok) utPass++
+  console.log(`  ${ok ? '✅' : '❌'} ${label} → ${got} ${ok ? '' : `(예상: ${expected})`}`)
+}
+console.log(`  ${utPass}/${utTests.length} 통과`)
+
+console.log('\n━━━ step3 통합 (A+B 더 강한 단축 채택) ━━━')
+
+function step3Final(gb, ut) {
+  return Math.min(gb, ut)
+}
+
+const combinedTests = [
+  [-6, 0, -6, 'GB non-conformant + UT 양호 → -6'],
+  [-3, -3, -3, 'GB conditional-fail + UT 35% → -3 (중복 가산 없음)'],
+  [0, -3, -3, 'GB 안정 + UT 55% → -3'],
+  [0, 0, 0, '둘 다 안정 → 0'],
+  [-3, -1, -3, 'GB -3 + UT -1 → -3 (더 강한 값)'],
+]
+let combinedPass = 0
+for (const [gb, ut, expected, label] of combinedTests) {
+  const got = step3Final(gb, ut)
+  const ok = got === expected
+  if (ok) combinedPass++
+  console.log(`  ${ok ? '✅' : '❌'} ${label} → ${got} ${ok ? '' : `(예상: ${expected})`}`)
+}
+console.log(`  ${combinedPass}/${combinedTests.length} 통과`)
+
 console.log('\n━━━ 완료 ━━━')

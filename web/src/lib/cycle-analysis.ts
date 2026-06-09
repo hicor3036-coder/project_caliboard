@@ -450,20 +450,276 @@ export function step2_trendDrift(
   }
 }
 
-export interface UncertaintyRiskData {
-  _placeholder: true
+/**
+ * Guard Band 누적 분포 (전체 이력 합계)
+ * - conformant: 완전 합격 (|오차| + |불확도| ≤ |허용오차|)
+ * - conditional-pass: 경계 (|오차| ≤ |허용오차|, 불확도 감안 시 초과 가능)
+ * - conditional-fail: 실질 위험 (|오차| > |허용오차|, 불확도 감안 시 합격 가능)
+ * - non-conformant: 명백 부적합
+ */
+export interface GuardBandStats {
+  conformant: number
+  conditionalPass: number
+  conditionalFail: number
+  nonConformant: number
+  unknown: number              // Guard Band 데이터 없음
+  total: number                // 전체 측정 카운트 (모든 포인트 × 모든 교정)
 }
 
+export interface PointUncertaintyAnalysis {
+  label: string
+  guardBandStats: GuardBandStats           // 이 포인트 누적 분포
+  latestGuardBand: 'conformant' | 'conditional-pass' | 'conditional-fail' | 'non-conformant' | null
+  latestUtRatio: number | null              // 최신 U/T %
+  maxUtRatio: number | null                 // 이력 중 최대 U/T %
+  hasRecentDanger: boolean                  // 최근 conditional-fail 또는 non-conformant
+}
+
+export interface UncertaintyRiskData {
+  points: PointUncertaintyAnalysis[]
+  overall: GuardBandStats                   // 전 포인트 합계
+  summary: {
+    pointsWithRecentDanger: number          // conditional-fail/non-conformant 최근 발생 포인트 수
+    pointsWithHighUtRatio: number           // 최신 U/T > 33% 포인트 수
+    maxUtRatioOverall: number | null        // 최신 U/T 최댓값
+    conditionalPassRatio: number            // 전체 중 conditional-pass 비율 (%)
+    hasGuardBandData: boolean               // Guard Band 데이터가 1건이라도 있는지
+  }
+  dataQuality: {
+    enoughHistory: boolean                  // 2회 이상 이력
+    historyLength: number
+  }
+}
+
+/**
+ * 3단계: 측정 불확도 위험
+ *
+ * 핵심 신호:
+ *   - Guard Band 누적 분포 (conditional-pass/fail/non-conformant 비율)
+ *   - 최근 위험 판정 발생 여부 (latest = conditional-fail/non-conformant)
+ *   - U/T 비율 (불확도가 허용오차 대비 차지하는 비중)
+ *
+ * 결정 로직:
+ *   A. Guard Band 평가:
+ *     - 최근 non-conformant 발생 → -6 (강력 단축)
+ *     - 최근 conditional-fail 발생 → -3
+ *     - conditional-pass 누적 ≥ 30% → -3
+ *     - conditional-pass 1~2건 → 0 (관찰)
+ *     - 전부 conformant → 0 (안정)
+ *   B. U/T 비율 평가:
+ *     - 최신 U/T > 50% → -3 (측정 시스템 점검 필요)
+ *     - 최신 U/T > 33% → -1
+ *     - 최신 U/T ≤ 25% + 누적 안정 → 0
+ *   최종: A와 B 중 더 강한 단축값 채택 (step2와의 중복 가산 방지)
+ */
 export function step3_uncertaintyRisk(
-  _series: TrendSeries[],
+  series: TrendSeries[],
 ): StepResult<UncertaintyRiskData> {
-  // TODO: 다음 작업에서 구현
+  const reasons: string[] = []
+  const warnings: string[] = []
+
+  // 각 포인트별 분석
+  const points: PointUncertaintyAnalysis[] = []
+  const overall: GuardBandStats = {
+    conformant: 0,
+    conditionalPass: 0,
+    conditionalFail: 0,
+    nonConformant: 0,
+    unknown: 0,
+    total: 0,
+  }
+  let maxHistory = 0
+  let maxUtRatioOverall: number | null = null
+
+  for (const s of series) {
+    const stats: GuardBandStats = {
+      conformant: 0,
+      conditionalPass: 0,
+      conditionalFail: 0,
+      nonConformant: 0,
+      unknown: 0,
+      total: 0,
+    }
+    let latestGuardBand: PointUncertaintyAnalysis['latestGuardBand'] = null
+    let latestUtRatio: number | null = null
+    let maxUtRatio: number | null = null
+    let hasRecentDanger = false
+
+    for (const p of s.points) {
+      // null 측정값은 카운트에서 제외 (해당 시점에 측정 안 됨)
+      if (p.오차 == null && p.guardBand == null) continue
+      stats.total++
+
+      if (p.guardBand === 'conformant') stats.conformant++
+      else if (p.guardBand === 'conditional-pass') stats.conditionalPass++
+      else if (p.guardBand === 'conditional-fail') stats.conditionalFail++
+      else if (p.guardBand === 'non-conformant') stats.nonConformant++
+      else stats.unknown++
+    }
+
+    // 최신 값 추출 (역순 스캔)
+    for (let i = s.points.length - 1; i >= 0; i--) {
+      const p = s.points[i]
+      if (p.guardBand != null && latestGuardBand === null) {
+        latestGuardBand = p.guardBand
+      }
+      if (p.utRatio != null) {
+        if (latestUtRatio === null) latestUtRatio = p.utRatio
+        if (maxUtRatio === null || p.utRatio > maxUtRatio) maxUtRatio = p.utRatio
+      }
+      if (latestGuardBand !== null && latestUtRatio !== null) break
+    }
+    // maxUtRatio 별도 전체 스캔 (위 loop는 break 되므로 부정확)
+    for (const p of s.points) {
+      if (p.utRatio != null && (maxUtRatio === null || p.utRatio > maxUtRatio)) {
+        maxUtRatio = p.utRatio
+      }
+    }
+
+    hasRecentDanger = latestGuardBand === 'conditional-fail' || latestGuardBand === 'non-conformant'
+
+    // 전체 합산
+    overall.conformant += stats.conformant
+    overall.conditionalPass += stats.conditionalPass
+    overall.conditionalFail += stats.conditionalFail
+    overall.nonConformant += stats.nonConformant
+    overall.unknown += stats.unknown
+    overall.total += stats.total
+
+    maxHistory = Math.max(maxHistory, stats.total)
+    if (latestUtRatio != null && (maxUtRatioOverall == null || latestUtRatio > maxUtRatioOverall)) {
+      maxUtRatioOverall = latestUtRatio
+    }
+
+    points.push({
+      label: s.label,
+      guardBandStats: stats,
+      latestGuardBand,
+      latestUtRatio,
+      maxUtRatio,
+      hasRecentDanger,
+    })
+  }
+
+  const pointsWithRecentDanger = points.filter(p => p.hasRecentDanger).length
+  const pointsWithHighUtRatio = points.filter(p => p.latestUtRatio != null && p.latestUtRatio > 33).length
+  const conditionalPassRatio = overall.total > 0
+    ? Math.round((overall.conditionalPass / overall.total) * 1000) / 10
+    : 0
+  const hasGuardBandData = overall.total > 0 && overall.unknown < overall.total
+
+  const summary = {
+    pointsWithRecentDanger,
+    pointsWithHighUtRatio,
+    maxUtRatioOverall,
+    conditionalPassRatio,
+    hasGuardBandData,
+  }
+
+  const dataQuality = {
+    enoughHistory: maxHistory >= 2,
+    historyLength: maxHistory,
+  }
+
+  // ── 결정 로직 ──
+  let adjustment = 0
+  let confidence: ConfidenceLevel = 'low'
+
+  // 데이터 부족
+  if (!dataQuality.enoughHistory) {
+    reasons.push(`교정 이력 ${maxHistory}회 — 불확도 위험 분석에 최소 2회 필요`)
+    return {
+      adjustment: 0,
+      reasons,
+      warnings: ['데이터 부족으로 불확도 위험 평가 보류'],
+      confidence: 'low',
+      data: { points, overall, summary, dataQuality },
+    }
+  }
+
+  // Guard Band 데이터 자체가 없음 (모든 포인트 unknown)
+  if (!hasGuardBandData) {
+    reasons.push('Guard Band 판정 데이터 없음 — 성적서에 불확도 정보 미기재로 추정')
+    return {
+      adjustment: 0,
+      reasons,
+      warnings: ['Guard Band(불확도 감안 판정) 데이터가 없어 정량 평가 보류'],
+      confidence: 'low',
+      data: { points, overall, summary, dataQuality },
+    }
+  }
+
+  // 신뢰도 결정
+  confidence = maxHistory >= 4 ? 'high' : maxHistory >= 2 ? 'medium' : 'low'
+
+  // A. Guard Band 평가
+  let gbAdjustment = 0
+  const recentNonConformantCount = points.filter(p => p.latestGuardBand === 'non-conformant').length
+  const recentConditionalFailCount = points.filter(p => p.latestGuardBand === 'conditional-fail').length
+
+  if (recentNonConformantCount > 0) {
+    gbAdjustment = -6
+    reasons.push(`최근 명백 부적합(non-conformant) 발생 ${recentNonConformantCount}개 포인트`)
+  } else if (recentConditionalFailCount > 0) {
+    gbAdjustment = -3
+    reasons.push(`최근 실질 위험(conditional-fail) 발생 ${recentConditionalFailCount}개 포인트`)
+  } else if (conditionalPassRatio >= 30) {
+    gbAdjustment = -3
+    reasons.push(`불확도 감안 경계(conditional-pass) 누적 비율 ${conditionalPassRatio.toFixed(1)}%`)
+  } else if (overall.conditionalPass > 0) {
+    gbAdjustment = 0
+    reasons.push(`불확도 감안 경계 ${overall.conditionalPass}건 — 관찰 권고`)
+  } else {
+    gbAdjustment = 0
+    reasons.push(`전체 ${overall.total}회 측정 모두 완전 합격(conformant)`)
+  }
+
+  // B. U/T 비율 평가
+  let utAdjustment = 0
+  if (maxUtRatioOverall != null) {
+    if (maxUtRatioOverall > 50) {
+      utAdjustment = -3
+      reasons.push(`최신 U/T 비율 ${maxUtRatioOverall.toFixed(1)}% — 측정 시스템 점검 권장`)
+      warnings.push(`U/T 비율이 50%를 초과해 측정 불확도가 허용오차의 절반 이상을 차지합니다`)
+    } else if (maxUtRatioOverall > 33) {
+      utAdjustment = -1
+      reasons.push(`최신 U/T 비율 ${maxUtRatioOverall.toFixed(1)}% — 다소 높음`)
+    } else if (maxUtRatioOverall > 25) {
+      reasons.push(`최신 U/T 비율 ${maxUtRatioOverall.toFixed(1)}% — 일반적 수준`)
+    } else {
+      reasons.push(`최신 U/T 비율 ${maxUtRatioOverall.toFixed(1)}% — 양호`)
+    }
+  }
+
+  // 최종: 더 강한 단축값 채택 (중복 가산 방지)
+  adjustment = Math.min(gbAdjustment, utAdjustment)
+
+  // 위험 포인트 상위 3개 warnings
+  const dangerPoints = points
+    .filter(p => p.hasRecentDanger || (p.latestUtRatio != null && p.latestUtRatio > 33))
+    .slice(0, 3)
+  for (const dp of dangerPoints) {
+    const parts: string[] = [dp.label]
+    if (dp.latestGuardBand) parts.push(`최신: ${guardBandLabel(dp.latestGuardBand)}`)
+    if (dp.latestUtRatio != null) parts.push(`U/T ${dp.latestUtRatio.toFixed(1)}%`)
+    warnings.push(parts.join(' · '))
+  }
+
   return {
-    adjustment: 0,
-    reasons: ['(3단계 미구현 — 다음 단계에서 추가)'],
-    warnings: [],
-    confidence: 'low',
-    data: { _placeholder: true },
+    adjustment,
+    reasons,
+    warnings,
+    confidence,
+    data: { points, overall, summary, dataQuality },
+  }
+}
+
+function guardBandLabel(v: 'conformant' | 'conditional-pass' | 'conditional-fail' | 'non-conformant'): string {
+  switch (v) {
+    case 'conformant': return '완전 합격'
+    case 'conditional-pass': return '경계 합격'
+    case 'conditional-fail': return '실질 위험'
+    case 'non-conformant': return '명백 부적합'
   }
 }
 
