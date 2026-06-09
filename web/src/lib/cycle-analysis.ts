@@ -845,3 +845,138 @@ export function runCycleAnalysis(input: CycleAnalysisInput): CycleAnalysisResult
 
   return { step1, step2, step3, step5 }
 }
+
+// ─────────────────────────────────────────────────────────────────
+// AI 종합 평가 입력 빌더
+// /api/ai/cycle-analysis 호출용 — 분석 결과를 LLM 입력 스키마로 변환
+// ─────────────────────────────────────────────────────────────────
+
+export interface CycleAnalysisLlmInput {
+  equipment: {
+    name: string
+    manufacturer: string
+    model: string
+  }
+  step1: {
+    baseMonths: number
+    source: string
+    profileCategory: string | null
+    profileStandards: string[]
+  }
+  step2: {
+    adjustment: number
+    confidence: ConfidenceLevel
+    urgentPointCount: number
+    watchPointCount: number
+    safePointCount: number
+    acceleratingCount: number
+    maxLatestRatio: number | null
+    dangerPoints: Array<{
+      label: string
+      latestRatio: number | null
+      nearLimitCount: number
+      totalCount: number
+      accelerating: boolean
+      accelerationRatio: number | null
+      trend: 'rising' | 'falling' | 'stable' | 'volatile'
+    }>
+  }
+  step3: {
+    adjustment: number
+    confidence: ConfidenceLevel
+    pointsWithRecentDanger: number
+    pointsWithHighUtRatio: number
+    maxUtRatioOverall: number | null
+    conditionalPassRatio: number
+    hasGuardBandData: boolean
+    overallDistribution: {
+      conformant: number
+      conditionalPass: number
+      conditionalFail: number
+      nonConformant: number
+      unknown: number
+      total: number
+    }
+  }
+  step5: {
+    finalMonths: number
+    direction: AdjustmentDirection
+    confidence: ConfidenceLevel
+    breakdown: { base: number; trendAdj: number; riskAdj: number; sum: number }
+    clamped: boolean
+  }
+}
+
+export interface CycleAnalysisLlmResult {
+  verdict: string
+  concerns: string[]
+  recommendations: string[]
+  agreesWithRule: boolean
+  contraryReason: string | null
+}
+
+export function buildCycleAnalysisLlmInput(
+  analysis: CycleAnalysisResult,
+  meta: { name: string; manufacturer: string; model: string },
+): CycleAnalysisLlmInput {
+  const s1 = analysis.step1.data
+  const s2 = analysis.step2.data
+  const s3 = analysis.step3.data
+  const s5 = analysis.step5.data
+
+  // step2에서 위험·주의 포인트 상위 5개만 전송 (토큰 절약)
+  const dangerPoints = s2.points
+    .filter(p => p.riskLevel === 'urgent' || p.riskLevel === 'watch' || p.accelerating)
+    .slice(0, 5)
+    .map(p => ({
+      label: p.label,
+      latestRatio: p.latestRatio,
+      nearLimitCount: p.nearLimitCount,
+      totalCount: p.totalCount,
+      accelerating: p.accelerating,
+      accelerationRatio: p.accelerationRatio,
+      trend: p.trend,
+    }))
+
+  return {
+    equipment: meta,
+    step1: {
+      baseMonths: s1.baseMonths,
+      source: s1.sourceLabel,
+      profileCategory: s1.profileCategory,
+      profileStandards: s1.profileStandards,
+    },
+    step2: {
+      adjustment: analysis.step2.adjustment,
+      confidence: analysis.step2.confidence,
+      urgentPointCount: s2.summary.urgentPointCount,
+      watchPointCount: s2.summary.watchPointCount,
+      safePointCount: s2.summary.safePointCount,
+      acceleratingCount: s2.summary.acceleratingCount,
+      maxLatestRatio: s2.summary.maxLatestRatio,
+      dangerPoints,
+    },
+    step3: {
+      adjustment: analysis.step3.adjustment,
+      confidence: analysis.step3.confidence,
+      pointsWithRecentDanger: s3.summary.pointsWithRecentDanger,
+      pointsWithHighUtRatio: s3.summary.pointsWithHighUtRatio,
+      maxUtRatioOverall: s3.summary.maxUtRatioOverall,
+      conditionalPassRatio: s3.summary.conditionalPassRatio,
+      hasGuardBandData: s3.summary.hasGuardBandData,
+      overallDistribution: s3.overall,
+    },
+    step5: {
+      finalMonths: s5.finalMonths,
+      direction: s5.direction,
+      confidence: s5.confidence,
+      breakdown: {
+        base: s5.breakdown.base,
+        trendAdj: s5.breakdown.trendAdj,
+        riskAdj: s5.breakdown.riskAdj,
+        sum: s5.breakdown.sum,
+      },
+      clamped: s5.guardrail.clamped,
+    },
+  }
+}
