@@ -19,6 +19,7 @@ import {
   type ProfileLike,
   type StepResult,
   type BaselineData,
+  type TrendDriftData,
 } from '@/lib/cycle-analysis'
 import type { TrendSeries } from '@/lib/equipment-health'
 
@@ -134,11 +135,12 @@ export default function TabCycleAnalysis({
             title="측정 드리프트"
             subtitle="이 장비 고유의 연차별 변화 추세"
             adjustment={analysis.step2.adjustment}
-            reasons={[]}
-            warnings={[]}
+            reasons={analysis.step2.reasons}
+            warnings={analysis.step2.warnings}
             confidence={analysis.step2.confidence}
-            placeholder
-          />
+          >
+            <TrendDriftDetails data={analysis.step2.data} />
+          </StepCard>
 
           <StepCard
             number={3}
@@ -518,6 +520,223 @@ function BaselineDetails({ data, loading, error }: { data: BaselineData; loading
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 2단계 상세 (Trend Drift)
+// ─────────────────────────────────────────────────────────────────
+
+function TrendDriftDetails({ data }: { data: TrendDriftData }) {
+  // 데이터 부족 (3회 미만 이력)
+  if (!data.dataQuality.enoughHistory) {
+    return (
+      <div className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
+        <div className="font-medium text-amber-700 mb-1">📊 데이터 부족</div>
+        <p>
+          최대 시계열 길이 {data.dataQuality.historyLength}회. 추세 분석은 최소 3회 이력이 있어야 신뢰할 수 있습니다.
+          다음 교정 완료 후 재평가를 권장합니다.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 요약 메트릭 박스 */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <RiskMetricBox
+          label="긴급"
+          count={data.summary.urgentPointCount}
+          total={data.points.length}
+          tone="rose"
+        />
+        <RiskMetricBox
+          label="주의"
+          count={data.summary.watchPointCount}
+          total={data.points.length}
+          tone="amber"
+        />
+        <RiskMetricBox
+          label="안정"
+          count={data.summary.safePointCount}
+          total={data.points.length}
+          tone="emerald"
+        />
+        <RiskMetricBox
+          label="가속 진행"
+          count={data.summary.acceleratingCount}
+          total={data.points.length}
+          tone="purple"
+        />
+      </div>
+
+      {/* 최대 한계 사용률 */}
+      {data.summary.maxLatestRatio != null && (
+        <div className="bg-slate-50 rounded-lg p-3">
+          <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">최신 한계 사용률 (전 포인트 중 최댓값)</div>
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-bold text-slate-700">{data.summary.maxLatestRatio.toFixed(1)}%</span>
+            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all ${
+                  data.summary.maxLatestRatio >= 95 ? 'bg-rose-500' :
+                  data.summary.maxLatestRatio >= 80 ? 'bg-amber-500' :
+                  data.summary.maxLatestRatio >= 50 ? 'bg-emerald-500' :
+                  'bg-emerald-300'
+                }`}
+                style={{ width: `${Math.min(100, data.summary.maxLatestRatio)}%` }}
+              />
+            </div>
+            <div className="text-[10px] text-slate-400 w-12 text-right">80% / 95%</div>
+          </div>
+        </div>
+      )}
+
+      {/* 포인트별 상세 */}
+      <div>
+        <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">포인트별 추세 ({data.points.length}개)</div>
+        <div className="space-y-2">
+          {data.points.map((p, i) => (
+            <PointDriftRow key={i} point={p} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RiskMetricBox({
+  label,
+  count,
+  total,
+  tone,
+}: {
+  label: string
+  count: number
+  total: number
+  tone: 'rose' | 'amber' | 'emerald' | 'purple'
+}) {
+  const muted = count === 0
+  const cls = muted
+    ? 'bg-slate-50 border-slate-200 text-slate-400'
+    : tone === 'rose' ? 'bg-rose-50 border-rose-200 text-rose-700'
+    : tone === 'amber' ? 'bg-amber-50 border-amber-200 text-amber-700'
+    : tone === 'emerald' ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+    : 'bg-purple-50 border-purple-200 text-purple-700'
+  return (
+    <div className={`px-3 py-2 border rounded-lg ${cls}`}>
+      <div className="text-[10px] uppercase tracking-wide opacity-70 mb-0.5">{label}</div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-lg font-bold">{count}</span>
+        <span className="text-[10px] opacity-60">/ {total}</span>
+      </div>
+    </div>
+  )
+}
+
+function PointDriftRow({ point }: { point: import('@/lib/cycle-analysis').PointDriftAnalysis }) {
+  const trendIcon = point.trend === 'rising' ? '↗' : point.trend === 'falling' ? '↘' : point.trend === 'volatile' ? '⚡' : '→'
+  const trendColor =
+    point.trend === 'rising' ? 'text-rose-500' :
+    point.trend === 'falling' ? 'text-emerald-500' :
+    point.trend === 'volatile' ? 'text-purple-500' :
+    'text-slate-400'
+  const riskBadge =
+    point.riskLevel === 'urgent' ? { label: '긴급', cls: 'bg-rose-100 text-rose-700' } :
+    point.riskLevel === 'watch' ? { label: '주의', cls: 'bg-amber-100 text-amber-700' } :
+    { label: '안정', cls: 'bg-emerald-100 text-emerald-700' }
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${riskBadge.cls}`}>{riskBadge.label}</span>
+        <span className="text-xs font-medium text-slate-700 truncate flex-1">{point.label}</span>
+        <span className={`text-base ${trendColor}`} title={`추세: ${point.trend}`}>{trendIcon}</span>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+        <DataMini label="최신" value={point.latestRatio != null ? `${point.latestRatio.toFixed(1)}%` : '—'} />
+        <DataMini
+          label="한계근접"
+          value={`${point.nearLimitCount}/${point.totalCount}회`}
+          highlight={point.nearLimitCount >= 2}
+        />
+        <DataMini
+          label="가속"
+          value={point.accelerating ? `${point.accelerationRatio?.toFixed(1) ?? '?'}배 ⚡` : '—'}
+          highlight={point.accelerating}
+        />
+        <DataMini label="이력" value={`${point.totalCount}회`} />
+      </div>
+
+      {/* 시계열 미니 시각화 */}
+      {point.ratioHistory.length >= 2 && <MiniSparkline values={point.ratioHistory} />}
+    </div>
+  )
+}
+
+function DataMini({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div>
+      <div className="text-[9px] text-slate-400 uppercase tracking-wide">{label}</div>
+      <div className={`font-semibold ${highlight ? 'text-rose-600' : 'text-slate-700'}`}>{value}</div>
+    </div>
+  )
+}
+
+/**
+ * 한계 사용률 미니 sparkline — 시계열의 변화를 직관적으로 표시
+ */
+function MiniSparkline({ values }: { values: number[] }) {
+  const max = Math.max(100, ...values)
+  const min = Math.min(0, ...values)
+  const range = max - min || 1
+  const width = 100
+  const height = 28
+  const padding = 2
+
+  const points = values.map((v, i) => {
+    const x = padding + (i / (values.length - 1)) * (width - 2 * padding)
+    const y = padding + (1 - (v - min) / range) * (height - 2 * padding)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+
+  // 80% 경계선의 y 좌표
+  const y80 = padding + (1 - (80 - min) / range) * (height - 2 * padding)
+  // 95% 경계선의 y 좌표
+  const y95 = padding + (1 - (95 - min) / range) * (height - 2 * padding)
+
+  return (
+    <div className="mt-2">
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="block">
+        {/* 80% 경계선 */}
+        {y80 >= 0 && y80 <= height && (
+          <line x1={0} y1={y80} x2={width} y2={y80} stroke="#fbbf24" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5" />
+        )}
+        {/* 95% 경계선 */}
+        {y95 >= 0 && y95 <= height && (
+          <line x1={0} y1={y95} x2={width} y2={y95} stroke="#ef4444" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5" />
+        )}
+        {/* 시계열 */}
+        <polyline
+          points={points}
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* 마지막 점 */}
+        {values.length > 0 && (() => {
+          const lastV = values[values.length - 1]
+          const lastX = padding + (width - 2 * padding)
+          const lastY = padding + (1 - (lastV - min) / range) * (height - 2 * padding)
+          const color = lastV >= 95 ? '#ef4444' : lastV >= 80 ? '#f59e0b' : '#3b82f6'
+          return <circle cx={lastX} cy={lastY} r="1.8" fill={color} />
+        })()}
+      </svg>
     </div>
   )
 }

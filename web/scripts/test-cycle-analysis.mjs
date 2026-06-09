@@ -119,4 +119,111 @@ for (const sc of scenarios) {
   if (!ok) console.log(`     예상: months=${sc.expect.months}, source=${sc.expect.source}`)
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Step 2 (Trend Drift) — 핵심 로직 복제 테스트
+// ─────────────────────────────────────────────────────────────────
+
+function detectAcceleration(history) {
+  if (history.length < 4) return { accelerating: false, ratio: null }
+  const recentChange = Math.abs(history[history.length - 1] - history[history.length - 2])
+  const prevChanges = []
+  for (let i = 1; i < history.length - 1; i++) {
+    prevChanges.push(Math.abs(history[i] - history[i - 1]))
+  }
+  if (prevChanges.length === 0) return { accelerating: false, ratio: null }
+  const avgPrev = prevChanges.reduce((s, v) => s + v, 0) / prevChanges.length
+  if (avgPrev < 1) return { accelerating: false, ratio: null }
+  const ratio = recentChange / avgPrev
+  return { accelerating: ratio >= 2, ratio: Math.round(ratio * 10) / 10 }
+}
+
+function classifyTrend(history) {
+  if (history.length < 2) return 'stable'
+  const overall = history[history.length - 1] - history[0]
+  const meanAbs = history.reduce((s, v) => s + Math.abs(v), 0) / history.length || 1
+  const changes = []
+  for (let i = 1; i < history.length; i++) {
+    changes.push(history[i] - history[i - 1])
+  }
+  let signChanges = 0
+  for (let i = 1; i < changes.length; i++) {
+    if (changes[i - 1] * changes[i] < 0) signChanges++
+  }
+  const avgChangeMagnitude = changes.reduce((s, v) => s + Math.abs(v), 0) / changes.length
+  if (
+    history.length >= 4 &&
+    signChanges >= Math.floor((history.length - 1) / 2) &&
+    avgChangeMagnitude >= meanAbs * 0.2
+  ) {
+    return 'volatile'
+  }
+  if (Math.abs(overall) < meanAbs * 0.15) return 'stable'
+  return overall > 0 ? 'rising' : 'falling'
+}
+
+console.log('\n━━━ detectAcceleration 단위 테스트 ━━━')
+const accelTests = [
+  // [history, expectedAccelerating, label]
+  [[10, 11, 12, 13], false, '균등 증가 (가속 없음)'],
+  [[10, 11, 12, 20], true, '직전 변화 8배 (가속)'],
+  [[10, 11, 12, 13.5], false, '직전 변화 1.5배 (가속 아님)'],
+  [[10, 11, 12, 16], true, '직전 변화 4배 (가속)'],
+  [[10, 11], false, '데이터 부족 (4회 미만)'],
+  [[10, 10, 10, 10], false, '평균 변화 0 (판단 무의미)'],
+]
+let accelPass = 0
+for (const [history, expected, label] of accelTests) {
+  const { accelerating, ratio } = detectAcceleration(history)
+  const ok = accelerating === expected
+  if (ok) accelPass++
+  console.log(`  ${ok ? '✅' : '❌'} ${label}: [${history.join(', ')}] → 가속=${accelerating}, 배수=${ratio} ${ok ? '' : `(예상: 가속=${expected})`}`)
+}
+console.log(`  ${accelPass}/${accelTests.length} 통과`)
+
+console.log('\n━━━ classifyTrend 단위 테스트 ━━━')
+const trendTests = [
+  [[60, 70, 80, 90, 95], 'rising', '증가 추세'],
+  [[90, 80, 70, 60, 50], 'falling', '감소 추세'],
+  [[60, 62, 61, 63, 60], 'stable', '안정 (작은 변동)'],
+  [[60, 90, 50, 95, 55], 'volatile', '큰 변동 (volatile)'],
+  [[60], 'stable', '단일 데이터'],
+]
+let trendPass = 0
+for (const [history, expected, label] of trendTests) {
+  const got = classifyTrend(history)
+  const ok = got === expected
+  if (ok) trendPass++
+  console.log(`  ${ok ? '✅' : '❌'} ${label}: [${history.join(', ')}] → ${got} ${ok ? '' : `(예상: ${expected})`}`)
+}
+console.log(`  ${trendPass}/${trendTests.length} 통과`)
+
+console.log('\n━━━ step2 위험도 시나리오 (개념 검증) ━━━')
+// classifyRiskLevel 핵심 로직만 복제
+function classifyRiskLevel(latestRatio, nearLimitCount, accelerating) {
+  if (latestRatio != null && latestRatio >= 95) return 'urgent'
+  if (accelerating && latestRatio != null && latestRatio >= 80) return 'urgent'
+  if (nearLimitCount >= 3) return 'urgent'
+  if (latestRatio != null && latestRatio >= 80) return 'watch'
+  if (nearLimitCount >= 2) return 'watch'
+  if (accelerating) return 'watch'
+  return 'safe'
+}
+const riskTests = [
+  [98, 1, false, 'urgent', '최신 98% — urgent'],
+  [85, 1, true, 'urgent', '최신 85% + 가속 — urgent'],
+  [50, 3, false, 'urgent', '한계 근접 3회 — urgent'],
+  [82, 1, false, 'watch', '최신 82% — watch'],
+  [60, 2, false, 'watch', '한계 근접 2회 — watch'],
+  [50, 0, true, 'watch', '가속만 — watch'],
+  [40, 0, false, 'safe', '안정 — safe'],
+]
+let riskPass = 0
+for (const [latest, nearCount, accel, expected, label] of riskTests) {
+  const got = classifyRiskLevel(latest, nearCount, accel)
+  const ok = got === expected
+  if (ok) riskPass++
+  console.log(`  ${ok ? '✅' : '❌'} ${label} → ${got} ${ok ? '' : `(예상: ${expected})`}`)
+}
+console.log(`  ${riskPass}/${riskTests.length} 통과`)
+
 console.log('\n━━━ 완료 ━━━')

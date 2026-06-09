@@ -199,22 +199,254 @@ export function step1_baseline(
 // 일단 스켈레톤만 export 해두고 NotImplementedError로 둠
 // ─────────────────────────────────────────────────────────────────
 
-export interface TrendDriftData {
-  // 다음 단계에서 채울 예정 (가속도 감지, 한계 사용률 변화 등)
-  _placeholder: true
+/**
+ * 측정 포인트별 드리프트 분석 결과
+ */
+export interface PointDriftAnalysis {
+  label: string                      // 측정 포인트 라벨 (예: "81.36 N·m")
+  usageRatios: (number | null)[]     // 시계열 한계 사용률 (각 교정)
+  latestRatio: number | null         // 최신 한계 사용률
+  ratioHistory: number[]             // null 제외한 깔끔한 시계열 (시각화용)
+  nearLimitCount: number             // 80% 이상 도달한 횟수 (전체 중)
+  totalCount: number                 // 전체 측정 횟수
+  accelerating: boolean              // 직전 변화량이 평균의 2배 이상
+  accelerationRatio: number | null   // 최근 변화 / 평균 변화 (있으면)
+  trend: 'rising' | 'falling' | 'stable' | 'volatile'  // 시각적 추세
+  riskLevel: 'safe' | 'watch' | 'urgent'  // 종합 위험도
 }
 
+export interface TrendDriftData {
+  points: PointDriftAnalysis[]
+  summary: {
+    urgentPointCount: number        // riskLevel='urgent' 포인트 개수
+    watchPointCount: number          // riskLevel='watch' 포인트 개수
+    safePointCount: number           // riskLevel='safe' 포인트 개수
+    acceleratingCount: number        // 가속 중인 포인트 개수
+    maxLatestRatio: number | null    // 모든 포인트 최신 한계 사용률 중 최댓값
+  }
+  dataQuality: {
+    enoughHistory: boolean           // 3회 이상 이력 있는 포인트가 1개라도 있는지
+    historyLength: number            // 가장 긴 시계열 길이
+  }
+}
+
+/**
+ * 가속 감지: 최근 N-1→N 변화량이 이전 평균 변화량의 2배 이상이면 true
+ * 이력이 4회 미만이면 false (감지 불가)
+ */
+function detectAcceleration(history: number[]): { accelerating: boolean; ratio: number | null } {
+  if (history.length < 4) return { accelerating: false, ratio: null }
+
+  // 직전 변화량
+  const recentChange = Math.abs(history[history.length - 1] - history[history.length - 2])
+  // 이전 변화량들의 평균 (마지막 변화 제외)
+  const prevChanges: number[] = []
+  for (let i = 1; i < history.length - 1; i++) {
+    prevChanges.push(Math.abs(history[i] - history[i - 1]))
+  }
+  if (prevChanges.length === 0) return { accelerating: false, ratio: null }
+  const avgPrev = prevChanges.reduce((s, v) => s + v, 0) / prevChanges.length
+
+  // 평균 변화가 너무 작으면 (1% 미만) 가속 판단 무의미
+  if (avgPrev < 1) return { accelerating: false, ratio: null }
+
+  const ratio = recentChange / avgPrev
+  return { accelerating: ratio >= 2, ratio: Math.round(ratio * 10) / 10 }
+}
+
+/**
+ * 추세 분류: 시계열의 전반적 방향
+ */
+function classifyTrend(history: number[]): 'rising' | 'falling' | 'stable' | 'volatile' {
+  if (history.length < 2) return 'stable'
+
+  const overall = history[history.length - 1] - history[0]
+  const meanAbs = history.reduce((s, v) => s + Math.abs(v), 0) / history.length || 1
+
+  // 변화량 시계열
+  const changes: number[] = []
+  for (let i = 1; i < history.length; i++) {
+    changes.push(history[i] - history[i - 1])
+  }
+  // 부호 변화 횟수
+  let signChanges = 0
+  for (let i = 1; i < changes.length; i++) {
+    if (changes[i - 1] * changes[i] < 0) signChanges++
+  }
+  // 평균 변화 크기 (절댓값)
+  const avgChangeMagnitude = changes.reduce((s, v) => s + Math.abs(v), 0) / changes.length
+
+  // volatile 판단 (먼저 검사):
+  //   - 부호 변화가 시계열 길이의 절반 이상
+  //   - 평균 변화 크기가 충분히 큼 (평균 절댓값의 20% 이상) — 작은 노이즈 제외
+  //   - 데이터 4회 이상
+  if (
+    history.length >= 4 &&
+    signChanges >= Math.floor((history.length - 1) / 2) &&
+    avgChangeMagnitude >= meanAbs * 0.2
+  ) {
+    return 'volatile'
+  }
+
+  // 평균 절댓값 대비 전체 변화량이 작으면 stable
+  if (Math.abs(overall) < meanAbs * 0.15) return 'stable'
+
+  return overall > 0 ? 'rising' : 'falling'
+}
+
+/**
+ * 포인트별 위험도 분류
+ */
+function classifyRiskLevel(p: Omit<PointDriftAnalysis, 'riskLevel'>): 'safe' | 'watch' | 'urgent' {
+  const latest = p.latestRatio
+  // urgent: 최신 95% 이상 OR (가속 + 최신 80% 이상) OR 한계 근접 3회 이상
+  if (latest != null && latest >= 95) return 'urgent'
+  if (p.accelerating && latest != null && latest >= 80) return 'urgent'
+  if (p.nearLimitCount >= 3) return 'urgent'
+
+  // watch: 최신 80% 이상 OR 한계 근접 2회 이상 OR 가속
+  if (latest != null && latest >= 80) return 'watch'
+  if (p.nearLimitCount >= 2) return 'watch'
+  if (p.accelerating) return 'watch'
+
+  return 'safe'
+}
+
+/**
+ * 2단계: 측정 드리프트 분석
+ *
+ * 핵심 신호 (학문적 통계 의존 X, 실무 직관 신호 중심):
+ *   - 한계 사용률 시계열 (|오차|/허용오차)
+ *   - 가속 감지 (직전 변화량 vs 평균)
+ *   - 한계 근접 횟수 (80% 이상 도달 횟수)
+ *   - 추세 분류 (rising/falling/stable/volatile)
+ *
+ * 결정 로직:
+ *   - urgent ≥ 1개 + 가속 → -6 (강력 단축)
+ *   - urgent ≥ 1개 (가속 없음) → -3 (단축)
+ *   - watch ≥ 2개 또는 watch + 가속 → -3
+ *   - watch 1개 → 0 (관찰)
+ *   - 모두 safe + falling 추세 우세 → +2 (연장 검토)
+ *   - 모두 safe + stable → 0 (현행 유지)
+ *   - 데이터 부족 → 0 (low confidence)
+ */
 export function step2_trendDrift(
-  _series: TrendSeries[],
-  _calDates: string[],
+  series: TrendSeries[],
+  calDates: string[],
 ): StepResult<TrendDriftData> {
-  // TODO: 다음 작업에서 구현
+  const reasons: string[] = []
+  const warnings: string[] = []
+
+  // 각 포인트별 분석
+  const points: PointDriftAnalysis[] = []
+  let maxLatestRatio: number | null = null
+  let longestHistory = 0
+
+  for (const s of series) {
+    const usageRatios = s.points.map(p => p.비율)  // 각 교정 시점의 |오차|/허용오차 %
+    const ratioHistory = usageRatios.filter((v): v is number => v != null)
+
+    if (ratioHistory.length === 0) continue
+    longestHistory = Math.max(longestHistory, ratioHistory.length)
+
+    const latestRatio = ratioHistory[ratioHistory.length - 1] ?? null
+    if (latestRatio != null && (maxLatestRatio == null || latestRatio > maxLatestRatio)) {
+      maxLatestRatio = latestRatio
+    }
+
+    const nearLimitCount = ratioHistory.filter(v => v >= 80).length
+    const { accelerating, ratio: accelerationRatio } = detectAcceleration(ratioHistory)
+    const trend = classifyTrend(ratioHistory)
+
+    const partial: Omit<PointDriftAnalysis, 'riskLevel'> = {
+      label: s.label,
+      usageRatios,
+      latestRatio,
+      ratioHistory,
+      nearLimitCount,
+      totalCount: ratioHistory.length,
+      accelerating,
+      accelerationRatio,
+      trend,
+    }
+    const riskLevel = classifyRiskLevel(partial)
+    points.push({ ...partial, riskLevel })
+  }
+
+  const summary = {
+    urgentPointCount: points.filter(p => p.riskLevel === 'urgent').length,
+    watchPointCount: points.filter(p => p.riskLevel === 'watch').length,
+    safePointCount: points.filter(p => p.riskLevel === 'safe').length,
+    acceleratingCount: points.filter(p => p.accelerating).length,
+    maxLatestRatio,
+  }
+
+  const dataQuality = {
+    enoughHistory: longestHistory >= 3,
+    historyLength: longestHistory,
+  }
+
+  // ── 결정 로직 ──
+  let adjustment = 0
+  let confidence: ConfidenceLevel = 'low'
+
+  if (!dataQuality.enoughHistory) {
+    reasons.push(`교정 이력 ${calDates.length}회 — 추세 분석에 최소 3회 이력 필요`)
+    return {
+      adjustment: 0,
+      reasons,
+      warnings: ['데이터 부족으로 드리프트 분석 보류 — 다음 교정 후 재평가 권장'],
+      confidence: 'low',
+      data: { points, summary, dataQuality },
+    }
+  }
+
+  // 데이터 충분 — 신뢰도 보통 이상
+  confidence = longestHistory >= 5 ? 'high' : 'medium'
+
+  if (summary.urgentPointCount > 0 && summary.acceleratingCount > 0) {
+    adjustment = -6
+    reasons.push(`긴급 관리 필요 포인트 ${summary.urgentPointCount}개 + 가속 진행 중 ${summary.acceleratingCount}개`)
+  } else if (summary.urgentPointCount > 0) {
+    adjustment = -3
+    reasons.push(`긴급 관리 필요 포인트 ${summary.urgentPointCount}개`)
+  } else if (summary.watchPointCount >= 2 || (summary.watchPointCount >= 1 && summary.acceleratingCount > 0)) {
+    adjustment = -3
+    reasons.push(`주의 포인트 ${summary.watchPointCount}개${summary.acceleratingCount > 0 ? ` + 가속 ${summary.acceleratingCount}개` : ''}`)
+  } else if (summary.watchPointCount === 1) {
+    adjustment = 0
+    reasons.push('주의 포인트 1개 — 추세 관찰 권장 (조정 보류)')
+  } else {
+    // 모두 safe
+    const fallingCount = points.filter(p => p.trend === 'falling').length
+    const stableCount = points.filter(p => p.trend === 'stable').length
+    if (fallingCount >= points.length / 2 && summary.maxLatestRatio != null && summary.maxLatestRatio < 50) {
+      adjustment = 2
+      reasons.push(`모든 포인트 안정 + 사용률 감소 추세 (최대 ${summary.maxLatestRatio.toFixed(1)}%)`)
+    } else {
+      adjustment = 0
+      reasons.push(`모든 포인트 안정 (안정 ${stableCount}/${points.length}, 감소 ${fallingCount}/${points.length})`)
+    }
+  }
+
+  // 보충 메시지
+  if (summary.maxLatestRatio != null) {
+    reasons.push(`최신 한계 사용률 최댓값: ${summary.maxLatestRatio.toFixed(1)}%`)
+  }
+  const urgentPoints = points.filter(p => p.riskLevel === 'urgent').slice(0, 3)
+  for (const up of urgentPoints) {
+    const parts: string[] = [`${up.label}: 최신 ${up.latestRatio?.toFixed(1) ?? '?'}%`]
+    if (up.nearLimitCount > 1) parts.push(`한계 근접 ${up.nearLimitCount}/${up.totalCount}회`)
+    if (up.accelerating) parts.push(`가속 ${up.accelerationRatio?.toFixed(1) ?? '?'}배`)
+    warnings.push(parts.join(' · '))
+  }
+
   return {
-    adjustment: 0,
-    reasons: ['(2단계 미구현 — 다음 단계에서 추가)'],
-    warnings: [],
-    confidence: 'low',
-    data: { _placeholder: true },
+    adjustment,
+    reasons,
+    warnings,
+    confidence,
+    data: { points, summary, dataQuality },
   }
 }
 
