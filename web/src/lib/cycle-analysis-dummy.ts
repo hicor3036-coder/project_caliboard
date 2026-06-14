@@ -795,6 +795,7 @@ export interface ErrorForecastPoint {
   date: string                 // YYYY-MM-DD
   yearFrac: number             // 기준점 대비 경과 연수 (회귀 X축)
   measured: boolean            // true=실측 과거, false=예측 미래
+  interim?: boolean            // true=키오스크 중간점검점(저정밀, 큰 U) — 차트 구분용
   error: number                // 오차(%) — 실측이면 측정값, 예측이면 회귀 중심선
   u: number | null             // 확장불확도(%) — 실측 점에만
   ciLow68: number              // 68% CI 하한 (예측 점)
@@ -888,26 +889,41 @@ export function buildErrorForecast(
   //   안정 포인트(노이즈만)는 R²≈0 → "no significant trend"로 표기해 오해 방지.
   const significant = r2 >= 0.5 && Math.abs(slope) >= 0.15
 
-  // 대표 불확도(가드밴드용): 최신 실측 U (없으면 잔차SD 사용)
+  // 대표 불확도(가드밴드/crossing용): 최신 "정식" 측정 U.
+  //   ★ 키오스크 중간점검점(판정='interim')은 개별 U가 크지만(차트 막대용),
+  //   crossing 판정엔 정식 측정의 작은 U를 쓴다 — 추세는 다수 평균이 잡으므로
+  //   개별 큰 U로 가드밴드를 터뜨리면 안 된다. 정식 U가 없을 때만 일반 U/잔차SD.
   const latestU = (() => {
+    for (let i = s.points.length - 1; i >= 0; i--) {
+      if (s.points[i].판정 !== 'interim' && s.points[i].불확도 != null) return Math.abs(s.points[i].불확도 as number)
+    }
     for (let i = s.points.length - 1; i >= 0; i--) {
       if (s.points[i].불확도 != null) return Math.abs(s.points[i].불확도 as number)
     }
     return residualSd
   })()
 
-  const nowDate = hist[hist.length - 1].교정일
+  // 현재 기준일(NOW) = 마지막 "정식" 측정일. 키오스크 중간점검점은 NOW 이후의
+  //   미래 데이터로 섞이므로, crossing 의 "N개월 후" 기준이 미래로 밀리지 않도록
+  //   정식점 우선으로 잡는다. (정식점이 없으면 마지막 측정점.)
+  const nowDate = (() => {
+    for (let i = hist.length - 1; i >= 0; i--) {
+      if (hist[i].판정 !== 'interim') return hist[i].교정일
+    }
+    return hist[hist.length - 1].교정일
+  })()
   const nowX = yearDiff(base, nowDate)
   // 순수 최소제곱 회귀선 — 화면의 직선·수식과 100% 일치(엑셀 추세선 방식).
   //   과거 적합선과 미래 예측선이 하나의 직선으로 매끄럽게 이어진다.
   const yAt = (x: number) => intercept + slope * x
   const sign = (intercept + slope * nowX) >= 0 ? 1 : -1
 
-  // 과거 실측 점
+  // 과거 실측 점 (정식 교정 + 키오스크 중간점검 — 후자는 interim 플래그로 구분)
   const points: ErrorForecastPoint[] = hist.map(p => ({
     date: p.교정일,
     yearFrac: yearDiff(base, p.교정일),
     measured: true,
+    interim: p.판정 === 'interim',
     error: p.오차 as number,
     u: p.불확도 != null ? Math.abs(p.불확도 as number) : null,
     ciLow68: p.오차 as number, ciHigh68: p.오차 as number,
@@ -963,6 +979,238 @@ export function buildErrorForecast(
       n,
       significant,
     },
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Interim forecast overlay (Future Work) — Step2 예측차트 위에
+//   "정식 교정점 사이사이로 들어오는 키오스크 중간점검점"을 겹쳐 그린다.
+//   키오스크는 저정밀(U 큼)이지만 고빈도라, 같은 추세를 더 일찍·더 확실히
+//   드러낸다 → formal-only 회귀선보다 with-interim 회귀선이 한계에 빨리 닿음.
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * 정식 series 에 "키오스크 중간점검점"을 측정점(오차+큰 U)으로 병합한 series 생성.
+ *   → 이 series 를 buildErrorForecast 에 넣으면 회귀선·crossing·권고가 키오스크
+ *     데이터까지 반영해 재계산된다(차트의 토글 ON 상태).
+ *   - 키오스크점: 마지막 정식 교정 이후 월 1회, 정식 추세선 위 + 작은 노이즈,
+ *     불확도(U)는 정식의 ~3.5배(저정밀). guardBand 는 비워둠(추세 기여만).
+ * @param s 한 측정점의 정식 시계열
+ * @param baseMonths 현재 주기 — 키오스크 커버 범위
+ * @param meta 시드용
+ */
+export function buildInterimAugmentedSeries(
+  s: TrendSeries,
+  baseMonths: number,
+  meta: { manufacturer?: string; model?: string },
+): TrendSeries {
+  const hist = s.points.filter(p => p.오차 != null && p.교정일)
+  if (hist.length < 2) return s
+
+  const tol = (() => {
+    for (let i = s.points.length - 1; i >= 0; i--) {
+      if (s.points[i].허용오차 != null) return Math.abs(s.points[i].허용오차 as number)
+    }
+    return 4
+  })()
+  const baseDate = hist[0].교정일
+  const nowDate = hist[hist.length - 1].교정일
+  const yf = (d: string) => yearDiff(baseDate, d)
+  const fxs = hist.map(p => yf(p.교정일))
+  const fys = hist.map(p => p.오차 as number)
+  const fReg = linReg(fxs, fys)
+  const trend = (x: number) => fReg.intercept + fReg.slope * x
+
+  const formalU = (() => {
+    for (let i = s.points.length - 1; i >= 0; i--) {
+      if (s.points[i].불확도 != null) return Math.abs(s.points[i].불확도 as number)
+    }
+    return Math.max(0.3, fReg.residualSd)
+  })()
+  const interimU = Math.min(tol * 0.6, round1(formalU * 3.5))
+
+  const seed = hashSeed(`${meta.manufacturer ?? ''}|${meta.model ?? ''}|${s.label}|aug`)
+  const rng = makeRng(seed)
+  const monthsSpan = Math.max(6, Math.round(baseMonths * 0.9))
+
+  const interimPoints: TrendPoint[] = []
+  for (let m = 1; m <= monthsSpan; m++) {
+    const date = addMonths(nowDate, m)
+    const x = yf(date)
+    // 개별 키오스크는 저정밀(큰 U, 차트 막대로 표시)이나, 추세 자체는 충실히
+    //   따르도록 노이즈 σ 를 작게(0.15·U) 둔다 — "다수가 모이면 추세는 안정"이
+    //   데이터로 성립해야 회귀선이 정식 대비 흔들리지 않는다.
+    const noisy = round1(trend(x) + gaussian(rng, 0, interimU * 0.15))
+    const ratio = Math.min(100, (Math.abs(noisy) / tol) * 100)
+    interimPoints.push({
+      교정일: date,
+      yearLabel: date.slice(0, 7),
+      오차: noisy,
+      허용오차: tol,
+      비율: round1(ratio),
+      판정: 'interim',
+      불확도: interimU,          // 키오스크 = 큰 U (차트에 큰 막대로 표시)
+      utRatio: round1((interimU / tol) * 100),
+      guardBand: null,           // 저정밀 — 가드밴드 판정엔 미기여(추세에만)
+    })
+  }
+
+  const merged = [...s.points, ...interimPoints].sort((a, b) => a.교정일.localeCompare(b.교정일))
+  return { ...s, points: merged }
+}
+
+export interface InterimOverlayPoint {
+  date: string
+  yearFrac: number
+  error: number                // 오차(%) — 부호 포함
+  u: number                    // 확장불확도(%) — 키오스크는 크다
+  kind: 'formal' | 'interim'   // 정식 교정 vs 키오스크 중간점검
+}
+
+export interface InterimForecastOverlay {
+  available: boolean
+  label: string
+  tolerance: number
+  nowDate: string              // 마지막 정식 교정일
+  points: InterimOverlayPoint[]
+  // 두 회귀 (formal-only vs formal+interim) — 차트의 두 추세선·crossing
+  formal:  { slopePerYear: number; intercept: number; r2: number; n: number; crossDate: string | null; crossMonths: number | null }
+  interim: { slopePerYear: number; intercept: number; r2: number; n: number; crossDate: string | null; crossMonths: number | null }
+  baseDate: string             // 회귀 X축 t=0 (첫 정식 교정일)
+  interimU: number             // 키오스크 대표 U (범례용)
+  formalU: number              // 정식 대표 U (범례용)
+  earlyDetectionMonths: number | null  // formal 대비 며 달 일찍 한계 도달 감지
+  // ── 양방향 가치 판단 ──
+  //   drifting: 드리프트가 base 주기 안/근처에 한계 도달 → 조기 교정 필요(위험↓)
+  //   stable:   base 주기 내내 여유 → 교정 연장 가능(비용↓)
+  baseMonths: number
+  caseKind: 'drifting' | 'stable'
+  // 드리프트 케이스: 키오스크가 추세 도달을 정식보다 며 달 일찍 잡나
+  crossWithinBase: boolean
+  // 안정 케이스: base 주기 끝에서 한계까지 남는 여유(%) — 연장 정당화
+  marginAtBaseEnd: number | null
+}
+
+/**
+ * 한 측정점에서 "정식만 vs 정식+키오스크" 오차 예측 오버레이 생성.
+ *   - 정식점: 기존 series의 오차·U (작은 U).
+ *   - 키오스크점: 마지막 정식 교정 이후 월 1회, 정식 추세선 위에 큰 노이즈 + 큰 U.
+ *   - 두 회귀선의 |error|+U 가 ±tol 에 닿는 시점을 각각 구해 조기감지 개월 산출.
+ * @param s 이 측정점 시계열
+ * @param baseMonths 현재 주기 (키오스크 커버 범위·crossing 기준)
+ * @param meta 시드용
+ */
+export function buildInterimForecastOverlay(
+  s: TrendSeries,
+  baseMonths: number,
+  meta: { manufacturer?: string; model?: string },
+): InterimForecastOverlay {
+  const hist = s.points.filter(p => p.오차 != null && p.교정일)
+  const tol = (() => {
+    for (let i = s.points.length - 1; i >= 0; i--) {
+      if (s.points[i].허용오차 != null) return Math.abs(s.points[i].허용오차 as number)
+    }
+    return 4
+  })()
+  const empty: InterimForecastOverlay = {
+    available: false, label: s.label, tolerance: tol, nowDate: '', points: [],
+    formal:  { slopePerYear: 0, intercept: 0, r2: 0, n: 0, crossDate: null, crossMonths: null },
+    interim: { slopePerYear: 0, intercept: 0, r2: 0, n: 0, crossDate: null, crossMonths: null },
+    baseDate: '', interimU: 0, formalU: 0, earlyDetectionMonths: null,
+    baseMonths, caseKind: 'stable', crossWithinBase: false, marginAtBaseEnd: null,
+  }
+  if (hist.length < 2) return empty
+
+  const baseDate = hist[0].교정일
+  const nowDate = hist[hist.length - 1].교정일
+  const yf = (d: string) => yearDiff(baseDate, d)
+
+  // 정식 회귀 (formal-only)
+  const fxs = hist.map(p => yf(p.교정일))
+  const fys = hist.map(p => p.오차 as number)
+  const fReg = linReg(fxs, fys)
+
+  // 정식 대표 U
+  const formalU = (() => {
+    for (let i = s.points.length - 1; i >= 0; i--) {
+      if (s.points[i].불확도 != null) return Math.abs(s.points[i].불확도 as number)
+    }
+    return Math.max(0.3, fReg.residualSd)
+  })()
+  // 키오스크 U = 정식의 약 3.5배 (저정밀). 단 tol 대비 과하지 않게 상한.
+  const interimU = Math.min(tol * 0.6, round1(formalU * 3.5))
+
+  // 키오스크점 합성: 마지막 정식 이후 월 1회, 정식 추세선 위 + 큰 노이즈
+  const seed = hashSeed(`${meta.manufacturer ?? ''}|${meta.model ?? ''}|${s.label}|overlay`)
+  const rng = makeRng(seed)
+  const trend = (x: number) => fReg.intercept + fReg.slope * x
+  const monthsSpan = Math.max(6, Math.round(baseMonths * 0.9))
+  const formalPts: InterimOverlayPoint[] = hist.map(p => ({
+    date: p.교정일, yearFrac: yf(p.교정일), error: p.오차 as number,
+    u: p.불확도 != null ? Math.abs(p.불확도 as number) : formalU, kind: 'formal',
+  }))
+  const interimPts: InterimOverlayPoint[] = []
+  for (let m = 1; m <= monthsSpan; m++) {
+    const date = addMonths(nowDate, m)
+    const x = yf(date)
+    // 저정밀 개별 측정: 추세선 위에 노이즈. 단 노이즈 σ는 표시 U보다 작게(0.35·U)
+    //   둔다 — "개별 점은 흩어져도 다수가 모이면 추세(회귀선)는 안정적"이라는
+    //   메시지를 데이터가 실제로 만족하도록(회귀가 노이즈에 휘둘리지 않도록).
+    const noisy = trend(x) + gaussian(rng, 0, interimU * 0.35)
+    interimPts.push({ date, yearFrac: x, error: round1(noisy), u: interimU, kind: 'interim' })
+  }
+  const points = [...formalPts, ...interimPts].sort((a, b) => a.yearFrac - b.yearFrac)
+
+  // with-interim 회귀 (정식 + 키오스크 전부)
+  const ixs = points.map(p => p.yearFrac)
+  const iys = points.map(p => p.error)
+  const iReg = linReg(ixs, iys)
+
+  // crossing = (|추세선| + U) 가 ±tol 에 닿는 시점 (Step2 ErrorForecast 와 동일 규칙).
+  //   ★ 핵심: crossing 판정의 U 는 "개별 키오스크 측정 U(큼)"가 아니라 "추세
+  //   추정의 신뢰도"다. 키오스크는 점이 많아(n↑) 추세선 자체는 정밀 → 정식과
+  //   같은 작은 U(formalU)로 추세 도달을 판정한다. 개별 U 가 큰 건 차트에 막대로
+  //   보여주는 시각 정보일 뿐, 다수 평균이 추세를 안정적으로 잡는다.
+  const sign = (reg: { slope: number; intercept: number }) =>
+    (reg.intercept + reg.slope * yf(nowDate)) >= 0 ? 1 : -1
+  const solveCross = (reg: { slope: number; intercept: number }, u: number): { date: string | null; months: number | null } => {
+    const sg = sign(reg)
+    if (reg.slope * sg <= 1e-6) return { date: null, months: null }  // 추세 없음/감소 → 안 넘음
+    for (let m = 1; m <= monthsSpan + 48; m++) {
+      const date = addMonths(nowDate, m)
+      const x = yf(date)
+      const edge = (reg.intercept + reg.slope * x) * sg + u
+      if (edge >= tol) return { date, months: m }
+    }
+    return { date: null, months: null }
+  }
+  // 추세 자체가 도달하는 시점(하한 전). 양 회귀 모두 추세 신뢰 U(formalU)로 판정.
+  const trendCross = solveCross(fReg, formalU)
+  const iCross = solveCross(iReg, formalU)
+  // formal: "정식 교정 때나 확인 가능" → 다음 정식 교정(baseMonths) 전엔 모름.
+  const fCrossMonths = trendCross.months != null ? Math.max(trendCross.months, baseMonths) : null
+  const fCrossDate = fCrossMonths != null ? addMonths(nowDate, fCrossMonths) : null
+  // interim: 촘촘한 데이터라 실제 추세 도달 시점에 바로 확인 (하한 없음).
+  const earlyDetectionMonths =
+    fCrossMonths != null && iCross.months != null ? Math.max(0, fCrossMonths - iCross.months) : null
+
+  // ── 케이스 분류: base 주기 안(또는 근처)에 추세가 한계 도달하면 'drifting' ──
+  const trendMonths = trendCross.months   // 하한 적용 전, 순수 추세 도달
+  const caseKind: 'drifting' | 'stable' =
+    (trendMonths != null && trendMonths <= baseMonths) ? 'drifting' : 'stable'
+  const crossWithinBase = caseKind === 'drifting'
+  // 안정 케이스: base 주기 끝 시점에서 (|추세|+U) 가 tol 까지 남기는 여유(%).
+  const sgF = sign(fReg)
+  const xBaseEnd = yf(addMonths(nowDate, baseMonths))
+  const edgeAtBaseEnd = (fReg.intercept + fReg.slope * xBaseEnd) * sgF + formalU
+  const marginAtBaseEnd = caseKind === 'stable' ? round1(tol - edgeAtBaseEnd) : null
+
+  return {
+    available: true, label: s.label, tolerance: tol, nowDate, points,
+    formal:  { slopePerYear: round2(fReg.slope), intercept: round2(fReg.intercept), r2: Math.round(fReg.r2 * 100) / 100, n: fReg.n, crossDate: fCrossDate, crossMonths: fCrossMonths },
+    interim: { slopePerYear: round2(iReg.slope), intercept: round2(iReg.intercept), r2: Math.round(iReg.r2 * 100) / 100, n: iReg.n, crossDate: iCross.date, crossMonths: iCross.months },
+    baseDate, interimU, formalU, earlyDetectionMonths,
+    baseMonths, caseKind, crossWithinBase, marginAtBaseEnd,
   }
 }
 
