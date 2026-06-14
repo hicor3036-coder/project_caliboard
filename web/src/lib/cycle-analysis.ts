@@ -15,7 +15,15 @@
 //   step5_finalize(step1~4 + AI?)                     → 최종 결정 + 신뢰도
 
 // equipment-health.ts에서 타입만 import (런타임 의존성 0, 컴파일 후 사라짐)
-import type { TrendSeries } from './equipment-health'
+import type { TrendSeries, TrendPoint } from './equipment-health'
+// Peer Benchmark / Interim 더미 데이터 타입·생성기 (발표용 — 별도 파일에 격리)
+import type { PeerBenchmarkData } from './cycle-analysis-dummy'
+import {
+  buildInterimSimulation,
+  mergeInterimIntoSeries,
+  buildErrorForecast,
+  type InterimSimulationResult,
+} from './cycle-analysis-dummy'
 
 // ─────────────────────────────────────────────────────────────────
 // 공통 타입
@@ -732,6 +740,112 @@ export interface UserContextInput {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// Step 4: Peer Benchmark (유사장비 빅데이터 비교)
+//
+// "이 장비의 개성"만 보던 step2·3에 더해, 동종 장비군 집단지성을 반영한다.
+// 개별 장비는 교정 이력이 적어 통계가 빈약하지만, 같은 모델 수백 대를 합치면
+// "이 장비군은 보통 N개월에 한계 도달"이라는 강력한 사전지식이 생긴다.
+//
+// 결정 로직 (보수적 — step2·3과 중복 가산 방지):
+//   - 이 장비가 장비군 상위 10%(백분위 ≥ 90)로 빨리 닳음 → -3 (단축)
+//   - 상위 30%(백분위 ≥ 70) → -1
+//   - 하위 30%(백분위 < 30) + 장비군 평균주기가 현 기준보다 김 → +2 (연장 검토)
+//   - 그 외 (장비군 평균 수준) → 0
+// ─────────────────────────────────────────────────────────────────
+
+export interface PeerBenchmarkStepData {
+  available: boolean
+  groupKey: string
+  totalPeerCount: number
+  totalCertCount: number
+  avgPercentile: number | null
+  peerMeanCycleMonths: number
+  riskPointCount: number
+  position: 'faster' | 'average' | 'slower'   // 장비군 대비 마모 속도 위치
+  // UI 시각화용 포인트별 비교 (이 장비 vs 장비군)
+  points: Array<{
+    label: string
+    thisUsage: number | null
+    peerMeanUsage: number
+    peerP90Usage: number
+    thisPercentile: number | null
+    peerMeanMonthsToLimit: number | null
+  }>
+}
+
+export function step4_peerBenchmark(
+  peer: PeerBenchmarkData,
+  baseMonths: number,
+): StepResult<PeerBenchmarkStepData> {
+  const reasons: string[] = []
+  const warnings: string[] = []
+
+  const avgPct = peer.summary.avgPercentile
+  const position: PeerBenchmarkStepData['position'] =
+    peer.summary.fasterThanPeers ? 'faster' :
+    peer.summary.slowerThanPeers ? 'slower' :
+    'average'
+
+  // ── 결정 로직 ──
+  let adjustment = 0
+  let confidence: ConfidenceLevel = 'medium'
+
+  // 장비군 규모가 크면 신뢰도 높음
+  if (peer.totalPeerCount >= 300) confidence = 'high'
+  else if (peer.totalPeerCount < 100) confidence = 'low'
+
+  reasons.push(`동종 장비 ${peer.totalPeerCount}대 · 누적 성적서 ${peer.totalCertCount.toLocaleString()}건 분석`)
+
+  if (avgPct != null) {
+    if (avgPct >= 90) {
+      adjustment = -3
+      reasons.push(`이 장비는 동종 장비군 상위 ${(100 - avgPct).toFixed(0)}% — 평균보다 빠르게 마모`)
+      warnings.push(`장비군 대비 마모가 빠른 편(백분위 ${avgPct.toFixed(0)}%)입니다. 주기 단축을 권고합니다`)
+    } else if (avgPct >= 70) {
+      adjustment = -1
+      reasons.push(`이 장비는 동종 장비군 상위 ${(100 - avgPct).toFixed(0)}% 수준 — 다소 빠른 마모`)
+    } else if (avgPct < 30 && peer.summary.peerMeanCycleMonths > baseMonths) {
+      adjustment = 2
+      reasons.push(`이 장비는 동종 장비군 하위 ${avgPct.toFixed(0)}% — 평균보다 안정적`)
+      reasons.push(`장비군 평균 실사용 주기 ${peer.summary.peerMeanCycleMonths}개월 (현 기준 ${baseMonths}개월보다 김)`)
+    } else {
+      adjustment = 0
+      reasons.push(`동종 장비군 평균 수준 (백분위 ${avgPct.toFixed(0)}%)`)
+    }
+  }
+
+  if (peer.summary.riskPointCount > 0) {
+    reasons.push(`장비군 상위 20%에 드는 포인트 ${peer.summary.riskPointCount}개`)
+  }
+  reasons.push(`장비군 평균 실사용 교정주기: ${peer.summary.peerMeanCycleMonths}개월`)
+
+  return {
+    adjustment,
+    reasons,
+    warnings,
+    confidence,
+    data: {
+      available: peer.available,
+      groupKey: peer.groupKey,
+      totalPeerCount: peer.totalPeerCount,
+      totalCertCount: peer.totalCertCount,
+      avgPercentile: avgPct,
+      peerMeanCycleMonths: peer.summary.peerMeanCycleMonths,
+      riskPointCount: peer.summary.riskPointCount,
+      position,
+      points: peer.points.map(p => ({
+        label: p.label,
+        thisUsage: p.thisUsage,
+        peerMeanUsage: p.peerMeanUsage,
+        peerP90Usage: p.peerP90Usage,
+        thisPercentile: p.thisPercentile,
+        peerMeanMonthsToLimit: p.peerMeanMonthsToLimit,
+      })),
+    },
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Step 5: 최종 결정 (스켈레톤)
 // ─────────────────────────────────────────────────────────────────
 
@@ -751,13 +865,21 @@ export interface FinalDecisionData {
     contextAdj: number
     sum: number                   // base + 각 조정량의 합
   }
+  // crossing 기반 권고: 가장 빠른 tolerance 초과 시점을 근거로 한 주기.
+  //   finalMonths의 단일 진실 — 차트(ErrorForecastChart)·처방(buildPrescription)과 일치.
+  crossingBased: {
+    drivenBy: string | null       // 가장 빨리 초과하는 측정점 라벨
+    earliestCrossMonths: number | null  // 그 포인트의 초과 시점(개월, 직전 교정일 기준)
+    safetyMarginMonths: number    // 적용한 안전마진
+  }
 }
 
 export function step5_finalize(
   step1: StepResult<BaselineData>,
   step2: StepResult<TrendDriftData>,
   step3: StepResult<UncertaintyRiskData>,
-  step4?: StepResult<unknown>,    // 1차에서는 undefined
+  step4: StepResult<unknown> | undefined,    // 1차에서는 undefined
+  series: TrendSeries[] = [],                 // crossing 기반 권고용 (없으면 합산 로직만)
 ): StepResult<FinalDecisionData> {
   const base = step1.data.baseMonths
   const trendAdj = step2.adjustment
@@ -766,11 +888,37 @@ export function step5_finalize(
 
   const sum = base + trendAdj + riskAdj + contextAdj
 
-  // 가드레일: 최소 3개월, 최대 60개월
   const MIN = 3
   const MAX = 60
-  const clamped = sum < MIN || sum > MAX
-  const finalMonths = Math.max(MIN, Math.min(MAX, sum))
+
+  // ── crossing 기반 권고 (단일 진실) ──
+  // 각 측정점의 (|오차|+U)가 tolerance 한계에 닿는 시점(crossing)을 구하고,
+  // 가장 빠른 것 − 안전마진을 권고 주기로 삼는다. 차트·처방과 항상 일치.
+  //   crossing 이 없으면(전부 안전) 기존 합산 로직(sum)을 따른다.
+  let drivenBy: string | null = null
+  let earliestCrossMonths: number | null = null
+  for (const s of series) {
+    const f = buildErrorForecast(s, Math.max(base + 12, 24), base)
+    const m = f.crossing.bestMonths
+    if (m != null && (earliestCrossMonths == null || m < earliestCrossMonths)) {
+      earliestCrossMonths = m
+      drivenBy = s.label
+    }
+  }
+  // 안전마진: 한계 닿기 전에 교정하도록 crossing 의 ~15% (최소 1개월)
+  const safetyMargin = earliestCrossMonths != null
+    ? Math.max(1, Math.round(earliestCrossMonths * 0.15))
+    : 0
+
+  let finalMonths: number
+  if (earliestCrossMonths != null && earliestCrossMonths <= base) {
+    // crossing 이 spec 주기 안 → 그 전에 교정해야. crossing − 마진.
+    finalMonths = Math.max(MIN, Math.min(base, earliestCrossMonths - safetyMargin))
+  } else {
+    // crossing 이 없거나 spec 밖 → 기존 합산 로직.
+    finalMonths = Math.max(MIN, Math.min(MAX, sum))
+  }
+  const clamped = (earliestCrossMonths == null && (sum < MIN || sum > MAX))
 
   let direction: AdjustmentDirection
   if (finalMonths < base - 1) direction = 'shorten'
@@ -810,6 +958,7 @@ export function step5_finalize(
       confidence,
       guardrail: { minMonths: MIN, maxMonths: MAX, clamped },
       breakdown: { base, trendAdj, riskAdj, contextAdj, sum },
+      crossingBased: { drivenBy, earliestCrossMonths, safetyMarginMonths: safetyMargin },
     },
   }
 }
@@ -822,6 +971,7 @@ export interface CycleAnalysisResult {
   step1: StepResult<BaselineData>
   step2: StepResult<TrendDriftData>
   step3: StepResult<UncertaintyRiskData>
+  step4: StepResult<PeerBenchmarkStepData> | null  // Peer Benchmark (유사장비). 비활성 시 null
   step5: StepResult<FinalDecisionData>
   // AI 종합 평가는 별도 atom 호출 결과를 UI에서 합침 (분석 결과에는 포함 안 함)
 }
@@ -831,19 +981,34 @@ export interface CycleAnalysisInput {
   ktoolsAffcCyclCd: string | null | undefined
   series: TrendSeries[]
   calDates: string[]
+  // Peer Benchmark (유사장비) 데이터. 있으면 step4로 통합. 없으면 step4=null.
+  peer?: PeerBenchmarkData | null
 }
 
 /**
  * 5단계 분석 전체 실행 (AI 호출은 별도)
  * 동기 함수 — 외부 API 호출 없음 (순수 데이터 기반)
+ *
+ * Peer Benchmark(유사장비)는 "참고용"이다 — 최종 결정(주기)에는 영향을 주지 않는다.
+ *   이유: 교정주기는 "이 장비 자신의 드리프트·불확도"가 결정해야 한다(개체차가 크므로).
+ *         유사장비 빅데이터는 "이 장비가 동종 대비 어떤 오차 특성을 보이는가"를
+ *         보여주는 맥락(context)일 뿐, 주기를 깎는 근거로 쓰면 학문적으로 약하다.
+ *   따라서 step4는 계산·표시하되 step5_finalize에는 넘기지 않는다(adjustment 무시).
+ * 기존 step1·2·3·5 로직은 그대로.
  */
 export function runCycleAnalysis(input: CycleAnalysisInput): CycleAnalysisResult {
   const step1 = step1_baseline(input.profile, input.ktoolsAffcCyclCd)
   const step2 = step2_trendDrift(input.series, input.calDates)
   const step3 = step3_uncertaintyRisk(input.series)
-  const step5 = step5_finalize(step1, step2, step3)
+  // 결정은 step1·2·3 + crossing(외삽) — 유사장비 제외
+  const step5 = step5_finalize(step1, step2, step3, undefined, input.series)
+  // Peer Benchmark는 참고용 — adjustment를 0으로 덮어 "결정 미반영"을 명확히 함
+  const peerStep = input.peer
+    ? step4_peerBenchmark(input.peer, step1.data.baseMonths)
+    : null
+  const step4 = peerStep ? { ...peerStep, adjustment: 0 } : null
 
-  return { step1, step2, step3, step5 }
+  return { step1, step2, step3, step4, step5 }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -979,4 +1144,322 @@ export function buildCycleAnalysisLlmInput(
       clamped: s5.guardrail.clamped,
     },
   }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Interim Check 시뮬레이션 오케스트레이터 (Future Work — 키오스크)
+//
+// "중간점검 데이터가 들어오면 분석이 어떻게 달라지는가"를 Before/After로 보여준다.
+//   Before = 정식 교정 이력만으로 분석 (현재)
+//   After  = 정식 + 키오스크 중간점검 병합 후 재분석 (미래 시나리오)
+//
+// 핵심: 같은 runCycleAnalysis를 두 번 돌린다. 로직은 동일, 입력 series만 다름.
+//       → 중간점검점이 드리프트 추세를 촘촘히 메워 step2(드리프트) 신뢰도/민감도가 오른다.
+// ─────────────────────────────────────────────────────────────────
+
+export interface InterimSimComparison {
+  available: boolean
+  before: CycleAnalysisResult     // 정식 교정만
+  after: CycleAnalysisResult      // 정식 + 중간점검
+  simulation: InterimSimulationResult  // 키오스크 효과 메타데이터
+  // 핵심 비교 지표
+  delta: {
+    finalMonthsBefore: number
+    finalMonthsAfter: number
+    confidenceBefore: ConfidenceLevel
+    confidenceAfter: ConfidenceLevel
+    // step2 드리프트 민감도 변화
+    urgentBefore: number
+    urgentAfter: number
+    watchBefore: number
+    watchAfter: number
+  }
+}
+
+/**
+ * 중간점검 시뮬레이션 실행.
+ * @param input  원본 분석 입력 (정식 교정 데이터)
+ * @param baseAnalysis 이미 계산된 "정식만" 분석 결과 (재사용 — 중복 계산 방지)
+ */
+export function runInterimSimulation(
+  input: CycleAnalysisInput,
+  baseAnalysis: CycleAnalysisResult,
+): InterimSimComparison {
+  const baseMonths = baseAnalysis.step1.data.baseMonths
+
+  // 1. 키오스크 중간점검 데이터 생성 (더미)
+  const simulation = buildInterimSimulation(
+    input.series,
+    baseMonths,
+    { manufacturer: undefined, model: undefined },
+  )
+
+  // 2. 중간점검을 정식 series에 병합
+  const mergedSeries = mergeInterimIntoSeries(input.series, simulation.interimSeries)
+
+  // 3. 병합된 series로 재분석 (Peer는 동일하게 유지)
+  const after = runCycleAnalysis({ ...input, series: mergedSeries })
+
+  return {
+    available: simulation.available,
+    before: baseAnalysis,
+    after,
+    simulation,
+    delta: {
+      finalMonthsBefore: baseAnalysis.step5.data.finalMonths,
+      finalMonthsAfter: after.step5.data.finalMonths,
+      confidenceBefore: baseAnalysis.step2.confidence,
+      confidenceAfter: after.step2.confidence,
+      urgentBefore: baseAnalysis.step2.data.summary.urgentPointCount,
+      urgentAfter: after.step2.data.summary.urgentPointCount,
+      watchBefore: baseAnalysis.step2.data.summary.watchPointCount,
+      watchAfter: after.step2.data.summary.watchPointCount,
+    },
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Prescription — "분석"을 "처방"으로 (언제까지 · 왜 · 어디를)
+//
+// ISO 10012 §7.1.2(확인주기 조정) + §7.3.1(불확도) + ILAC-G8(guard band) 근거.
+// "언제까지 교정하라 + 안 그러면 guard-band 한계 침범 + 그때 이 포인트 집중"을 산출.
+//
+// 핵심 계산:
+//   1. recalibrateBy = 마지막 교정일 + 권고주기(finalMonths)
+//   2. 각 위험 포인트의 "guard-band 한계 침범 예측 시점":
+//      현재 (|오차| + U)가 허용오차에 도달하는 시점을 드리프트 속도로 외삽
+//   3. 집중 포인트 = step2 urgent/watch
+//   4. 추천 교정 포인트 = 위험 구간 세분화 + 정상 포인트 기본
+// ─────────────────────────────────────────────────────────────────
+
+export interface FocusPoint {
+  label: string
+  level: 'critical' | 'watch' | 'nominal'
+  latestUsage: number | null          // 최신 한계 사용률 %
+  utRatio: number | null              // 최신 U/T %
+  monthsToGuardBandLimit: number | null  // (|오차|+U)가 허용한계 도달까지 개월 (드리프트 외삽)
+  note: string                        // 영어 한 줄 (예: "96% of tolerance, ~3 mo to guard-band limit")
+}
+
+export interface Prescription {
+  // 언제까지
+  recalibrateByMonths: number         // 권고 주기 (= step5 finalMonths)
+  recalibrateByDate: string | null    // 마지막 교정일 + 권고주기 (YYYY-MM-DD)
+  lastCalDate: string | null
+  monthsEarlierThanSpec: number       // 기준(base) 대비 몇 개월 당겨졌나 (>0이면 단축)
+  // 왜 (가장 위험한 포인트 기준)
+  driver: {
+    label: string                     // 단축을 이끄는 핵심 포인트 (예: "62.2 N·m")
+    monthsToGuardBandLimit: number | null
+    latestUsage: number | null
+    utRatio: number | null
+  } | null
+  // 어디를
+  focusPoints: FocusPoint[]           // critical → watch → (nominal 요약)
+  criticalCount: number
+  watchCount: number
+  nominalCount: number
+  // 추천 교정 포인트 (위험 구간 세분화)
+  recommendedPoints: string[]
+}
+
+/**
+ * "YYYY-MM-DD" + N개월 (월 단위, 일자 유지). 실패 시 null.
+ */
+function addMonthsToDate(dateStr: string | null, months: number): string | null {
+  if (!dateStr) return null
+  const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  const y = parseInt(m[1], 10)
+  const mo = parseInt(m[2], 10)
+  const d = parseInt(m[3], 10)
+  const total = (mo - 1) + months
+  const ny = y + Math.floor(total / 12)
+  const nm = (total % 12) + 1
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+/**
+ * 한 series의 "guard-band 한계 침범까지 개월" 외삽.
+ * (|오차| + U) 가 허용오차(tol)에 도달하는 시점.
+ *   - 최근 2개 유효점으로 (|오차|+U) 증가 속도(월당)를 추정
+ *   - 이미 도달했으면 0, 증가 안 하면 null
+ */
+function monthsToGuardBandLimit(s: TrendSeries): number | null {
+  const valid = s.points.filter(p => p.오차 != null && p.허용오차 != null && p.교정일)
+  if (valid.length < 2) return null
+  const tol = Math.abs(valid[valid.length - 1].허용오차 as number)
+  if (tol <= 0) return null
+
+  // (|오차| + U) 시계열
+  const margin = (p: TrendPoint): number => {
+    const err = Math.abs(p.오차 as number)
+    const u = p.불확도 != null ? Math.abs(p.불확도) : 0
+    return err + u
+  }
+  const last = valid[valid.length - 1]
+  const prev = valid[valid.length - 2]
+  const curMargin = margin(last)
+  if (curMargin >= tol) return 0  // 이미 침범
+
+  const months = monthsBetween(prev.교정일, last.교정일)
+  if (months <= 0) return null
+  const rate = (curMargin - margin(prev)) / months  // 월당 증가
+  if (rate <= 0.001) return null  // 증가 안 함 → 도달 안 함
+  return Math.round((tol - curMargin) / rate)
+}
+
+function monthsBetween(a: string, b: string): number {
+  const ma = a.match(/^(\d{4})-(\d{2})/)
+  const mb = b.match(/^(\d{4})-(\d{2})/)
+  if (!ma || !mb) return 0
+  return (parseInt(mb[1]) - parseInt(ma[1])) * 12 + (parseInt(mb[2]) - parseInt(ma[2]))
+}
+
+function latestUsageOf(s: TrendSeries): number | null {
+  for (let i = s.points.length - 1; i >= 0; i--) {
+    if (s.points[i].비율 != null) return s.points[i].비율
+  }
+  return null
+}
+function latestUtOf(s: TrendSeries): number | null {
+  for (let i = s.points.length - 1; i >= 0; i--) {
+    if (s.points[i].utRatio != null) return s.points[i].utRatio
+  }
+  return null
+}
+function latestCalDateOf(series: TrendSeries[]): string | null {
+  let latest: string | null = null
+  for (const s of series) {
+    for (const p of s.points) {
+      if (p.교정일 && (latest == null || p.교정일 > latest)) latest = p.교정일
+    }
+  }
+  return latest
+}
+
+/**
+ * 처방 생성: 분석 결과 + series → "언제까지·왜·어디를".
+ * 순수 함수 (외부 호출 없음).
+ */
+export function buildPrescription(
+  analysis: CycleAnalysisResult,
+  series: TrendSeries[],
+): Prescription {
+  const finalMonths = analysis.step5.data.finalMonths
+  const baseMonths = analysis.step1.data.baseMonths
+  const lastCalDate = latestCalDateOf(series)
+  const recalibrateByDate = addMonthsToDate(lastCalDate, finalMonths)
+  const monthsEarlierThanSpec = baseMonths - finalMonths
+
+  // step2 위험도 맵 (label → riskLevel)
+  const riskByLabel = new Map(analysis.step2.data.points.map(p => [p.label, p.riskLevel]))
+
+  // 각 포인트 처방 정보
+  const focusPoints: FocusPoint[] = series.map(s => {
+    const risk = riskByLabel.get(s.label) ?? 'safe'
+    const level: FocusPoint['level'] =
+      risk === 'urgent' ? 'critical' : risk === 'watch' ? 'watch' : 'nominal'
+    const latestUsage = latestUsageOf(s)
+    const utRatio = latestUtOf(s)
+    const m2limit = monthsToGuardBandLimit(s)
+
+    let note = ''
+    if (level === 'critical') {
+      note = `${latestUsage?.toFixed(0) ?? '?'}% of tolerance` +
+        (m2limit != null ? ` · ~${m2limit} mo to guard-band limit` : '')
+    } else if (level === 'watch') {
+      note = `${latestUsage?.toFixed(0) ?? '?'}% of tolerance · rising`
+    } else {
+      note = `${latestUsage?.toFixed(0) ?? '?'}% · nominal`
+    }
+
+    return { label: s.label, level, latestUsage, utRatio, monthsToGuardBandLimit: m2limit, note }
+  })
+
+  // 위험도 순 정렬 (critical → watch → nominal), 같은 등급은 사용률 높은 순
+  const order = { critical: 0, watch: 1, nominal: 2 }
+  focusPoints.sort((a, b) => {
+    if (order[a.level] !== order[b.level]) return order[a.level] - order[b.level]
+    return (b.latestUsage ?? 0) - (a.latestUsage ?? 0)
+  })
+
+  const criticalCount = focusPoints.filter(p => p.level === 'critical').length
+  const watchCount = focusPoints.filter(p => p.level === 'watch').length
+  const nominalCount = focusPoints.filter(p => p.level === 'nominal').length
+
+  // driver = 가장 위험한 포인트 (한계 침범 가장 빠른 critical, 없으면 사용률 최고)
+  const criticals = focusPoints.filter(p => p.level === 'critical')
+  const driverPoint =
+    criticals.length > 0
+      ? criticals.reduce((best, p) =>
+          (p.monthsToGuardBandLimit ?? Infinity) < (best.monthsToGuardBandLimit ?? Infinity) ? p : best,
+        )
+      : focusPoints[0] ?? null
+
+  const driver = driverPoint
+    ? {
+        label: driverPoint.label,
+        monthsToGuardBandLimit: driverPoint.monthsToGuardBandLimit,
+        latestUsage: driverPoint.latestUsage,
+        utRatio: driverPoint.utRatio,
+      }
+    : null
+
+  // 추천 교정 포인트: critical/watch는 그 주변을 세분화, 나머지는 그대로
+  const recommendedPoints = buildRecommendedPoints(focusPoints)
+
+  return {
+    recalibrateByMonths: finalMonths,
+    recalibrateByDate,
+    lastCalDate,
+    monthsEarlierThanSpec,
+    driver,
+    focusPoints,
+    criticalCount,
+    watchCount,
+    nominalCount,
+    recommendedPoints,
+  }
+}
+
+/**
+ * 추천 교정 포인트 생성.
+ * - critical 포인트: 그 값 + 인접 중간값(세분화)
+ * - watch 포인트: 그 값 포함
+ * - nominal: 대표 몇 개만
+ * 라벨에서 숫자를 파싱해 정렬·세분화. 파싱 실패 시 라벨 그대로.
+ */
+function buildRecommendedPoints(focus: FocusPoint[]): string[] {
+  const parseVal = (label: string): number | null => {
+    const m = label.match(/([\d.]+)/)
+    return m ? parseFloat(m[1]) : null
+  }
+  const unit = (() => {
+    const m = focus[0]?.label.match(/[\d.]+\s*(.+)$/)
+    return m ? m[1].trim() : ''
+  })()
+
+  const vals = focus
+    .map(f => ({ v: parseVal(f.label), level: f.level }))
+    .filter((x): x is { v: number; level: FocusPoint['level'] } => x.v != null)
+    .sort((a, b) => a.v - b.v)
+
+  if (vals.length === 0) return focus.map(f => f.label)
+
+  const out = new Set<number>()
+  for (let i = 0; i < vals.length; i++) {
+    const { v, level } = vals[i]
+    out.add(v)
+    // critical: 직전 포인트와의 중간값 추가 (위험 구간 세분화)
+    if (level === 'critical' && i > 0) {
+      const mid = Math.round(((vals[i - 1].v + v) / 2) * 10) / 10
+      out.add(mid)
+    }
+    if (level === 'critical' && i < vals.length - 1) {
+      const mid = Math.round(((v + vals[i + 1].v) / 2) * 10) / 10
+      out.add(mid)
+    }
+  }
+  return [...out].sort((a, b) => a - b).map(v => `${v} ${unit}`.trim())
 }

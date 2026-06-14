@@ -1,35 +1,49 @@
-// 교정주기 분석 탭 (Phase G — 실무 적용형)
+// Calibration Cycle Analysis Tab (Phase G+ / ICMPM2026 presentation)
 //
-// 기존 'AI 예방분석' 탭과 완전 별개. 기존 UI/로직 영향 0.
-// 5단계 추론을 카드로 분리해 사용자가 "왜 이 주기인지" 납득 가능하게 표시.
+// NOTE: This tab is intentionally rendered in ENGLISH for the ICMPM2026 keynote.
+// The rest of the app stays Korean. Strings here are hardcoded (not via i18n dict)
+// to keep this presentation-only tab self-contained.
 //
-// 1차 구현 범위:
-//   - 1단계 (기준 주기): 완전 구현 — equipment_profiles + affcCyclCd 활용
-//   - 2단계 (드리프트):   스켈레톤 — "다음 단계에서 추가" 표시
-//   - 3단계 (불확도):     스켈레톤
-//   - 5단계 (최종 결정):  step1만으로도 결과 표시 (조정 0)
-//   - AI 종합:            1차 제외 (다음 단계)
+// Structure:
+//   - Recommended Cycle (decision)
+//   - Analysis Evidence
+//       1. Baseline Cycle        (existing — built)
+//       2. Measurement Drift     (existing — built)
+//       3. Uncertainty Risk      (existing — built)
+//       4. Peer Benchmark        (NEW — similar-instrument big data, integrated)
+//       5. Final Decision        (existing — built)
+//   - Interim Check Simulation   (NEW — kiosk, Future Work, toggle ON/OFF)
 
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import {
   runCycleAnalysis,
+  runInterimSimulation,
+  buildPrescription,
   type CycleAnalysisResult,
   type ProfileLike,
-  type StepResult,
   type BaselineData,
   type TrendDriftData,
   type UncertaintyRiskData,
+  type PeerBenchmarkStepData,
+  type InterimSimComparison,
+  type Prescription,
 } from '@/lib/cycle-analysis'
+import { buildPeerBenchmark, buildPeerErrorBands, buildErrorForecast, buildDemoTorqueSeries, buildDemoCalDates, buildDemoProfile, type PeerErrorBandData, type ErrorForecast } from '@/lib/cycle-analysis-dummy'
 import type { TrendSeries } from '@/lib/equipment-health'
+
+// ⚠️ 발표 전용 데모 스위치 (k-tools PDF→Excel 변환 다운 시 임시).
+//   .env.local 의 NEXT_PUBLIC_CYCLE_DEMO_MODEL 과 일치하는 모델 1개에만
+//   성적서 파싱 결과(series)를 mock으로 대체한다. 복구 시 그 줄만 삭제하면 실데이터 복귀.
+const DEMO_MODEL = process.env.NEXT_PUBLIC_CYCLE_DEMO_MODEL?.trim() || null
 
 interface Props {
   manufacturer: string         // info.prdnCmpnNm
   model: string                // info.stszNm
   ktoolsAffcCyclCd: string     // info.affcCyclCd
-  series: TrendSeries[]        // conformityTrend.series (있으면)
-  calDates: string[]           // conformityTrend.calDates (있으면)
+  series: TrendSeries[]        // conformityTrend.series (if any)
+  calDates: string[]           // conformityTrend.calDates (if any)
 }
 
 export default function TabCycleAnalysis({
@@ -39,10 +53,13 @@ export default function TabCycleAnalysis({
   series,
   calDates,
 }: Props) {
-  // ── profile 페치 (이 탭이 진입했을 때만) ──
+  // ── fetch profile (only when this tab is mounted) ──
   const [profile, setProfile] = useState<ProfileLike | null>(null)
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileError, setProfileError] = useState<string | null>(null)
+
+  // Interim Check (kiosk) simulation toggle — OFF by default
+  const [interimOn, setInterimOn] = useState(false)
 
   useEffect(() => {
     if (!manufacturer || !model) {
@@ -60,14 +77,14 @@ export default function TabCycleAnalysis({
           return
         }
         if (!r.ok) {
-          setProfileError(`profile 조회 실패: ${r.status}`)
+          setProfileError(`Failed to load profile: ${r.status}`)
           return
         }
         const data = await r.json()
         setProfile(data as ProfileLike)
       })
       .catch(err => {
-        if (!cancelled) setProfileError(err instanceof Error ? err.message : 'profile 조회 실패')
+        if (!cancelled) setProfileError(err instanceof Error ? err.message : 'Failed to load profile')
       })
       .finally(() => {
         if (!cancelled) setProfileLoading(false)
@@ -75,57 +92,105 @@ export default function TabCycleAnalysis({
     return () => { cancelled = true }
   }, [manufacturer, model])
 
-  // ── 분석 실행 ──
+  // ── DEMO override: 특정 모델 1개만 mock으로 대체 (발표용) ──
+  const isDemoTarget = DEMO_MODEL != null && model === DEMO_MODEL
+  const effectiveSeries = useMemo<TrendSeries[]>(
+    () => (isDemoTarget ? buildDemoTorqueSeries() : series),
+    [isDemoTarget, series],
+  )
+  const effectiveCalDates = useMemo<string[]>(
+    () => (isDemoTarget ? buildDemoCalDates() : calDates),
+    [isDemoTarget, calDates],
+  )
+  // 데모 타깃이면 profile도 mock으로 (base 12개월 + ISO 6789 표준 표시). 실제는 404라서.
+  const effectiveProfile = useMemo<ProfileLike | null>(
+    () => (isDemoTarget ? buildDemoProfile() : profile),
+    [isDemoTarget, profile],
+  )
+
+  // ── Peer Benchmark (similar-instrument big data) — reference only ──
+  const peer = useMemo(
+    () => buildPeerBenchmark(effectiveSeries, {
+      manufacturer,
+      model,
+      category: effectiveProfile?.category ?? null,
+      demoSlightlyFast: isDemoTarget,
+    }),
+    [effectiveSeries, manufacturer, model, effectiveProfile?.category, isDemoTarget],
+  )
+
+  // ── Peer error bands (per-point fleet error range vs this unit) — chart data ──
+  const peerBands = useMemo<PeerErrorBandData>(
+    () => buildPeerErrorBands(effectiveSeries, {
+      manufacturer,
+      model,
+      category: effectiveProfile?.category ?? null,
+    }),
+    [effectiveSeries, manufacturer, model, effectiveProfile?.category],
+  )
+
+  // ── run analysis (Peer integrated as step 4) ──
   const analysis = useMemo<CycleAnalysisResult>(() => {
     return runCycleAnalysis({
-      profile,
+      profile: effectiveProfile,
       ktoolsAffcCyclCd,
-      series,
-      calDates,
+      series: effectiveSeries,
+      calDates: effectiveCalDates,
+      peer,
     })
-  }, [profile, ktoolsAffcCyclCd, series, calDates])
+  }, [effectiveProfile, ktoolsAffcCyclCd, effectiveSeries, effectiveCalDates, peer])
 
-  // 한 줄 요약 메시지 (결정 영역에 표시 — 사용자가 결과를 즉시 이해하도록)
-  const summaryMessage = buildSummaryMessage(analysis)
+  // ── interim simulation (only computed when toggled on) ──
+  const interimSim = useMemo<InterimSimComparison | null>(() => {
+    if (!interimOn) return null
+    return runInterimSimulation({ profile: effectiveProfile, ktoolsAffcCyclCd, series: effectiveSeries, calDates: effectiveCalDates, peer }, analysis)
+  }, [interimOn, effectiveProfile, ktoolsAffcCyclCd, effectiveSeries, effectiveCalDates, peer, analysis])
+
+  // Prescription (the conclusion: when / why / where)
+  const prescription = useMemo<Prescription>(
+    () => buildPrescription(analysis, effectiveSeries),
+    [analysis, effectiveSeries],
+  )
+
+  // Evidence section: collapsed by default (presentation shows the prescription)
+  const [showEvidence, setShowEvidence] = useState(false)
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 max-w-4xl">
       {/* ════════════════════════════════════════════════════════ */}
-      {/* 결정 영역 (Decision)                                       */}
+      {/* PRESCRIPTION — the conclusion (when / why / where)         */}
       {/* ════════════════════════════════════════════════════════ */}
       <section>
-        <SectionHeader
-          icon="decision"
-          title="권고 결정"
-          subtitle="5단계 분석 종합 결과"
-        />
-        <FinalRecommendationCard
-          analysis={analysis}
-          loading={profileLoading}
-          summaryMessage={summaryMessage}
-        />
+        <PrescriptionCard rx={prescription} analysis={analysis} loading={profileLoading} />
       </section>
 
       {/* ════════════════════════════════════════════════════════ */}
-      {/* 근거 영역 (Evidence)                                       */}
+      {/* Evidence — collapsed; the "how we got here"                */}
       {/* ════════════════════════════════════════════════════════ */}
       <section>
-        <SectionHeader
-          icon="evidence"
-          title="분석 근거"
-          subtitle="각 단계의 데이터와 산출 과정"
-        />
+        <button
+          onClick={() => setShowEvidence(v => !v)}
+          className="w-full flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+        >
+          <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+          <span className="text-xs font-semibold text-slate-700 flex-1 text-left">How we got here — 5-step analysis</span>
+          <span className="text-[10px] text-slate-400">{showEvidence ? 'hide' : 'show'}</span>
+          <svg className={`w-4 h-4 text-slate-400 transition-transform ${showEvidence ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
 
-        <div className="space-y-3">
+        {showEvidence && (
+        <div className="space-y-1.5 mt-2">
           <StepCard
             number={1}
-            title="기준 주기"
-            subtitle="제조사 권장 → k-tools 등록 → 기본 가정 순"
+            title="Baseline"
+            signal={signalBaseline(analysis.step1.data)}
             adjustment={analysis.step1.adjustment}
             isBase={true}
             baseMonths={analysis.step1.data.baseMonths}
-            reasons={analysis.step1.reasons}
-            warnings={analysis.step1.warnings}
             confidence={analysis.step1.confidence}
           >
             <BaselineDetails data={analysis.step1.data} loading={profileLoading} error={profileError} />
@@ -133,218 +198,288 @@ export default function TabCycleAnalysis({
 
           <StepCard
             number={2}
-            title="측정 드리프트"
-            subtitle="이 장비 고유의 연차별 변화 추세"
+            title="Drift"
+            signal={signalDrift(analysis.step2.data)}
             adjustment={analysis.step2.adjustment}
-            reasons={analysis.step2.reasons}
-            warnings={analysis.step2.warnings}
             confidence={analysis.step2.confidence}
           >
-            <TrendDriftDetails data={analysis.step2.data} />
+            <TrendDriftDetails data={analysis.step2.data} series={effectiveSeries} baseMonths={analysis.step1.data.baseMonths} finalMonths={analysis.step5.data.finalMonths} />
           </StepCard>
 
           <StepCard
             number={3}
-            title="측정 불확도 위험"
-            subtitle="Guard Band 분포 + U/T 비율"
+            title="Uncertainty"
+            signal={signalUncertainty(analysis.step3.data)}
             adjustment={analysis.step3.adjustment}
-            reasons={analysis.step3.reasons}
-            warnings={analysis.step3.warnings}
             confidence={analysis.step3.confidence}
           >
             <UncertaintyRiskDetails data={analysis.step3.data} />
           </StepCard>
 
-          <StepCard
-            number={4}
-            title="사용 컨텍스트"
-            subtitle="사용빈도 / 환경 / 안전등급 (담당자 입력)"
-            adjustment={0}
-            reasons={[]}
-            warnings={[]}
-            confidence="low"
-            placeholder
-          />
+          {analysis.step4 && (
+            <StepCard
+              number={4}
+              title="Peer fleet"
+              signal={signalPeer(analysis.step4.data)}
+              adjustment={analysis.step4.adjustment}
+              reference={true}
+              confidence={analysis.step4.confidence}
+            >
+              <PeerErrorChart bands={peerBands} position={analysis.step4.data.position} />
+            </StepCard>
+          )}
 
           <StepCard
             number={5}
-            title="최종 결정"
-            subtitle="1~4단계 종합 + 가드레일 적용"
+            title="Final"
+            signal={signalFinal(analysis)}
             adjustment={analysis.step5.adjustment}
             isFinal={true}
-            reasons={analysis.step5.reasons}
-            warnings={analysis.step5.warnings}
+            baseMonths={analysis.step1.data.baseMonths}
             confidence={analysis.step5.confidence}
           >
             <FinalBreakdown analysis={analysis} />
           </StepCard>
         </div>
+        )}
       </section>
 
       {/* ════════════════════════════════════════════════════════ */}
-      {/* AI 종합 평가 (Placeholder)                                  */}
+      {/* Interim Check Simulation (Future Work — kiosk)             */}
       {/* ════════════════════════════════════════════════════════ */}
       <section>
-        <SectionHeader
-          icon="ai"
-          title="AI 종합 평가"
-          subtitle="다음 단계에서 추가"
-          muted
-        />
-        <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-5">
-          <p className="text-xs text-slate-400 leading-relaxed">
-            5단계 결과를 LLM에 보내 자연어 종합 평가 + 돌발 상황 판단을 받습니다.
-            <br />
-            예: <span className="italic">&ldquo;제조사 권장 주기와 일치하며 측정 추세도 안정적입니다. 현행 유지를 권고합니다.&rdquo;</span>
-          </p>
-        </div>
-      </section>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────
-// 최종 권고 카드 (상단)
-// ─────────────────────────────────────────────────────────────────
-
-function FinalRecommendationCard({
-  analysis,
-  loading,
-  summaryMessage,
-}: {
-  analysis: CycleAnalysisResult
-  loading: boolean
-  summaryMessage: string
-}) {
-  const final = analysis.step5.data
-  const directionColor =
-    final.direction === 'shorten' ? 'text-rose-700 bg-rose-50 border-rose-300' :
-    final.direction === 'extend' ? 'text-emerald-700 bg-emerald-50 border-emerald-300' :
-    'text-slate-700 bg-slate-50 border-slate-300'
-  const directionLabel =
-    final.direction === 'shorten' ? '단축 권고' :
-    final.direction === 'extend' ? '연장 검토' :
-    '현행 유지'
-
-  const confLabel = final.confidence === 'high' ? '높음' : final.confidence === 'medium' ? '보통' : '낮음'
-  const confColor =
-    final.confidence === 'high' ? 'text-emerald-700 bg-emerald-100' :
-    final.confidence === 'medium' ? 'text-amber-700 bg-amber-100' :
-    'text-slate-600 bg-slate-100'
-
-  return (
-    <div className="bg-gradient-to-br from-blue-50 via-white to-white border-2 border-blue-300 rounded-2xl shadow-md overflow-hidden">
-      {/* 상단: 권고 주기 큰 표시 + 방향 배지 */}
-      <div className="px-6 pt-6 pb-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-[10px] text-blue-600/70 font-bold uppercase tracking-widest mb-1">RECOMMENDED CYCLE</div>
-            <div className="flex items-baseline gap-3">
-              {loading ? (
-                <span className="h-14 w-32 bg-slate-100 rounded animate-pulse" />
-              ) : (
-                <>
-                  <span className="text-6xl font-bold text-blue-700 leading-none">{final.finalMonths}</span>
-                  <span className="text-2xl text-slate-500 font-medium">개월</span>
-                </>
-              )}
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-800">Interim Check Simulation</h3>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 uppercase tracking-wide">Future Work</span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                What happens to the prediction once kiosk-based interim check data flows in
+              </p>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold border-2 ${directionColor}`}>
-              {final.direction === 'shorten' && '↓'}
-              {final.direction === 'extend' && '↑'}
-              {final.direction === 'maintain' && '='}
-              {directionLabel}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wide">신뢰도</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${confColor}`}>{confLabel}</span>
-            </div>
-          </div>
+          {/* Toggle */}
+          <button
+            onClick={() => setInterimOn(v => !v)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+              interimOn ? 'bg-purple-600' : 'bg-slate-300'
+            }`}
+            aria-label="Toggle interim check simulation"
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              interimOn ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
         </div>
 
-        {/* 한 줄 요약 메시지 */}
-        {!loading && (
-          <div className="mt-4 pt-4 border-t border-blue-100">
-            <p className="text-sm text-slate-700 leading-relaxed">
-              <span className="text-blue-500 mr-1">💬</span>
-              {summaryMessage}
+        {interimOn && interimSim ? (
+          <InterimSimulationView sim={interimSim} />
+        ) : (
+          <div className="bg-purple-50/40 border border-dashed border-purple-200 rounded-xl p-5">
+            <p className="text-xs text-slate-500 leading-relaxed">
+              <span className="text-purple-500 mr-1">🔮</span>
+              Today, prediction relies on annual calibration records and peer-fleet data.
+              In the future, a low-cost, high-frequency <span className="font-semibold text-purple-700">interim check kiosk</span> will
+              fill the gaps between formal calibrations — letting us catch drift months earlier.
+              <br />
+              <span className="text-purple-600 font-medium">Turn on the switch to simulate how the prediction sharpens once this data arrives.</span>
             </p>
           </div>
         )}
-      </div>
-
-      {/* 하단: 계산 요약 (기준 + 조정 = 권고) */}
-      <div className="bg-white/70 border-t border-blue-100 px-6 py-3">
-        <div className="flex items-center justify-center gap-3 text-sm">
-          <span className="text-slate-400 text-[10px] uppercase tracking-wide mr-1">계산</span>
-          <CalcChip label="기준" value={`${final.breakdown.base}`} />
-          <span className="text-slate-300">+</span>
-          <CalcChip
-            label="조정"
-            value={`${analysis.step5.adjustment > 0 ? '+' : ''}${analysis.step5.adjustment}`}
-            tone={analysis.step5.adjustment < 0 ? 'rose' : analysis.step5.adjustment > 0 ? 'emerald' : 'slate'}
-          />
-          <span className="text-slate-300">=</span>
-          <CalcChip label="권고" value={`${final.finalMonths}`} primary />
-        </div>
-      </div>
-
-      {final.guardrail.clamped && (
-        <div className="mx-6 mb-5 px-3 py-2 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-700 flex items-start gap-2">
-          <span className="mt-0.5">⚠</span>
-          <span>가드레일 적용: {final.guardrail.minMonths}~{final.guardrail.maxMonths}개월 범위로 제한 (원본 합계 {final.breakdown.sum}개월)</span>
-        </div>
-      )}
+      </section>
     </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 단계 카드 (공통)
+// Prescription card — the conclusion (when / why / where)
+// ─────────────────────────────────────────────────────────────────
+
+function PrescriptionCard({
+  rx,
+  analysis,
+  loading,
+}: {
+  rx: Prescription
+  analysis: CycleAnalysisResult
+  loading: boolean
+}) {
+  const final = analysis.step5.data
+  const shorten = final.direction === 'shorten'
+  const dateStr = rx.recalibrateByDate ?? '—'
+
+  return (
+    <div className="border-2 border-blue-300 rounded-xl shadow-sm overflow-hidden bg-white">
+      {/* ── WHEN: recalibrate-by date ── */}
+      <div className="bg-gradient-to-br from-blue-600 to-blue-700 px-5 py-4 text-white">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-blue-100 mb-1 flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              RECALIBRATE BY
+            </div>
+            {loading ? (
+              <span className="inline-block h-9 w-48 bg-blue-400/40 rounded animate-pulse" />
+            ) : (
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl font-bold leading-none">{dateStr}</span>
+                <span className="text-sm text-blue-100">
+                  {rx.recalibrateByMonths}-month cycle
+                  {shorten && rx.monthsEarlierThanSpec > 0 && (
+                    <span className="ml-1.5 text-amber-200 font-semibold">· {rx.monthsEarlierThanSpec} mo earlier than spec</span>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+          {shorten && (
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-400 text-amber-900 flex-shrink-0">
+              ↓ Shorten
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── WHY: driver + ISO basis ── */}
+      {rx.driver && (
+        <div className="px-5 py-3 border-b border-slate-100 bg-amber-50/40">
+          <div className="flex items-start gap-2">
+            <span className="text-amber-500 mt-0.5 flex-shrink-0">⚠</span>
+            <p className="text-xs text-slate-700 leading-relaxed">
+              At the current drift, <span className="font-bold text-rose-700">{rx.driver.label}</span> is
+              projected to cross the guard-banded conformance limit
+              {rx.driver.monthsToGuardBandLimit != null && (
+                <> in <span className="font-bold">~{rx.driver.monthsToGuardBandLimit} months</span></>
+              )}
+              {' '}(|error| + U &gt; tolerance) — before the {final.breakdown.base}-month spec interval.
+              <span className="block mt-1 text-[10px] text-slate-400">
+                Basis: KOLAS-G-008 (calibration interval) · ISO 10012 §7.1.2 (interval review) · §7.3.1 (uncertainty) · ILAC-G8 (guard banding)
+              </span>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── WHERE: focus points ── */}
+      <div className="px-5 py-3.5">
+        <div className="flex items-center gap-2 mb-2.5">
+          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Focus at next calibration</h3>
+          <span className="text-[10px] text-slate-400">
+            {rx.criticalCount} critical · {rx.watchCount} watch · {rx.nominalCount} nominal
+          </span>
+        </div>
+
+        <div className="space-y-1.5">
+          {rx.focusPoints.filter(p => p.level !== 'nominal').map((p, i) => (
+            <FocusRow key={i} point={p} />
+          ))}
+          {/* nominal collapsed into one line */}
+          {rx.nominalCount > 0 && (
+            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 rounded text-[11px]">
+              <span className="text-emerald-500">✓</span>
+              <span className="text-slate-500">
+                {rx.nominalCount} other point(s) nominal — standard procedure
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Recommended points */}
+        <div className="mt-3 pt-3 border-t border-slate-100">
+          <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-1.5">Recommended calibration points <span className="text-slate-300 normal-case">(densified near risk zone)</span></div>
+          <div className="flex flex-wrap gap-1.5">
+            {rx.recommendedPoints.map((pt, i) => {
+              const isCritical = rx.focusPoints.some(f => f.level === 'critical' && f.label === pt)
+              const isNew = !rx.focusPoints.some(f => f.label === pt)  // 세분화로 새로 추가된 포인트
+              return (
+                <span
+                  key={i}
+                  className={`text-[11px] px-2 py-0.5 rounded border font-medium ${
+                    isCritical ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                    isNew ? 'bg-blue-50 text-blue-700 border-blue-200 border-dashed' :
+                    'bg-white text-slate-600 border-slate-200'
+                  }`}
+                >
+                  {pt}{isNew && ' +'}
+                </span>
+              )
+            })}
+          </div>
+          <div className="mt-1.5 text-[9px] text-slate-400">
+            <span className="text-blue-600">+</span> = added point to densify coverage around the risk zone
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FocusRow({ point }: { point: Prescription['focusPoints'][number] }) {
+  const isCritical = point.level === 'critical'
+  const style = isCritical
+    ? { dot: 'bg-rose-500', badge: 'bg-rose-100 text-rose-700', label: 'CRITICAL' }
+    : { dot: 'bg-amber-400', badge: 'bg-amber-100 text-amber-700', label: 'WATCH' }
+  return (
+    <div className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border ${isCritical ? 'bg-rose-50/50 border-rose-200' : 'bg-amber-50/40 border-amber-100'}`}>
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot}`} />
+      <span className="text-sm font-bold text-slate-800 w-24 flex-shrink-0">{point.label}</span>
+      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${style.badge}`}>{style.label}</span>
+      <span className="text-xs text-slate-600 flex-1 min-w-0 truncate">{point.note}</span>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Step card (shared)
 // ─────────────────────────────────────────────────────────────────
 
 interface StepCardProps {
   number: number
   title: string
-  subtitle: string
+  signal: string                 // 영어 한 줄 핵심 신호 (접힌 줄에 표시)
   adjustment: number
   isBase?: boolean
   isFinal?: boolean
+  reference?: boolean            // 참고용 단계 — 주기 결정에 영향 X. 조정값 대신 "ref" 표시
   baseMonths?: number
-  reasons: string[]
-  warnings: string[]
   confidence: 'high' | 'medium' | 'low'
   placeholder?: boolean
   children?: React.ReactNode
 }
 
-function StepCard({ number, title, subtitle, adjustment, isBase, isFinal, baseMonths, reasons, warnings, confidence, placeholder, children }: StepCardProps) {
-  // 기본 펼침: 1단계(기준), 5단계(최종)는 자동 펼침. placeholder는 접힘.
-  const [expanded, setExpanded] = useState(!placeholder && (isBase || isFinal))
+function StepCard({ number, title, signal, adjustment, isBase, isFinal, reference, baseMonths, confidence, placeholder, children }: StepCardProps) {
+  // Compact for presentation: everything collapsed by default. Click to drill down.
+  const [expanded, setExpanded] = useState(false)
 
-  const valueColor = placeholder ? 'text-slate-300' : adjustment < 0 ? 'text-rose-600' : adjustment > 0 ? 'text-emerald-600' : 'text-slate-700'
+  const valueColor = placeholder ? 'text-slate-300' : reference ? 'text-slate-400' : adjustment < 0 ? 'text-rose-600' : adjustment > 0 ? 'text-emerald-600' : 'text-slate-700'
   const valueText = isBase
-    ? `${baseMonths ?? 0}개월`
+    ? `${baseMonths ?? 0} mo`
     : isFinal
-    ? `${(baseMonths ?? 0) + adjustment}개월`
+    ? `${(baseMonths ?? 0) + adjustment} mo`
+    : reference
+    ? 'ref'
     : placeholder
     ? '—'
-    : `${adjustment > 0 ? '+' : ''}${adjustment}개월`
+    : `${adjustment > 0 ? '+' : ''}${adjustment} mo`
 
   const borderClass = placeholder ? 'border-slate-100' : isFinal ? 'border-blue-300 shadow-sm' : isBase ? 'border-blue-200' : 'border-slate-200'
   const bgClass = placeholder ? 'bg-slate-50/40' : 'bg-white'
 
   return (
-    <div className={`${bgClass} border ${borderClass} rounded-xl overflow-hidden transition-all`}>
+    <div className={`${bgClass} border ${borderClass} rounded-lg overflow-hidden transition-all`}>
       <button
         onClick={() => setExpanded(v => !v)}
-        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left ${
+        className={`w-full flex items-center gap-2.5 px-3 py-2 transition-colors text-left ${
           placeholder ? 'hover:bg-slate-100/50' : 'hover:bg-slate-50'
         }`}
       >
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
           placeholder ? 'bg-slate-100 text-slate-400' :
           isFinal ? 'bg-blue-600 text-white' :
           isBase ? 'bg-blue-100 text-blue-700' :
@@ -352,60 +487,29 @@ function StepCard({ number, title, subtitle, adjustment, isBase, isFinal, baseMo
         }`}>
           {number}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-sm font-semibold ${placeholder ? 'text-slate-400' : 'text-slate-800'}`}>{title}</span>
-            {!placeholder && (
-              <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${
-                confidence === 'high' ? 'bg-emerald-100 text-emerald-700' :
-                confidence === 'medium' ? 'bg-amber-100 text-amber-700' :
-                'bg-slate-100 text-slate-500'
-              }`}>
-                신뢰도 {confidence === 'high' ? '높음' : confidence === 'medium' ? '보통' : '낮음'}
-              </span>
-            )}
-            {placeholder && (
-              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-400">미구현</span>
-            )}
-          </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <div className={`text-sm font-bold ${valueColor}`}>{valueText}</div>
-        </div>
-        <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* title (fixed width) */}
+        <span className={`text-xs font-semibold w-28 flex-shrink-0 ${placeholder ? 'text-slate-400' : 'text-slate-800'}`}>{title}</span>
+        {/* signal (one-line, fills space) */}
+        <span className="text-[11px] text-slate-500 flex-1 min-w-0 truncate">{signal}</span>
+        {/* confidence dot */}
+        {!placeholder && (
+          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+            confidence === 'high' ? 'bg-emerald-400' :
+            confidence === 'medium' ? 'bg-amber-400' :
+            'bg-slate-300'
+          }`} title={`${confidence} confidence`} />
+        )}
+        {/* adjustment value */}
+        <div className={`text-xs font-bold w-12 text-right flex-shrink-0 ${valueColor}`}>{valueText}</div>
+        <svg className={`w-3.5 h-3.5 text-slate-300 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
-      {expanded && (
+      {/* Drill-down detail (English only) — collapsed by default for presentation */}
+      {expanded && children && (
         <div className="px-4 pb-4 border-t border-slate-100 bg-slate-50/30">
-          {/* 근거 배지 */}
-          {reasons.length > 0 && (
-            <div className="mt-3 space-y-1.5">
-              {reasons.map((r, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs text-slate-600">
-                  <span className="text-slate-400 mt-0.5">•</span>
-                  <span>{r}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 경고 */}
-          {warnings.length > 0 && (
-            <div className="mt-3 space-y-1.5">
-              {warnings.map((w, i) => (
-                <div key={i} className="flex items-start gap-2 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
-                  <span className="text-amber-500 mt-0.5">⚠</span>
-                  <span>{w}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 단계별 상세 */}
-          {children && <div className="mt-4 pt-4 border-t border-slate-100">{children}</div>}
+          <div className="mt-4">{children}</div>
         </div>
       )}
     </div>
@@ -413,66 +517,55 @@ function StepCard({ number, title, subtitle, adjustment, isBase, isFinal, baseMo
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 1단계 상세 (Baseline)
+// Step 1 detail (Baseline)
 // ─────────────────────────────────────────────────────────────────
 
 function BaselineDetails({ data, loading, error }: { data: BaselineData; loading: boolean; error: string | null }) {
   if (loading) {
-    return <p className="text-xs text-slate-400">사양서 조회 중…</p>
+    return <p className="text-xs text-slate-400">Loading specification…</p>
   }
   if (error) {
     return <p className="text-xs text-rose-500">{error}</p>
   }
 
-  // 출처 표시 (어디서 가져왔는지 시각화)
   const sourceFlow: { label: string; active: boolean; ok: boolean }[] = [
     {
-      label: '제조사 권장',
+      label: 'Manufacturer spec',
       active: data.source === 'profile_recommended',
       ok: data.rawProfileValue != null,
     },
     {
-      label: 'k-tools 등록',
+      label: 'k-tools registry',
       active: data.source === 'ktools_registered',
       ok: data.rawKtoolsValue != null,
     },
     {
-      label: '기본 가정',
+      label: 'Default',
       active: data.source === 'default_fallback',
-      ok: true, // fallback은 항상 가능
+      ok: true,
     },
   ]
 
   return (
     <div className="space-y-4">
-      {/* ─── 상단: 큰 메트릭 박스 ─── */}
+      {/* Top metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <MetricBox label="Baseline" value={`${data.baseMonths}`} unit="mo" primary />
+        <MetricBox label="Source" value={baselineSourceLabel(data.source)} unit="" textValue />
         <MetricBox
-          label="기준 주기"
-          value={`${data.baseMonths}`}
-          unit="개월"
-          primary
-        />
-        <MetricBox
-          label="출처"
-          value={data.sourceLabel}
-          unit=""
-          textValue
-        />
-        <MetricBox
-          label="장비군"
-          value={data.profileCategory ?? '미등록'}
+          label="Category"
+          value={data.profileCategory ?? 'N/A'}
           unit=""
           textValue
           muted={!data.profileCategory}
         />
       </div>
 
-      {/* ─── 출처 우선순위 흐름 ─── */}
+      {/* Source priority flow */}
       <div>
         <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-          <span>출처 우선순위</span>
-          <span className="text-slate-300">(왼쪽일수록 신뢰도 높음)</span>
+          <span>Source priority</span>
+          <span className="text-slate-300">(leftmost = most reliable · per KOLAS-G-008)</span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {sourceFlow.map((s, i) => (
@@ -495,24 +588,24 @@ function BaselineDetails({ data, loading, error }: { data: BaselineData; loading
         </div>
       </div>
 
-      {/* ─── 데이터 그리드 ─── */}
+      {/* Data grid */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs bg-slate-50 rounded-lg p-3">
         {data.rawProfileValue ? (
-          <DataPair label="제조사 권장값" value={data.rawProfileValue} positive />
+          <DataPair label="Manufacturer value" value={data.rawProfileValue} positive />
         ) : (
-          <DataPair label="제조사 권장값" value="—" />
+          <DataPair label="Manufacturer value" value="—" />
         )}
         {data.rawKtoolsValue ? (
-          <DataPair label="k-tools 등록값" value={`${data.rawKtoolsValue}개월`} positive />
+          <DataPair label="k-tools value" value={`${data.rawKtoolsValue} mo`} positive />
         ) : (
-          <DataPair label="k-tools 등록값" value="—" />
+          <DataPair label="k-tools value" value="—" />
         )}
       </div>
 
-      {/* ─── 적용 표준 ─── */}
+      {/* Standards */}
       {data.profileStandards.length > 0 && (
         <div>
-          <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-1.5">적용 표준</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-1.5">Applied standards</div>
           <div className="flex flex-wrap gap-1.5">
             {data.profileStandards.map((s, i) => (
               <span key={i} className="text-[11px] px-2 py-1 bg-blue-50 text-blue-700 rounded-md border border-blue-200 font-medium">
@@ -526,19 +619,26 @@ function BaselineDetails({ data, loading, error }: { data: BaselineData; loading
   )
 }
 
+function baselineSourceLabel(source: BaselineData['source']): string {
+  switch (source) {
+    case 'profile_recommended': return 'Manufacturer spec'
+    case 'ktools_registered': return 'k-tools registry'
+    case 'default_fallback': return 'Default assumption'
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────
-// 2단계 상세 (Trend Drift)
+// Step 2 detail (Trend Drift)
 // ─────────────────────────────────────────────────────────────────
 
-function TrendDriftDetails({ data }: { data: TrendDriftData }) {
-  // 데이터 부족 (3회 미만 이력)
+function TrendDriftDetails({ data, series, baseMonths, finalMonths }: { data: TrendDriftData; series: TrendSeries[]; baseMonths: number; finalMonths: number }) {
   if (!data.dataQuality.enoughHistory) {
     return (
       <div className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
-        <div className="font-medium text-amber-700 mb-1">📊 데이터 부족</div>
+        <div className="font-medium text-amber-700 mb-1">📊 Insufficient data</div>
         <p>
-          최대 시계열 길이 {data.dataQuality.historyLength}회. 추세 분석은 최소 3회 이력이 있어야 신뢰할 수 있습니다.
-          다음 교정 완료 후 재평가를 권장합니다.
+          Longest series is {data.dataQuality.historyLength} record(s). Trend analysis needs at least 3 records to be reliable.
+          Re-evaluation after the next calibration is recommended.
         </p>
       </div>
     )
@@ -546,38 +646,18 @@ function TrendDriftDetails({ data }: { data: TrendDriftData }) {
 
   return (
     <div className="space-y-4">
-      {/* 요약 메트릭 박스 */}
+      {/* Summary metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <RiskMetricBox
-          label="긴급"
-          count={data.summary.urgentPointCount}
-          total={data.points.length}
-          tone="rose"
-        />
-        <RiskMetricBox
-          label="주의"
-          count={data.summary.watchPointCount}
-          total={data.points.length}
-          tone="amber"
-        />
-        <RiskMetricBox
-          label="안정"
-          count={data.summary.safePointCount}
-          total={data.points.length}
-          tone="emerald"
-        />
-        <RiskMetricBox
-          label="가속 진행"
-          count={data.summary.acceleratingCount}
-          total={data.points.length}
-          tone="purple"
-        />
+        <RiskMetricBox label="Urgent" count={data.summary.urgentPointCount} total={data.points.length} tone="rose" />
+        <RiskMetricBox label="Watch" count={data.summary.watchPointCount} total={data.points.length} tone="amber" />
+        <RiskMetricBox label="Safe" count={data.summary.safePointCount} total={data.points.length} tone="emerald" />
+        <RiskMetricBox label="Accelerating" count={data.summary.acceleratingCount} total={data.points.length} tone="purple" />
       </div>
 
-      {/* 최대 한계 사용률 */}
+      {/* Max usage ratio */}
       {data.summary.maxLatestRatio != null && (
         <div className="bg-slate-50 rounded-lg p-3">
-          <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">최신 한계 사용률 (전 포인트 중 최댓값)</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Latest tolerance usage (max across points)</div>
           <div className="flex items-center gap-3">
             <span className="text-lg font-bold text-slate-700">{data.summary.maxLatestRatio.toFixed(1)}%</span>
             <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -591,22 +671,413 @@ function TrendDriftDetails({ data }: { data: TrendDriftData }) {
                 style={{ width: `${Math.min(100, data.summary.maxLatestRatio)}%` }}
               />
             </div>
-            <div className="text-[10px] text-slate-400 w-12 text-right">80% / 95%</div>
+            <div className="text-[10px] text-slate-400 w-12 text-right">80 / 95</div>
           </div>
         </div>
       )}
 
-      {/* 포인트별 상세 */}
-      <div>
-        <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">포인트별 추세 ({data.points.length}개)</div>
-        <div className="space-y-2">
-          {data.points.map((p, i) => (
-            <PointDriftRow key={i} point={p} />
-          ))}
+      {/* Error forecast — the key picture: trend → prediction → limit-crossing → shorten */}
+      <DriftForecastSection data={data} series={series} baseMonths={baseMonths} finalMonths={finalMonths} />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Drift forecast section — pick a measurement point (tabs), then show
+// its measured-past + AI-predicted-future error against the tolerance
+// limit. Proves "wait the full spec interval and you'll exceed → shorten".
+// ─────────────────────────────────────────────────────────────────
+
+function DriftForecastSection({
+  data,
+  series,
+  baseMonths,
+  finalMonths,
+}: {
+  data: TrendDriftData
+  series: TrendSeries[]
+  baseMonths: number
+  finalMonths: number
+}) {
+  // 차트 가능한 포인트 = 실측 2회 이상. 위험도 순(urgent→watch→safe)으로 탭 정렬.
+  const seriesByLabel = useMemo(() => new Map(series.map(s => [s.label, s])), [series])
+  const selectable = useMemo(() => {
+    const rank = (r: string) => (r === 'urgent' ? 0 : r === 'watch' ? 1 : 2)
+    return [...data.points]
+      .filter(p => {
+        const s = seriesByLabel.get(p.label)
+        return s != null && s.points.filter(pt => pt.오차 != null).length >= 2
+      })
+      .sort((a, b) => rank(a.riskLevel) - rank(b.riskLevel) || (b.latestRatio ?? 0) - (a.latestRatio ?? 0))
+  }, [data.points, seriesByLabel])
+
+  const [activeLabel, setActiveLabel] = useState<string | null>(null)
+  const active = activeLabel ?? selectable[0]?.label ?? null
+
+  const horizonMonths = Math.max(baseMonths + 12, 24)
+  const forecast = useMemo<ErrorForecast | null>(() => {
+    if (!active) return null
+    const s = seriesByLabel.get(active)
+    if (!s) return null
+    return buildErrorForecast(s, horizonMonths, baseMonths)
+  }, [active, seriesByLabel, horizonMonths, baseMonths])
+
+  if (selectable.length === 0 || !forecast) {
+    return (
+      <div className="text-xs text-slate-400 text-center py-3">Not enough calibration history to forecast.</div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">
+        Error trend & limit-crossing forecast — select a measurement point
+      </div>
+
+      {/* point tabs (risk-ordered) */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {selectable.map(p => {
+          const on = p.label === active
+          const tone =
+            p.riskLevel === 'urgent' ? (on ? 'bg-rose-600 text-white border-rose-600' : 'bg-rose-50 text-rose-700 border-rose-200') :
+            p.riskLevel === 'watch' ? (on ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 text-amber-700 border-amber-200') :
+            (on ? 'bg-slate-600 text-white border-slate-600' : 'bg-white text-slate-600 border-slate-200')
+          return (
+            <button
+              key={p.label}
+              onClick={() => setActiveLabel(p.label)}
+              className={`text-[11px] font-medium px-2.5 py-1 rounded-md border transition-colors ${tone}`}
+            >
+              {p.riskLevel === 'urgent' && <span className="mr-1">●</span>}
+              {p.riskLevel === 'watch' && <span className="mr-1">●</span>}
+              {p.label}
+              <span className="ml-1 opacity-70">{p.latestRatio != null ? `${p.latestRatio.toFixed(0)}%` : ''}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <ErrorForecastChart forecast={forecast} baseMonths={baseMonths} finalMonths={finalMonths} />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Drift trend chart — every measurement point's tolerance-usage history
+// on ONE chart. X = calibration #, Y = % of tolerance used.
+// Risk points are drawn bold; safe points fade into the background.
+// The 80% / 95% lines are the "approaching the limit" thresholds.
+// ─────────────────────────────────────────────────────────────────
+
+function ErrorForecastChart({
+  forecast,
+  baseMonths,
+  finalMonths,
+}: {
+  forecast: ErrorForecast
+  baseMonths: number
+  finalMonths: number
+}) {
+  const { points, tolerance: tol, nowDate, crossing } = forecast
+  const measured = points.filter(p => p.measured)
+  const predicted = points.filter(p => !p.measured)
+  if (measured.length < 2) {
+    return <div className="text-xs text-slate-400 text-center py-3">Not enough history to forecast.</div>
+  }
+
+  const W = 620, H = 262
+  const padL = 44, padR = 26, padT = 40, padB = 34
+  const plotW = W - padL - padR
+  const plotH = H - padT - padB
+
+  // ── 시간축 4기준점 (직전 교정일 / 오늘 / 권장 교정일 / 차기(spec) 교정일) ──
+  // 직전 교정일 = 마지막 실측일. 차기(spec) = 직전 + baseMonths(원래 1년 term).
+  // 권장 교정일 = tolerance+U 초과(crossing) 시점 — 없으면(안 넘으면) spec과 동일.
+  const lastCalDate = nowDate
+  const recDate = crossing.best ?? null      // 권장 = 초과 시점
+  const recMonths = crossing.bestMonths       // 직전 교정일로부터 개월
+  // X = yearFrac (0 = first calibration). 끝은 마지막 예측점.
+  const xMin = 0
+  const xMax = points[points.length - 1].yearFrac || 1
+  const xSpan = xMax - xMin || 1
+  const sx = (yf: number) => padL + ((yf - xMin) / xSpan) * plotW
+
+  // Y = error(%). ±tol 한계선이 항상 같은 비율로(대칭) 보이도록 0 중심 대칭 범위.
+  //   예측 CI/측정점이 ±tol 을 넘어가면 그만큼 더 키운다(그래도 0 대칭 유지).
+  const yReach = Math.max(
+    tol * 1.25,
+    ...points.map(p => Math.abs(p.error)),
+    ...predicted.map(p => Math.abs(p.ciHigh95)), ...predicted.map(p => Math.abs(p.ciLow95)),
+    ...measured.map(p => Math.abs(p.error) + (p.u ?? 0)),
+  )
+  const yMax = yReach
+  const yMin = -yReach
+  const ySpan = (yMax - yMin) || 1
+  const sy = (e: number) => padT + (1 - (e - yMin) / ySpan) * plotH
+
+  // 부호 방향(오차가 커지는 쪽)의 tolerance 선이 "위험 한계"
+  const limitSign = (measured[measured.length - 1].error >= 0) ? 1 : -1
+  const yLimit = sy(limitSign * tol)   // crossing 마커가 닿는 위험 방향 한계선
+
+  // x 좌표: NOW 및 crossing 날짜를 yearFrac으로
+  const baseDate = measured[0].date
+  const yfOf = (date: string) => {
+    const [ay, am] = baseDate.split('-').map(Number)
+    const [by, bm] = date.split('-').map(Number)
+    return (by - ay) + ((bm || 1) - (am || 1)) / 12
+  }
+  const nowYf = measured[measured.length - 1].yearFrac
+  // 4기준점의 x좌표
+  const xLastCal = sx(nowYf)                                   // ① 직전 교정일 (term 시작)
+  const xToday = sx(nowYf + 0.5 / 12)                          // ② 오늘 (직전+약 2주, 데모상 거의 같음)
+  const xDueSpec = sx(nowYf + baseMonths / 12)                 // ④ 차기(spec) 교정일 = 직전 + 1년
+  const xCross = recDate ? sx(yfOf(recDate)) : null            // ③ 권장 교정일 = 초과 시점
+  const recWithinSpec = recMonths != null && recMonths < baseMonths
+
+  // year ticks
+  const yearTicks: { x: number; label: string }[] = []
+  {
+    const startY = Number(baseDate.slice(0, 4))
+    const endY = Number(points[points.length - 1].date.slice(0, 4))
+    for (let y = startY; y <= endY; y++) yearTicks.push({ x: sx(y - startY), label: String(y) })
+  }
+
+  // ── single least-squares regression line (Excel-style trendline) ──
+  // error(t) = slope·t + intercept  (t = years from first calibration).
+  // Past segment (first measurement → NOW) solid; future (NOW → horizon) dashed.
+  const lastMeasured = measured[measured.length - 1]
+  const regErr = (yf: number) => forecast.fit.slopePerYear * yf + forecast.fit.intercept
+  const xFirst = measured[0].yearFrac
+  const xNowYf = lastMeasured.yearFrac
+  const xLast = points[points.length - 1].yearFrac
+  // 과거 구간 직선 (실선)
+  const regPastLine = `${sx(xFirst).toFixed(1)},${sy(regErr(xFirst)).toFixed(1)} ${sx(xNowYf).toFixed(1)},${sy(regErr(xNowYf)).toFixed(1)}`
+  // 미래 구간 직선 (점선)
+  const regFutureLine = `${sx(xNowYf).toFixed(1)},${sy(regErr(xNowYf)).toFixed(1)} ${sx(xLast).toFixed(1)},${sy(regErr(xLast)).toFixed(1)}`
+
+  // 불확도 밴드(고정폭 ±U) — 예측 구간에서 예측선을 ±U 로 평행하게 감싼다(부채꼴 X).
+  //   각 예측점의 ciHigh/Low 가 이미 yhat±U 로 채워져 있으므로 그대로 띠를 만든다.
+  const uBand = forecast.guardBandU
+  const bandSeq = [{ ...lastMeasured, ciHigh95: regErr(xNowYf) + uBand, ciLow95: regErr(xNowYf) - uBand }, ...predicted]
+  const uBandPoly = [
+    ...bandSeq.map(p => `${sx(p.yearFrac).toFixed(1)},${sy(p.ciHigh95).toFixed(1)}`),
+    ...[...bandSeq].reverse().map(p => `${sx(p.yearFrac).toFixed(1)},${sy(p.ciLow95).toFixed(1)}`),
+  ].join(' ')
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg p-3">
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="text-xs font-bold text-slate-700">
+          Error trend at <span className="text-blue-700">{forecast.label}</span> — measured &amp; linear-regression forecast
         </div>
+        {/* regression equation summary (y = a·t + b, with R² · n) */}
+        <div className="flex-shrink-0 text-right">
+          {forecast.fit.significant ? (
+            <div className="text-xs text-slate-500 leading-snug">
+              <span className="font-mono font-semibold text-[#ea580c]">
+                y = {forecast.fit.slopePerYear.toFixed(2)}·t {forecast.fit.intercept >= 0 ? '+' : '−'} {Math.abs(forecast.fit.intercept).toFixed(2)}
+              </span>
+              <span className="text-slate-400">
+                {'  · '}R² = <span className={`font-bold ${forecast.fit.r2 >= 0.9 ? 'text-emerald-600' : forecast.fit.r2 >= 0.7 ? 'text-amber-600' : 'text-slate-500'}`}>{forecast.fit.r2.toFixed(2)}</span>
+                {' · '}n = {forecast.fit.n}
+              </span>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-400 leading-snug">
+              No significant trend · R² = {forecast.fit.r2.toFixed(2)} · stable
+            </div>
+          )}
+        </div>
+      </div>
+
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="block" preserveAspectRatio="xMidYMid meet">
+        {/* fail zones: beyond ±tolerance (both sides, symmetric) */}
+        <rect x={padL} y={padT} width={plotW} height={Math.max(0, sy(tol) - padT)} fill="#fecaca" fillOpacity="0.4" />
+        <rect x={padL} y={sy(-tol)} width={plotW} height={Math.max(0, (H - padB) - sy(-tol))} fill="#fecaca" fillOpacity="0.4" />
+
+        {/* original 1-year term: subtle band (last cal → spec due) */}
+        <rect x={xLastCal} y={padT} width={Math.min(xDueSpec, W - padR) - xLastCal} height={plotH} fill="#dbeafe" fillOpacity="0.4" />
+
+        {/* y-axis grid + tick labels (% error). step = 2% (or tol/2 for small tol) */}
+        {(() => {
+          const step = tol >= 4 ? 2 : tol / 2
+          const ticks: number[] = []
+          for (let v = 0; v <= yMax + 1e-6; v += step) ticks.push(Math.round(v * 10) / 10)
+          const all = [...ticks.slice(1).map(v => -v).reverse(), ...ticks]
+          return all.map((v, i) => {
+            const atTol = Math.abs(Math.abs(v) - tol) < 1e-6   // ±tol 위치는 tolerance 라벨이 담당
+            return (
+              <g key={`yt-${i}`}>
+                {v !== 0 && !atTol && (
+                  <line x1={padL} y1={sy(v)} x2={W - padR} y2={sy(v)} stroke="#f1f5f9" strokeWidth="1" />
+                )}
+                {!atTol && (
+                  <text x={padL - 6} y={sy(v) + 3} textAnchor="end" className="fill-slate-400" fontSize="9.5">
+                    {v > 0 ? '+' : ''}{v}
+                  </text>
+                )}
+              </g>
+            )
+          })
+        })()}
+        {/* zero baseline (emphasized) */}
+        <line x1={padL} y1={sy(0)} x2={W - padR} y2={sy(0)} stroke="#cbd5e1" strokeWidth="1" />
+
+        {/* ±tolerance limit lines (both sides, same style) */}
+        <line x1={padL} y1={sy(tol)} x2={W - padR} y2={sy(tol)} stroke="#ef4444" strokeWidth="1.4" strokeDasharray="6 3" />
+        <line x1={padL} y1={sy(-tol)} x2={W - padR} y2={sy(-tol)} stroke="#ef4444" strokeWidth="1.4" strokeDasharray="6 3" />
+        <text x={W - padR - 2} y={sy(tol) - 4} textAnchor="end" className="fill-rose-500" fontSize="9.5" fontWeight="700">+{tol}% limit</text>
+        <text x={W - padR - 2} y={sy(-tol) + 12} textAnchor="end" className="fill-rose-500" fontSize="9.5" fontWeight="700">−{tol}% limit</text>
+
+        {/* uncertainty band (fixed ±U around the prediction — measurement uncertainty) */}
+        <polygon points={uBandPoly} fill="#fbbf24" fillOpacity="0.28" stroke="#f59e0b" strokeWidth="0.5" strokeOpacity="0.4" />
+
+        {/* exposure span: recommended → spec due (out of tolerance if we wait) — on the x axis */}
+        {xCross != null && recWithinSpec && xDueSpec > xCross && (
+          <rect x={xCross} y={H - padB - 3} width={Math.min(xDueSpec, W - padR) - xCross} height={3} fill="#f43f5e" opacity="0.7" />
+        )}
+
+        {/* ── in-chart time anchors: vertical lines + top labels (inside the plot) ── */}
+        {/* ① last cal */}
+        <line x1={xLastCal} y1={padT} x2={xLastCal} y2={H - padB} stroke="#94a3b8" strokeWidth="1.2" />
+        <ChartFlag x={xLastCal} topY={padT} label="Last cal" sub={fmtMonthYear(lastCalDate)} tone="slate" align="start" W={W} padL={padL} padR={padR} />
+        {/* ④ spec due */}
+        {xDueSpec <= W - padR && (
+          <>
+            <line x1={xDueSpec} y1={padT} x2={xDueSpec} y2={H - padB} stroke="#94a3b8" strokeWidth="1.2" />
+            <ChartFlag x={xDueSpec} topY={padT} label={`Spec due · ${baseMonths}mo`} sub={fmtMonthYear(addMonthsStr(lastCalDate, baseMonths))} tone="slate" align="end" W={W} padL={padL} padR={padR} />
+          </>
+        )}
+        {/* ③ recommended (crossing) — emphasized */}
+        {xCross != null && (
+          <>
+            <line x1={xCross} y1={padT} x2={xCross} y2={H - padB} stroke="#2563eb" strokeWidth="2" />
+            <ChartFlag x={xCross} topY={padT} label="✓ Recalibrate by" sub={`${recDate ? fmtMonthYear(recDate) : ''}${recMonths != null ? ` (${recMonths}mo)` : ''}`} tone="blue" align="middle" W={W} padL={padL} padR={padR} />
+          </>
+        )}
+        {/* ② today — compact: small triangle + word, near the x axis (below the Last cal flag) */}
+        <path d={`M ${xToday} ${H - padB - 6} l -4 -6 l 8 0 z`} fill="#0f172a" />
+        <text x={xToday} y={H - padB - 14} textAnchor="middle" fontSize="9" fontWeight="700" className="fill-slate-700"
+          stroke="#fff" strokeWidth="2.5" strokeLinejoin="round" paintOrder="stroke">today</text>
+
+        {/* measured points + ±U error bars (uncertainty made clearly visible) */}
+        {measured.map((p, i) => {
+          const x = sx(p.yearFrac), y = sy(p.error)
+          const u = p.u ?? 0
+          const cap = 5
+          return (
+            <g key={`m-${i}`}>
+              {u > 0 && (
+                <>
+                  {/* vertical whisker */}
+                  <line x1={x} y1={sy(p.error + u)} x2={x} y2={sy(p.error - u)} stroke="#334155" strokeWidth="1.6" />
+                  {/* end caps */}
+                  <line x1={x - cap} y1={sy(p.error + u)} x2={x + cap} y2={sy(p.error + u)} stroke="#334155" strokeWidth="1.6" />
+                  <line x1={x - cap} y1={sy(p.error - u)} x2={x + cap} y2={sy(p.error - u)} stroke="#334155" strokeWidth="1.6" />
+                </>
+              )}
+              <circle cx={x} cy={y} r="3.4" fill="#1e3a5f" stroke="#fff" strokeWidth="1.2" />
+            </g>
+          )
+        })}
+
+        {/* regression line: measured (solid navy) → predicted (dashed orange) */}
+        <polyline points={regPastLine} fill="none" stroke="#1e3a5f" strokeWidth="2.4" strokeLinecap="round" />
+        <polyline points={regFutureLine} fill="none" stroke="#ea580c" strokeWidth="2.6" strokeDasharray="7 4" strokeLinecap="round" />
+
+        {/* crossing marker where prediction meets the limit */}
+        {xCross != null && (
+          <circle cx={xCross} cy={yLimit} r="5.5" fill="#dc2626" stroke="#fff" strokeWidth="1.5" />
+        )}
+
+        {/* x axis */}
+        <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#e2e8f0" strokeWidth="1" />
+        {yearTicks.map((t, i) => (
+          <g key={i}>
+            <line x1={t.x} y1={H - padB} x2={t.x} y2={H - padB + 3} stroke="#cbd5e1" strokeWidth="1" />
+            <text x={t.x} y={H - padB + 15} textAnchor="middle" className="fill-slate-500" fontSize="10.5">{t.label}</text>
+          </g>
+        ))}
+        <text x={12} y={padT + plotH / 2} textAnchor="middle" className="fill-slate-400" fontSize="10.5" transform={`rotate(-90 12 ${padT + plotH / 2})`}>Error (%)</text>
+      </svg>
+
+      {/* conclusion callout — the original term vs the recommendation */}
+      <div className="mt-2 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
+        <span className="text-rose-500 text-base leading-none mt-0.5">⚠</span>
+        <div className="flex-1 min-w-0">
+          {recWithinSpec ? (
+            <>
+              <div className="text-xs font-bold text-rose-700">
+                Recalibrate by <span className="tabular-nums">{recDate ? fmtMonthYear(recDate) : '—'}</span>
+                {recMonths != null && <span className="text-rose-500"> (~{recMonths} mo after last cal)</span>}
+                <span className="text-slate-500 font-medium"> — {baseMonths - (recMonths ?? 0)} mo earlier than the {baseMonths}-mo spec</span>
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                Linear-regression trend + measurement uncertainty: |error| + U reaches the tolerance limit (ILAC-G8 guard band). Extrapolation confidence is not yet quantified (future work).
+              </div>
+              <div className="text-[11px] mt-1 text-slate-600">
+                At this drift the unit would sit <span className="font-bold text-rose-700">out of tolerance</span> for the rest of the original {baseMonths}-month term — so it must be recalibrated earlier.
+              </div>
+            </>
+          ) : (
+            <div className="text-xs text-slate-600">
+              The prediction stays within tolerance through the full {baseMonths}-month term — the standard interval is adequate.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* legend (minimal) */}
+      <div className="mt-2 flex items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 flex-wrap">
+        <span className="inline-flex items-center gap-1"><span className="w-4 h-0.5 bg-[#1e3a5f]" /> Measured (± U)</span>
+        <span className="inline-flex items-center gap-1"><span className="w-4 h-0.5 bg-[#ea580c]" style={{ borderTop: '2px dashed' }} /> Predicted (linear reg.)</span>
+        <span className="inline-flex items-center gap-1"><span className="w-3 h-2" style={{ background: 'rgba(251,191,36,0.28)' }} /> Uncertainty (±U)</span>
+        <span className="inline-flex items-center gap-1"><span className="w-4 h-0.5 bg-rose-500" style={{ borderTop: '2px dashed' }} /> Tolerance limit</span>
       </div>
     </div>
   )
+}
+
+// 차트 안 상단 시간 마커 라벨 (세로선 머리에 2줄). align 으로 좌/우/중앙 정렬.
+function ChartFlag({
+  x, topY, label, sub, tone, align, W, padL, padR,
+}: {
+  x: number; topY: number; label: string; sub: string
+  tone: 'slate' | 'blue'; align: 'start' | 'middle' | 'end'
+  W: number; padL: number; padR: number
+}) {
+  const color = tone === 'blue' ? '#2563eb' : '#475569'
+  const subColor = tone === 'blue' ? '#3b82f6' : '#94a3b8'
+  // 텍스트가 경계 넘지 않게 x 보정 (align 방향 고려)
+  const tx = Math.max(padL + 2, Math.min(x, W - padR - 2))
+  const anchor = align === 'start' ? 'end' : align === 'end' ? 'start' : 'middle'
+  // start정렬 라벨은 선 왼쪽, end는 선 오른쪽, middle은 중앙 — 겹침 최소화
+  const off = align === 'start' ? -4 : align === 'end' ? 4 : 0
+  return (
+    <g>
+      <text x={tx + off} y={topY - 18} textAnchor={anchor} fontSize="10" fontWeight={tone === 'blue' ? 800 : 700}
+        fill={color} stroke="#fff" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke">{label}</text>
+      <text x={tx + off} y={topY - 6} textAnchor={anchor} fontSize="9" fontWeight="600"
+        fill={subColor} stroke="#fff" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke">{sub}</text>
+    </g>
+  )
+}
+
+// "YYYY-MM-DD" → "YYYY-MM" (ISO 8601, 예: 2026-09-11 → 2026-09)
+function fmtMonthYear(d: string | null): string {
+  if (!d) return '—'
+  const [y, m] = d.split('-').map(Number)
+  if (!y || !m) return '—'
+  return `${y}-${String(m).padStart(2, '0')}`
+}
+
+// "YYYY-MM-DD" + N개월 → "YYYY-MM-DD"
+function addMonthsStr(d: string, months: number): string {
+  const [y, m, day] = d.split('-').map(Number)
+  if (!y || !m) return d
+  const total = (m - 1) + months
+  const ny = y + Math.floor(total / 12)
+  const nm = (total % 12) + 1
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(day || 1).padStart(2, '0')}`
 }
 
 function RiskMetricBox({
@@ -638,132 +1109,25 @@ function RiskMetricBox({
   )
 }
 
-function PointDriftRow({ point }: { point: import('@/lib/cycle-analysis').PointDriftAnalysis }) {
-  const trendIcon = point.trend === 'rising' ? '↗' : point.trend === 'falling' ? '↘' : point.trend === 'volatile' ? '⚡' : '→'
-  const trendColor =
-    point.trend === 'rising' ? 'text-rose-500' :
-    point.trend === 'falling' ? 'text-emerald-500' :
-    point.trend === 'volatile' ? 'text-purple-500' :
-    'text-slate-400'
-  const riskBadge =
-    point.riskLevel === 'urgent' ? { label: '긴급', cls: 'bg-rose-100 text-rose-700' } :
-    point.riskLevel === 'watch' ? { label: '주의', cls: 'bg-amber-100 text-amber-700' } :
-    { label: '안정', cls: 'bg-emerald-100 text-emerald-700' }
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${riskBadge.cls}`}>{riskBadge.label}</span>
-        <span className="text-xs font-medium text-slate-700 truncate flex-1">{point.label}</span>
-        <span className={`text-base ${trendColor}`} title={`추세: ${point.trend}`}>{trendIcon}</span>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-        <DataMini label="최신" value={point.latestRatio != null ? `${point.latestRatio.toFixed(1)}%` : '—'} />
-        <DataMini
-          label="한계근접"
-          value={`${point.nearLimitCount}/${point.totalCount}회`}
-          highlight={point.nearLimitCount >= 2}
-        />
-        <DataMini
-          label="가속"
-          value={point.accelerating ? `${point.accelerationRatio?.toFixed(1) ?? '?'}배 ⚡` : '—'}
-          highlight={point.accelerating}
-        />
-        <DataMini label="이력" value={`${point.totalCount}회`} />
-      </div>
-
-      {/* 시계열 미니 시각화 */}
-      {point.ratioHistory.length >= 2 && <MiniSparkline values={point.ratioHistory} />}
-    </div>
-  )
-}
-
-function DataMini({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div>
-      <div className="text-[9px] text-slate-400 uppercase tracking-wide">{label}</div>
-      <div className={`font-semibold ${highlight ? 'text-rose-600' : 'text-slate-700'}`}>{value}</div>
-    </div>
-  )
-}
-
-/**
- * 한계 사용률 미니 sparkline — 시계열의 변화를 직관적으로 표시
- */
-function MiniSparkline({ values }: { values: number[] }) {
-  const max = Math.max(100, ...values)
-  const min = Math.min(0, ...values)
-  const range = max - min || 1
-  const width = 100
-  const height = 28
-  const padding = 2
-
-  const points = values.map((v, i) => {
-    const x = padding + (i / (values.length - 1)) * (width - 2 * padding)
-    const y = padding + (1 - (v - min) / range) * (height - 2 * padding)
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
-
-  // 80% 경계선의 y 좌표
-  const y80 = padding + (1 - (80 - min) / range) * (height - 2 * padding)
-  // 95% 경계선의 y 좌표
-  const y95 = padding + (1 - (95 - min) / range) * (height - 2 * padding)
-
-  return (
-    <div className="mt-2">
-      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="block">
-        {/* 80% 경계선 */}
-        {y80 >= 0 && y80 <= height && (
-          <line x1={0} y1={y80} x2={width} y2={y80} stroke="#fbbf24" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5" />
-        )}
-        {/* 95% 경계선 */}
-        {y95 >= 0 && y95 <= height && (
-          <line x1={0} y1={y95} x2={width} y2={y95} stroke="#ef4444" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5" />
-        )}
-        {/* 시계열 */}
-        <polyline
-          points={points}
-          fill="none"
-          stroke="#3b82f6"
-          strokeWidth="1.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {/* 마지막 점 */}
-        {values.length > 0 && (() => {
-          const lastV = values[values.length - 1]
-          const lastX = padding + (width - 2 * padding)
-          const lastY = padding + (1 - (lastV - min) / range) * (height - 2 * padding)
-          const color = lastV >= 95 ? '#ef4444' : lastV >= 80 ? '#f59e0b' : '#3b82f6'
-          return <circle cx={lastX} cy={lastY} r="1.8" fill={color} />
-        })()}
-      </svg>
-    </div>
-  )
-}
-
 // ─────────────────────────────────────────────────────────────────
-// 3단계 상세 (Uncertainty Risk)
+// Step 3 detail (Uncertainty Risk)
 // ─────────────────────────────────────────────────────────────────
 
 function UncertaintyRiskDetails({ data }: { data: UncertaintyRiskData }) {
-  // 데이터 부족
   if (!data.dataQuality.enoughHistory) {
     return (
       <div className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
-        <div className="font-medium text-amber-700 mb-1">📊 데이터 부족</div>
-        <p>이력 {data.dataQuality.historyLength}회 — 불확도 위험 평가에 최소 2회 이력 필요</p>
+        <div className="font-medium text-amber-700 mb-1">📊 Insufficient data</div>
+        <p>{data.dataQuality.historyLength} record(s) — uncertainty risk analysis needs at least 2 records.</p>
       </div>
     )
   }
 
-  // Guard Band 데이터 자체가 없음
   if (!data.summary.hasGuardBandData) {
     return (
       <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
-        <div className="font-medium text-slate-600 mb-1">ℹ️ Guard Band 데이터 없음</div>
-        <p>성적서에 불확도 정보가 기재되지 않아 정량 위험 평가가 어렵습니다. 다음 교정 시 불확도 보고를 요청하세요.</p>
+        <div className="font-medium text-slate-600 mb-1">ℹ️ No guard band data</div>
+        <p>The certificates carry no uncertainty information, so quantitative risk assessment is not possible. Request uncertainty reporting at the next calibration.</p>
       </div>
     )
   }
@@ -772,28 +1136,19 @@ function UncertaintyRiskDetails({ data }: { data: UncertaintyRiskData }) {
 
   return (
     <div className="space-y-5">
-      {/* ─── 섹션 1: 종합 위험 신호 (가장 중요) ─── */}
       <SignalsSection data={data} />
-
-      {/* ─── 섹션 2: Guard Band 누적 분포 ─── */}
       <GuardBandDistributionSection data={data} total={total} />
-
-      {/* ─── 섹션 3: 포인트별 U/T 비율 ─── */}
       <div>
         <SubsectionHeader
           icon="📈"
-          title="포인트별 U/T 비율"
-          subtitle={`위험도 순 — 측정 포인트 ${data.points.length}개`}
+          title="U/T ratio by point"
+          subtitle={`Sorted by risk — ${data.points.length} measurement point(s)`}
         />
         <PointsSection points={data.points} />
       </div>
     </div>
   )
 }
-
-// ─────────────────────────────────────────────────────────────────
-// 섹션 헤더 (③ 카드 내부 서브 섹션용)
-// ─────────────────────────────────────────────────────────────────
 
 function SubsectionHeader({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) {
   return (
@@ -807,12 +1162,7 @@ function SubsectionHeader({ icon, title, subtitle }: { icon: string; title: stri
   )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 종합 위험 신호 (3개 큰 메트릭)
-// ─────────────────────────────────────────────────────────────────
-
 function SignalsSection({ data }: { data: UncertaintyRiskData }) {
-  // 각 메트릭의 판정/색상 결정
   const utValue = data.summary.maxUtRatioOverall
   const utTone: SignalTone =
     utValue == null ? 'slate' :
@@ -820,15 +1170,15 @@ function SignalsSection({ data }: { data: UncertaintyRiskData }) {
     utValue > 33 ? 'amber' :
     'emerald'
   const utJudgment =
-    utValue == null ? '데이터 없음' :
-    utValue > 50 ? '시스템 점검 필요' :
-    utValue > 33 ? '높음' :
-    utValue > 25 ? '일반적 수준' :
-    '양호'
+    utValue == null ? 'No data' :
+    utValue > 50 ? 'Check system' :
+    utValue > 33 ? 'High' :
+    utValue > 25 ? 'Typical' :
+    'Good'
 
   const dangerCount = data.summary.pointsWithRecentDanger
   const dangerTone: SignalTone = dangerCount > 0 ? 'rose' : 'emerald'
-  const dangerJudgment = dangerCount > 0 ? `${dangerCount}개 포인트 주의` : '양호'
+  const dangerJudgment = dangerCount > 0 ? `${dangerCount} point(s) at risk` : 'Good'
 
   const cpRatio = data.summary.conditionalPassRatio
   const cpTone: SignalTone =
@@ -836,39 +1186,35 @@ function SignalsSection({ data }: { data: UncertaintyRiskData }) {
     cpRatio > 0 ? 'amber' :
     'emerald'
   const cpJudgment =
-    cpRatio >= 30 ? '높음' :
-    cpRatio > 0 ? '일부 경계' :
-    '없음'
+    cpRatio >= 30 ? 'High' :
+    cpRatio > 0 ? 'Some borderline' :
+    'None'
 
   return (
     <div>
-      <SubsectionHeader
-        icon="🛡️"
-        title="종합 위험 신호"
-        subtitle="이 장비의 측정 불확도 상태"
-      />
+      <SubsectionHeader icon="🛡️" title="Risk signals" subtitle="Measurement uncertainty state of this instrument" />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <SignalCard
-          label="최신 U/T 최댓값"
+          label="Max latest U/T"
           value={utValue != null ? `${utValue.toFixed(1)}%` : '—'}
           judgment={utJudgment}
           tone={utTone}
-          hint="허용오차 대비 측정 불확도"
+          hint="Uncertainty vs tolerance"
         />
         <SignalCard
-          label="최근 위험 판정"
+          label="Recent risk verdicts"
           value={`${dangerCount}`}
-          unit="포인트"
+          unit="pts"
           judgment={dangerJudgment}
           tone={dangerTone}
-          hint="실질 위험/부적합 발생"
+          hint="Conditional-fail / non-conformant"
         />
         <SignalCard
-          label="경계 누적 비율"
+          label="Borderline ratio"
           value={`${cpRatio.toFixed(1)}%`}
           judgment={cpJudgment}
           tone={cpTone}
-          hint="불확도 감안 시 초과 가능"
+          hint="May exceed once uncertainty is considered"
         />
       </div>
     </div>
@@ -919,28 +1265,23 @@ function SignalCard({
   )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Guard Band 누적 분포 (수평 바 + 값)
-// ─────────────────────────────────────────────────────────────────
-
 function GuardBandDistributionSection({ data, total }: { data: UncertaintyRiskData; total: number }) {
   const rows: { color: string; label: string; count: number; tone: 'safe' | 'warn' | 'danger' | 'neutral' }[] = [
-    { color: 'bg-emerald-400', label: '완전 합격', count: data.overall.conformant, tone: 'safe' },
-    { color: 'bg-amber-300',   label: '경계 합격', count: data.overall.conditionalPass, tone: 'warn' },
-    { color: 'bg-rose-400',    label: '실질 위험', count: data.overall.conditionalFail, tone: 'danger' },
-    { color: 'bg-rose-700',    label: '명백 부적합', count: data.overall.nonConformant, tone: 'danger' },
-    { color: 'bg-slate-300',   label: '미기재',    count: data.overall.unknown, tone: 'neutral' },
+    { color: 'bg-emerald-400', label: 'Conformant', count: data.overall.conformant, tone: 'safe' },
+    { color: 'bg-amber-300',   label: 'Cond. pass', count: data.overall.conditionalPass, tone: 'warn' },
+    { color: 'bg-rose-400',    label: 'Cond. fail', count: data.overall.conditionalFail, tone: 'danger' },
+    { color: 'bg-rose-700',    label: 'Non-conf.', count: data.overall.nonConformant, tone: 'danger' },
+    { color: 'bg-slate-300',   label: 'Unknown',    count: data.overall.unknown, tone: 'neutral' },
   ]
 
-  // 값이 있는 행만 + 큰 순서로 정렬
   const visibleRows = rows.filter(r => r.count > 0).sort((a, b) => b.count - a.count)
 
   return (
     <div>
       <SubsectionHeader
         icon="📊"
-        title="Guard Band 누적 분포"
-        subtitle={`전 이력 ${total}회 측정 — ILAC G-8 기반 4단계 판정`}
+        title="Guard band distribution"
+        subtitle={`All ${total} measurement(s) — 4-level verdict per ILAC G-8`}
       />
       <div className="bg-white border border-slate-200 rounded-lg p-3">
         <div className="space-y-2">
@@ -965,7 +1306,7 @@ function GuardBandDistributionSection({ data, total }: { data: UncertaintyRiskDa
                     </span>
                   </div>
                 </div>
-                <span className="text-slate-500 w-12 text-right shrink-0 font-semibold">{row.count}회</span>
+                <span className="text-slate-500 w-12 text-right shrink-0 font-semibold">{row.count}×</span>
               </div>
             )
           })}
@@ -975,7 +1316,6 @@ function GuardBandDistributionSection({ data, total }: { data: UncertaintyRiskDa
   )
 }
 
-// 위험도 우선순위 (낮을수록 위험)
 function uncertaintyRiskOrder(gb: 'conformant' | 'conditional-pass' | 'conditional-fail' | 'non-conformant' | null, latestUtRatio: number | null): number {
   if (gb === 'non-conformant') return 0
   if (gb === 'conditional-fail') return 1
@@ -983,7 +1323,7 @@ function uncertaintyRiskOrder(gb: 'conformant' | 'conditional-pass' | 'condition
   if (latestUtRatio != null && latestUtRatio > 50) return 2
   if (latestUtRatio != null && latestUtRatio > 33) return 3
   if (gb === 'conformant') return 4
-  return 5  // 데이터 없음은 맨 뒤
+  return 5
 }
 
 function isRiskyPoint(p: import('@/lib/cycle-analysis').PointUncertaintyAnalysis): boolean {
@@ -997,7 +1337,6 @@ function isRiskyPoint(p: import('@/lib/cycle-analysis').PointUncertaintyAnalysis
 function PointsSection({ points }: { points: import('@/lib/cycle-analysis').PointUncertaintyAnalysis[] }) {
   const [showAllSafe, setShowAllSafe] = useState(false)
 
-  // 위험도 순 정렬
   const sorted = [...points].sort((a, b) => {
     const oa = uncertaintyRiskOrder(a.latestGuardBand, a.latestUtRatio)
     const ob = uncertaintyRiskOrder(b.latestGuardBand, b.latestUtRatio)
@@ -1006,43 +1345,37 @@ function PointsSection({ points }: { points: import('@/lib/cycle-analysis').Poin
   const risky = sorted.filter(isRiskyPoint)
   const safe = sorted.filter(p => !isRiskyPoint(p))
 
-  // 차트 스케일 계산 (위험 포인트의 U/T 최댓값 기준)
   const utValues = risky.map(p => p.latestUtRatio).filter((v): v is number => v != null)
   const utMax = utValues.length > 0 ? Math.max(100, ...utValues) : 100
 
   return (
     <div className="space-y-3">
-      {/* 위험/주의 포인트 — 가로 막대 차트 */}
       {risky.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-lg p-3">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-bold text-rose-700 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-rose-500" />
-              위험·주의 포인트 ({risky.length})
+              Risk / watch points ({risky.length})
             </div>
-            <div className="text-[10px] text-slate-400">U/T 비율 기준</div>
+            <div className="text-[10px] text-slate-400">by U/T ratio</div>
           </div>
 
-          {/* 경계선 범례 + 축 */}
           <UtChartAxis utMax={utMax} />
 
-          {/* 차트 행 */}
           <div className="space-y-1 mt-2">
             {risky.map((p, i) => (
               <UtChartRow key={i} point={p} utMax={utMax} />
             ))}
           </div>
 
-          {/* 범례 */}
           <div className="mt-3 pt-2 border-t border-slate-100 flex items-center gap-3 text-[10px] text-slate-500 flex-wrap">
-            <LegendDot color="bg-rose-500" label="U/T > 50% (시스템 점검)" />
-            <LegendDot color="bg-amber-400" label="U/T > 33% (높음)" />
-            <LegendDot color="bg-rose-200" label="경계 합격 / 위험 판정" />
+            <LegendDot color="bg-rose-500" label="U/T > 50% (check system)" />
+            <LegendDot color="bg-amber-400" label="U/T > 33% (high)" />
+            <LegendDot color="bg-rose-200" label="Cond. pass / risk verdict" />
           </div>
         </div>
       )}
 
-      {/* 안전 포인트 — 접기 토글 */}
       {safe.length > 0 && (
         <div>
           <button
@@ -1051,7 +1384,7 @@ function PointsSection({ points }: { points: import('@/lib/cycle-analysis').Poin
           >
             <span className="text-[10px] text-emerald-700 uppercase tracking-wide font-semibold flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              안전 포인트 ({safe.length})
+              Safe points ({safe.length})
             </span>
             <svg className={`w-3.5 h-3.5 text-emerald-600 transition-transform ${showAllSafe ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1067,36 +1400,30 @@ function PointsSection({ points }: { points: import('@/lib/cycle-analysis').Poin
         </div>
       )}
 
-      {/* 전부 데이터 없음 */}
       {risky.length === 0 && safe.length === 0 && (
-        <div className="text-xs text-slate-400 text-center py-3">포인트 데이터 없음</div>
+        <div className="text-xs text-slate-400 text-center py-3">No point data</div>
       )}
     </div>
   )
 }
 
-// U/T 차트 축 (33%/50% 경계선 표시)
 function UtChartAxis({ utMax }: { utMax: number }) {
-  // 차트 영역은 라벨(40% 폭) 다음 우측 60% 폭
   const pct33 = (33 / utMax) * 100
   const pct50 = (50 / utMax) * 100
   const pct100 = (100 / utMax) * 100
 
   return (
     <div className="relative h-4 ml-[40%] border-b border-slate-200">
-      {/* 33% 경계선 */}
       {pct33 < 100 && (
         <div className="absolute top-0 bottom-0 border-l border-dashed border-amber-400" style={{ left: `${pct33}%` }}>
           <span className="absolute -top-3 left-0.5 text-[9px] text-amber-600 whitespace-nowrap">33%</span>
         </div>
       )}
-      {/* 50% 경계선 */}
       {pct50 < 100 && (
         <div className="absolute top-0 bottom-0 border-l border-dashed border-rose-400" style={{ left: `${pct50}%` }}>
           <span className="absolute -top-3 left-0.5 text-[9px] text-rose-600 whitespace-nowrap">50%</span>
         </div>
       )}
-      {/* 100% 경계선 */}
       {pct100 <= 100 && (
         <div className="absolute top-0 bottom-0 border-l border-slate-300" style={{ left: `${pct100}%` }}>
           <span className="absolute -top-3 -translate-x-1/2 text-[9px] text-slate-500 whitespace-nowrap" style={{ left: `${pct100}%` }}>100%</span>
@@ -1106,12 +1433,10 @@ function UtChartAxis({ utMax }: { utMax: number }) {
   )
 }
 
-// U/T 차트 한 행 — 라벨 + 막대 + 값 + 배지
 function UtChartRow({ point, utMax }: { point: import('@/lib/cycle-analysis').PointUncertaintyAnalysis; utMax: number }) {
   const ut = point.latestUtRatio
   const widthPct = ut != null ? (ut / utMax) * 100 : 0
 
-  // 색상 결정 (U/T 비율 + Guard Band 판정)
   const isVerdictDanger = point.latestGuardBand === 'non-conformant' || point.latestGuardBand === 'conditional-fail'
   const barColor =
     ut != null && ut > 50 ? 'bg-rose-500' :
@@ -1121,41 +1446,36 @@ function UtChartRow({ point, utMax }: { point: import('@/lib/cycle-analysis').Po
     'bg-emerald-400'
 
   const verdictBadge =
-    point.latestGuardBand === 'non-conformant' ? { label: '부적합', cls: 'bg-rose-200 text-rose-800' } :
-    point.latestGuardBand === 'conditional-fail' ? { label: '실질위험', cls: 'bg-rose-100 text-rose-700' } :
-    point.latestGuardBand === 'conditional-pass' ? { label: '경계', cls: 'bg-amber-100 text-amber-700' } :
-    point.latestGuardBand === 'conformant' ? { label: '합격', cls: 'bg-emerald-100 text-emerald-700' } :
+    point.latestGuardBand === 'non-conformant' ? { label: 'Non-conf.', cls: 'bg-rose-200 text-rose-800' } :
+    point.latestGuardBand === 'conditional-fail' ? { label: 'Cond. fail', cls: 'bg-rose-100 text-rose-700' } :
+    point.latestGuardBand === 'conditional-pass' ? { label: 'Borderline', cls: 'bg-amber-100 text-amber-700' } :
+    point.latestGuardBand === 'conformant' ? { label: 'Pass', cls: 'bg-emerald-100 text-emerald-700' } :
     null
 
   return (
     <div className="flex items-center gap-2 text-[11px] hover:bg-slate-50 rounded px-1 py-0.5">
-      {/* 라벨 (좌측 40%) */}
       <div className="w-[40%] flex items-center gap-1.5 min-w-0">
         {verdictBadge && (
           <span className={`text-[9px] font-bold px-1 py-0.5 rounded shrink-0 ${verdictBadge.cls}`}>{verdictBadge.label}</span>
         )}
         <span className="text-slate-700 font-medium truncate" title={point.label}>{point.label}</span>
       </div>
-      {/* 차트 막대 (우측 60%) */}
       <div className="flex-1 relative h-5 bg-slate-50 rounded">
         <div
           className={`absolute top-0 bottom-0 left-0 rounded ${barColor} transition-all`}
           style={{ width: `${Math.min(100, widthPct)}%` }}
         />
-        {/* 막대 안에 값 표시 (막대가 충분히 크면) */}
         <div className="absolute inset-0 flex items-center justify-end pr-1.5">
           <span className={`text-[10px] font-bold ${widthPct > 20 ? 'text-white' : 'text-slate-700'}`} style={{ textShadow: widthPct > 20 ? '0 0 2px rgba(0,0,0,0.3)' : 'none' }}>
             {ut != null ? `${ut.toFixed(1)}%` : '—'}
           </span>
         </div>
       </div>
-      {/* 이력 회수 (선택적) */}
-      <span className="text-[10px] text-slate-400 w-8 text-right shrink-0">{point.guardBandStats.total}회</span>
+      <span className="text-[10px] text-slate-400 w-8 text-right shrink-0">{point.guardBandStats.total}×</span>
     </div>
   )
 }
 
-// 안전 포인트용 1줄 컴팩트 표시
 function CompactSafeRow({ point }: { point: import('@/lib/cycle-analysis').PointUncertaintyAnalysis }) {
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded text-[11px]">
@@ -1165,7 +1485,7 @@ function CompactSafeRow({ point }: { point: import('@/lib/cycle-analysis').Point
         U/T {point.latestUtRatio != null ? `${point.latestUtRatio.toFixed(1)}%` : '—'}
       </span>
       <span className="text-slate-300">·</span>
-      <span className="text-slate-400">{point.guardBandStats.total}회</span>
+      <span className="text-slate-400">{point.guardBandStats.total}×</span>
     </div>
   )
 }
@@ -1179,30 +1499,450 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   )
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Step 4 detail (Peer Benchmark) — NEW
+// ─────────────────────────────────────────────────────────────────
+
+// Reference-only chart: how the similar-instrument fleet errs at each torque
+// point, vs how THIS unit errs. The fleet does NOT change the recommended cycle
+// (that's decided by this unit's own drift/uncertainty) — it's context only:
+// "the fleet behaves like this band; this unit sits here."
+//
+//   X axis = torque (N·m), Y axis = error (%)
+//   - shaded band  : fleet min..max error (after IQR outlier removal)
+//   - dashed lines : ± tolerance limit (conformance boundary)
+//   - solid line   : this instrument's latest error per point
+function PeerErrorChart({
+  bands,
+  position,
+}: {
+  bands: PeerErrorBandData
+  position: 'faster' | 'slower' | 'average'
+}) {
+  const pts = bands.points
+  if (!bands.available || pts.length === 0) {
+    return (
+      <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+        No similar-instrument data matched for this model.
+      </div>
+    )
+  }
+
+  // ── geometry ──
+  const W = 560, H = 240
+  const padL = 44, padR = 16, padT = 16, padB = 34
+  const plotW = W - padL - padR
+  const plotH = H - padT - padB
+
+  const torques = pts.map(p => p.torque)
+  const xMin = Math.min(...torques)
+  const xMax = Math.max(...torques)
+  const xSpan = xMax - xMin || 1
+
+  // Y range: cover fleet band, this unit, and the tolerance lines, with margin.
+  const tol = Math.max(...pts.map(p => p.tolerance))
+  const yCandidates = [
+    tol, -tol,
+    ...pts.map(p => p.fleetMax),
+    ...pts.map(p => p.fleetMin),
+    ...pts.map(p => p.thisError).filter((v): v is number => v != null),
+  ]
+  const yMaxRaw = Math.max(...yCandidates)
+  const yMinRaw = Math.min(...yCandidates)
+  const yPad = (yMaxRaw - yMinRaw) * 0.12 || 1
+  const yMax = yMaxRaw + yPad
+  const yMin = yMinRaw - yPad
+  const ySpan = yMax - yMin || 1
+
+  const sx = (t: number) => padL + ((t - xMin) / xSpan) * plotW
+  const sy = (e: number) => padT + (1 - (e - yMin) / ySpan) * plotH
+
+  // fleet band as a closed polygon (top = fleetMax left→right, bottom = fleetMin right→left)
+  const bandTop = pts.map(p => `${sx(p.torque).toFixed(1)},${sy(p.fleetMax).toFixed(1)}`)
+  const bandBot = [...pts].reverse().map(p => `${sx(p.torque).toFixed(1)},${sy(p.fleetMin).toFixed(1)}`)
+  const bandPoly = [...bandTop, ...bandBot].join(' ')
+
+  const medianLine = pts.map(p => `${sx(p.torque).toFixed(1)},${sy(p.fleetMedian).toFixed(1)}`).join(' ')
+  const thisPts = pts.filter(p => p.thisError != null)
+  const thisLine = thisPts.map(p => `${sx(p.torque).toFixed(1)},${sy(p.thisError as number).toFixed(1)}`).join(' ')
+
+  const yZero = sy(0)
+  const yTolPos = sy(tol)
+  const yTolNeg = sy(-tol)
+
+  // sparse x labels (avoid crowding): show ~5 ticks
+  const labelEvery = Math.max(1, Math.ceil(pts.length / 5))
+
+  const outCount = pts.filter(p => p.outOfRange === 'above' || p.outOfRange === 'below').length
+  const positionNote =
+    position === 'faster' ? 'This unit drifts harder than the typical peer'
+    : position === 'slower' ? 'This unit is steadier than the typical peer'
+    : 'This unit tracks the fleet centre'
+
+  return (
+    <div className="space-y-3">
+      <SubsectionHeader
+        icon="🛰️"
+        title={`THIS instrument (blue line) vs ${bands.totalPeerCount.toLocaleString()} similar instruments (grey cloud)`}
+        subtitle={`${bands.groupKey} — same make/model field fleet (reference only — does not change the cycle)`}
+      />
+
+      {/* Big-data scale bar — what the fleet band is built from */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <PeerStat label="Peer units" value={bands.totalPeerCount.toLocaleString()} />
+        <PeerStat label="Certificates" value={bands.totalCertCount.toLocaleString()} />
+        <PeerStat label="Measurements" value={bands.totalMeasurements.toLocaleString()} />
+        <PeerStat label="Data span" value={`${bands.yearSpan} yr`} />
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-lg p-3">
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="block" preserveAspectRatio="xMidYMid meet">
+          {/* y grid: zero + tolerance lines */}
+          <line x1={padL} y1={yZero} x2={W - padR} y2={yZero} stroke="#cbd5e1" strokeWidth="1" />
+          <line x1={padL} y1={yTolPos} x2={W - padR} y2={yTolPos} stroke="#f43f5e" strokeWidth="1" strokeDasharray="5 4" opacity="0.7" />
+          <line x1={padL} y1={yTolNeg} x2={W - padR} y2={yTolNeg} stroke="#f43f5e" strokeWidth="1" strokeDasharray="5 4" opacity="0.7" />
+          <text x={W - padR} y={yTolPos - 3} textAnchor="end" className="fill-rose-500" fontSize="9">+{tol}% tolerance</text>
+          <text x={W - padR} y={yTolNeg + 11} textAnchor="end" className="fill-rose-500" fontSize="9">−{tol}% tolerance</text>
+
+          {/* y axis ticks (zero + tol values) */}
+          <text x={padL - 6} y={yZero + 3} textAnchor="end" className="fill-slate-400" fontSize="9">0%</text>
+
+          {/* fleet band */}
+          <polygon points={bandPoly} fill="#94a3b8" fillOpacity="0.18" stroke="#94a3b8" strokeWidth="0.75" strokeOpacity="0.5" />
+          {/* fleet scatter — individual peer measurements (the band is built from these) */}
+          {pts.map((p, pi) =>
+            p.scatter.map((e, si) => {
+              // 토크 축 위 약간의 jitter (점이 한 줄에 겹치지 않게) — 결정적
+              const jitter = ((si % 5) - 2) * (plotW / pts.length) * 0.045
+              return (
+                <circle
+                  key={`sc-${pi}-${si}`}
+                  cx={sx(p.torque) + jitter}
+                  cy={sy(e)}
+                  r="1.4"
+                  fill="#94a3b8"
+                  fillOpacity="0.38"
+                />
+              )
+            }),
+          )}
+          {/* fleet median */}
+          <polyline points={medianLine} fill="none" stroke="#94a3b8" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.8" />
+
+          {/* in-chart label: this grey cloud IS the similar-instrument fleet (A) */}
+          {(() => {
+            // 띠 하단부(fleetMin 근처)·왼쪽~중앙에 배치 — 산점/선과 겹치지 않게
+            const anchorPt = pts[Math.min(1, pts.length - 1)]
+            const lx = sx(anchorPt.torque) + 6
+            const ly = sy(anchorPt.fleetMin) + 13
+            return (
+              <g>
+                <text x={lx} y={ly} textAnchor="start" fontSize="9.5" fontWeight="600" fontStyle="italic" stroke="#fff" strokeWidth="3" strokeLinejoin="round" opacity="0.9">
+                  Similar instruments (fleet range)
+                </text>
+                <text x={lx} y={ly} textAnchor="start" className="fill-slate-400" fontSize="9.5" fontWeight="600" fontStyle="italic">
+                  Similar instruments (fleet range)
+                </text>
+              </g>
+            )
+          })()}
+
+          {/* this instrument line */}
+          {thisPts.length >= 2 && (
+            <polyline points={thisLine} fill="none" stroke="#2563eb" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+          )}
+
+          {/* in-chart label: the blue line IS this instrument (A) */}
+          {thisPts.length >= 2 && (() => {
+            // 중간 안정 구간(이탈 라벨이 없는 점)의 선 위에 파란 라벨
+            const mid = thisPts[Math.floor(thisPts.length / 2)]
+            if (mid.thisError == null) return null
+            const lx = sx(mid.torque)
+            const ly = sy(mid.thisError) - 11
+            return (
+              <g>
+                <text x={lx} y={ly} textAnchor="middle" fontSize="10" fontWeight="800" stroke="#fff" strokeWidth="3.5" strokeLinejoin="round" opacity="0.9">
+                  THIS unit
+                </text>
+                <text x={lx} y={ly} textAnchor="middle" className="fill-blue-600" fontSize="10" fontWeight="800">
+                  THIS unit
+                </text>
+              </g>
+            )
+          })()}
+          {/* deviation markers — where this unit breaks out of the fleet band (A) */}
+          {pts.map((p, i) => {
+            if (p.thisError == null) return null
+            const out = p.outOfRange === 'above' || p.outOfRange === 'below'
+            if (!out) return null
+            const cx = sx(p.torque)
+            const boundary = p.outOfRange === 'above' ? p.fleetMax : p.fleetMin
+            const cyThis = sy(p.thisError)
+            const cyEdge = sy(boundary)
+            const delta = Math.round(Math.abs(p.thisError - boundary) * 10) / 10
+            // 라벨은 점 바깥쪽으로 충분히 띄움(틱·점선·점과 분리). above=위로, below=아래로.
+            const labelY = p.outOfRange === 'above' ? cyThis - 16 : cyThis + 22
+            // 라벨이 차트 좌/우 경계를 넘지 않게 anchor·x 보정
+            const nearRight = cx > W - padR - 70
+            const nearLeft = cx < padL + 70
+            const anchor = nearRight ? 'end' : nearLeft ? 'start' : 'middle'
+            const labelX = nearRight ? cx + 5 : nearLeft ? cx - 5 : cx
+            return (
+              <g key={`dev-${i}`}>
+                {/* shaded breakout span: from fleet boundary to this-unit point */}
+                <line x1={cx} y1={cyThis} x2={cx} y2={cyEdge} stroke="#f43f5e" strokeWidth="2.5" opacity="0.25" strokeLinecap="round" />
+                <line x1={cx} y1={cyThis} x2={cx} y2={cyEdge} stroke="#f43f5e" strokeWidth="1" strokeDasharray="2 2" opacity="0.9" />
+                {/* tick at the fleet boundary (where the fleet stops) */}
+                <line x1={cx - 5} y1={cyEdge} x2={cx + 5} y2={cyEdge} stroke="#f43f5e" strokeWidth="1.4" />
+                {/* white halo behind the label so it stays readable over the scatter/line */}
+                <text x={labelX} y={labelY} textAnchor={anchor} fontSize="9" fontWeight="700" stroke="#fff" strokeWidth="3" strokeLinejoin="round" opacity="0.9">
+                  +{delta}%p over fleet
+                </text>
+                <text x={labelX} y={labelY} textAnchor={anchor} className="fill-rose-600" fontSize="9" fontWeight="700">
+                  +{delta}%p over fleet
+                </text>
+              </g>
+            )
+          })}
+          {/* this instrument points */}
+          {pts.map((p, i) => {
+            if (p.thisError == null) return null
+            const cx = sx(p.torque), cy = sy(p.thisError)
+            const out = p.outOfRange === 'above' || p.outOfRange === 'below'
+            const posWord = p.outOfRange === 'above' ? 'above' : p.outOfRange === 'below' ? 'below' : 'within'
+            return (
+              <g key={i}>
+                <circle cx={cx} cy={cy} r={out ? 4.5 : 3} fill={out ? '#f43f5e' : '#2563eb'} stroke="#fff" strokeWidth="1.2">
+                  <title>{`${p.label}\nThis unit: ${p.thisError}% (${posWord} fleet band)\nFleet: ${p.fleetMin}% … ${p.fleetMax}% (median ${p.fleetMedian}%)\nBuilt from ${p.peerSampleCount} normal units · ${p.outlierCount} outlier(s) IQR-trimmed`}</title>
+                </circle>
+              </g>
+            )
+          })}
+
+          {/* x axis */}
+          <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#e2e8f0" strokeWidth="1" />
+          {pts.map((p, i) => {
+            if (i % labelEvery !== 0 && i !== pts.length - 1) return null
+            const x = sx(p.torque)
+            return (
+              <g key={`xl-${i}`}>
+                <line x1={x} y1={H - padB} x2={x} y2={H - padB + 3} stroke="#cbd5e1" strokeWidth="1" />
+                <text x={x} y={H - padB + 14} textAnchor="middle" className="fill-slate-500" fontSize="9">{p.torque}</text>
+              </g>
+            )
+          })}
+          <text x={(padL + W - padR) / 2} y={H - 2} textAnchor="middle" className="fill-slate-400" fontSize="9">Torque ({bands.unit})</text>
+          {/* y axis title */}
+          <text x={12} y={padT + plotH / 2} textAnchor="middle" className="fill-slate-400" fontSize="9" transform={`rotate(-90 12 ${padT + plotH / 2})`}>Error (%)</text>
+        </svg>
+
+        {/* legend */}
+        <div className="mt-2 flex items-center gap-3 text-[10px] text-slate-500 flex-wrap">
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-600" /> This instrument</span>
+          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-slate-400/50" /> Fleet measurements</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-2 bg-slate-400/20 border border-slate-300" /> Fleet range (IQR-trimmed)</span>
+          <LegendDot color="bg-slate-400" label="Fleet median" />
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-0.5 bg-rose-400" style={{ borderTop: '1px dashed' }} /> ± tolerance</span>
+        </div>
+      </div>
+
+      {/* one-line read of the picture */}
+      <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
+        <span className="font-medium text-slate-600">{positionNote}.</span>{' '}
+        {outCount > 0
+          ? <>At <span className="font-semibold text-rose-600">{outCount} point(s)</span> this unit sits outside the normal fleet error band — its own signature, not a fleet trait.</>
+          : <>This unit stays within the normal fleet error band at every point.</>}
+        {' '}The fleet is shown for context; the cycle is set by this unit&apos;s own drift and uncertainty.
+      </div>
+    </div>
+  )
+}
+
+function PeerStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-lg px-3 py-2">
+      <div className="text-[9px] text-slate-400 uppercase tracking-wider mb-0.5">{label}</div>
+      <div className="text-lg font-bold text-slate-700 leading-none tabular-nums">{value}</div>
+    </div>
+  )
+}
 
 // ─────────────────────────────────────────────────────────────────
-// 최종 단계 상세 (Breakdown)
+// Interim Check Simulation view (Future Work) — NEW
+// ─────────────────────────────────────────────────────────────────
+
+function InterimSimulationView({ sim }: { sim: InterimSimComparison }) {
+  const s = sim.simulation.summary
+  const confGainLabel =
+    s.confidenceGain === 'low→high' ? 'Low → High' :
+    s.confidenceGain === 'medium→high' ? 'Medium → High' :
+    s.confidenceGain === 'low→medium' ? 'Low → Medium' :
+    'Maintained'
+
+  return (
+    <div className="bg-gradient-to-br from-purple-50/60 via-white to-white border-2 border-purple-200 rounded-2xl overflow-hidden">
+      {/* Headline */}
+      <div className="px-5 pt-5 pb-4">
+        <div className="text-[10px] text-purple-600/70 font-bold uppercase tracking-widest mb-2">If interim check data flows in…</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <SimMetric
+            label="Interim checks added"
+            value={`${s.totalInterimChecks}`}
+            sub={`over ${s.monthsSpan} mo`}
+            tone="purple"
+          />
+          <SimMetric
+            label="Avg early detection"
+            value={s.avgEarlyDetectionMonths != null ? `${s.avgEarlyDetectionMonths}` : '—'}
+            sub="months earlier"
+            tone="purple"
+            big
+          />
+          <SimMetric
+            label="Drift confidence"
+            value={confGainLabel}
+            sub="step 2"
+            tone="emerald"
+            textValue
+          />
+          <SimMetric
+            label="Recommended cycle"
+            value={`${sim.delta.finalMonthsBefore} → ${sim.delta.finalMonthsAfter}`}
+            sub="before → after"
+            tone={sim.delta.finalMonthsAfter < sim.delta.finalMonthsBefore ? 'rose' : 'slate'}
+            textValue
+          />
+        </div>
+      </div>
+
+      {/* Before / After comparison */}
+      <div className="bg-white/70 border-t border-purple-100 px-5 py-4">
+        <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-3">Detection timeline — per point</div>
+        <div className="space-y-2.5">
+          {sim.simulation.effects.map((e, i) => (
+            <InterimEffectRow key={i} effect={e} monthsSpan={s.monthsSpan} />
+          ))}
+        </div>
+      </div>
+
+      {/* Footnote */}
+      <div className="px-5 py-3 bg-purple-50/50 border-t border-purple-100">
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          <span className="text-purple-500 mr-1">🔮</span>
+          The kiosk trades accuracy for convenience — low-precision but high-frequency. We don&apos;t need exact numbers between
+          calibrations; we need the <span className="font-semibold text-purple-700">trend</span>. These dense interim points reveal drift
+          well before the next formal calibration would have caught it.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function InterimEffectRow({
+  effect,
+  monthsSpan,
+}: {
+  effect: InterimSimComparison['simulation']['effects'][number]
+  monthsSpan: number
+}) {
+  const before = effect.monthsToLimitBefore
+  const after = effect.monthsToLimitAfter
+  const early = effect.earlyDetectionMonths
+
+  // timeline scale: 0 .. max(before, monthsSpan*2)
+  const maxScale = Math.max(monthsSpan * 2, before ?? 0, after ?? 0, 24)
+  const beforeX = before != null ? Math.min(100, (before / maxScale) * 100) : null
+  const afterX = after != null ? Math.min(100, (after / maxScale) * 100) : null
+
+  return (
+    <div className="flex items-center gap-3 text-[11px]">
+      <span className="w-[28%] text-slate-700 font-medium truncate" title={effect.label}>{effect.label}</span>
+      <div className="flex-1 relative h-6">
+        {/* track */}
+        <div className="absolute top-1/2 left-0 right-0 h-px bg-slate-200 -translate-y-1/2" />
+        {/* after marker (kiosk catches earlier) */}
+        {afterX != null && (
+          <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col items-center" style={{ left: `${afterX}%` }}>
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-purple-100" title={`With interim: ~${after}mo`} />
+          </div>
+        )}
+        {/* before marker (formal-only, later) */}
+        {beforeX != null && (
+          <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col items-center" style={{ left: `${beforeX}%` }}>
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-400 ring-2 ring-slate-100" title={`Formal only: ~${before}mo`} />
+          </div>
+        )}
+        {/* gap line */}
+        {afterX != null && beforeX != null && beforeX > afterX && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-purple-300"
+            style={{ left: `${afterX}%`, width: `${beforeX - afterX}%` }}
+          />
+        )}
+      </div>
+      <span className="w-20 text-right shrink-0">
+        {early != null && early > 0 ? (
+          <span className="text-purple-700 font-bold">−{early} mo</span>
+        ) : (
+          <span className="text-slate-400">no change</span>
+        )}
+      </span>
+    </div>
+  )
+}
+
+function SimMetric({
+  label,
+  value,
+  sub,
+  tone,
+  big,
+  textValue,
+}: {
+  label: string
+  value: string
+  sub: string
+  tone: 'purple' | 'emerald' | 'rose' | 'slate'
+  big?: boolean
+  textValue?: boolean
+}) {
+  const valueColor =
+    tone === 'purple' ? 'text-purple-700' :
+    tone === 'emerald' ? 'text-emerald-700' :
+    tone === 'rose' ? 'text-rose-700' :
+    'text-slate-700'
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg px-3 py-2">
+      <div className="text-[9px] text-slate-400 uppercase tracking-wide mb-1 leading-tight">{label}</div>
+      <div className={`font-bold ${valueColor} ${big ? 'text-2xl' : textValue ? 'text-sm' : 'text-xl'}`}>{value}</div>
+      <div className="text-[9px] text-slate-400 mt-0.5">{sub}</div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Final step detail (Breakdown)
 // ─────────────────────────────────────────────────────────────────
 
 function FinalBreakdown({ analysis }: { analysis: CycleAnalysisResult }) {
   const final = analysis.step5.data
   return (
     <div>
-      <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">계산식</div>
+      <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">Formula</div>
       <div className="flex items-center flex-wrap gap-2 text-xs">
-        <BreakdownBox label="기준" value={`${final.breakdown.base}`} primary />
+        <BreakdownBox label="Base" value={`${final.breakdown.base}`} primary />
         <span className="text-slate-400">+</span>
-        <BreakdownBox label="2단계" value={`${formatSigned(final.breakdown.trendAdj)}`} />
+        <BreakdownBox label="Step 2" value={`${formatSigned(final.breakdown.trendAdj)}`} />
         <span className="text-slate-400">+</span>
-        <BreakdownBox label="3단계" value={`${formatSigned(final.breakdown.riskAdj)}`} />
+        <BreakdownBox label="Step 3" value={`${formatSigned(final.breakdown.riskAdj)}`} />
         <span className="text-slate-400">+</span>
-        <BreakdownBox label="4단계" value={`${formatSigned(final.breakdown.contextAdj)}`} />
+        <BreakdownBox label="Step 4" value={`${formatSigned(final.breakdown.contextAdj)}`} />
         <span className="text-slate-400">=</span>
-        <BreakdownBox label="권고" value={`${final.finalMonths}개월`} highlight />
+        <BreakdownBox label="Result" value={`${final.finalMonths} mo`} highlight />
       </div>
       {final.guardrail.clamped && (
         <p className="mt-3 text-[11px] text-amber-600">
-          원본 합계 {final.breakdown.sum}개월 → 가드레일({final.guardrail.minMonths}~{final.guardrail.maxMonths}개월) 적용 → {final.finalMonths}개월
+          Raw sum {final.breakdown.sum} mo → guardrail ({final.guardrail.minMonths}–{final.guardrail.maxMonths} mo) → {final.finalMonths} mo
         </p>
       )}
     </div>
@@ -1215,7 +1955,7 @@ function formatSigned(n: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 소형 보조 컴포넌트
+// Small helpers
 // ─────────────────────────────────────────────────────────────────
 
 function MetricBox({
@@ -1321,35 +2061,49 @@ function SectionHeader({
   )
 }
 
-/**
- * 결정 영역 상단에 표시될 한 줄 자연어 요약 메시지 생성
- * (AI 호출 전, 규칙 기반 — 결과를 즉시 사용자에게 전달)
- */
-function buildSummaryMessage(analysis: CycleAnalysisResult): string {
-  const final = analysis.step5.data
-  const baseSrc = analysis.step1.data.sourceLabel
-  const baseMonths = analysis.step1.data.baseMonths
-  const finalMonths = final.finalMonths
-  const conf = final.confidence
+// ─────────────────────────────────────────────────────────────────
+// One-line English signals for the collapsed step rows (presentation)
+// ─────────────────────────────────────────────────────────────────
 
-  // 기본 권고
-  let msg = ''
-  if (final.direction === 'maintain') {
-    msg = `${baseSrc} ${baseMonths}개월을 그대로 따릅니다.`
-  } else if (final.direction === 'shorten') {
-    msg = `${baseSrc} ${baseMonths}개월에서 ${baseMonths - finalMonths}개월 단축한 ${finalMonths}개월을 권고합니다.`
-  } else {
-    msg = `${baseSrc} ${baseMonths}개월에서 ${finalMonths - baseMonths}개월 연장한 ${finalMonths}개월을 검토할 수 있습니다.`
+function signalBaseline(d: BaselineData): string {
+  const src = baselineSourceLabel(d.source).toLowerCase()
+  const std = d.profileStandards.length > 0 ? ` · ${d.profileStandards[0]}` : ''
+  return `${d.baseMonths} mo from ${src}${std}`
+}
+
+function signalDrift(d: TrendDriftData): string {
+  if (!d.dataQuality.enoughHistory) return 'Not enough history for trend analysis'
+  const u = d.summary.urgentPointCount
+  const w = d.summary.watchPointCount
+  // worst point name + its latest usage
+  const worst = [...d.points].sort((a, b) => (b.latestRatio ?? 0) - (a.latestRatio ?? 0))[0]
+  if (u > 0 && worst) {
+    return `${worst.label} approaching limit (${worst.latestRatio?.toFixed(0)}%) · ${u} urgent, ${w} watch`
   }
+  if (w > 0) return `${w} point(s) on watch · max usage ${d.summary.maxLatestRatio?.toFixed(0)}%`
+  return `All points stable · max usage ${d.summary.maxLatestRatio?.toFixed(0) ?? '—'}%`
+}
 
-  // 신뢰도 보강
-  if (conf === 'low') {
-    msg += ' 다만 데이터가 부족해 추가 검증이 필요합니다.'
-  } else if (conf === 'medium' && analysis.step1.warnings.length > 0) {
-    msg += ' 사양서 정보가 보완되면 정밀도가 높아집니다.'
-  }
+function signalUncertainty(d: UncertaintyRiskData): string {
+  if (!d.summary.hasGuardBandData) return 'No uncertainty data in certificates'
+  const ut = d.summary.maxUtRatioOverall
+  const utStr = ut != null ? `max U/T ${ut.toFixed(0)}%` : 'U/T n/a'
+  if (d.summary.pointsWithRecentDanger > 0) return `${d.summary.pointsWithRecentDanger} point(s) at risk · ${utStr}`
+  if (d.summary.conditionalPassRatio >= 30) return `Borderline ${d.summary.conditionalPassRatio.toFixed(0)}% · ${utStr}`
+  return `Guard band stable · ${utStr}`
+}
 
-  return msg
+function signalPeer(d: PeerBenchmarkStepData): string {
+  const pos = d.position === 'faster' ? 'faster than fleet' : d.position === 'slower' ? 'more stable than fleet' : 'around fleet average'
+  const pct = d.avgPercentile != null ? `${d.avgPercentile.toFixed(0)}th %ile` : ''
+  return `${d.totalPeerCount} peers · ${pct} · ${pos}`
+}
+
+function signalFinal(a: CycleAnalysisResult): string {
+  const f = a.step5.data
+  if (f.direction === 'shorten') return `Shorten ${f.breakdown.base} → ${f.finalMonths} months`
+  if (f.direction === 'extend') return `Extend ${f.breakdown.base} → ${f.finalMonths} months`
+  return `Maintain ${f.finalMonths} months`
 }
 
 function BreakdownBox({ label, value, highlight, primary }: { label: string; value: string; highlight?: boolean; primary?: boolean }) {
@@ -1362,37 +2116,6 @@ function BreakdownBox({ label, value, highlight, primary }: { label: string; val
     <div className={`inline-flex flex-col items-center px-2.5 py-1 border rounded ${cls}`}>
       <span className="text-[9px] uppercase tracking-wide opacity-70">{label}</span>
       <span className="text-xs font-bold">{value}</span>
-    </div>
-  )
-}
-
-function SummaryCell({
-  label,
-  value,
-  unit,
-  tone = 'slate',
-  highlight,
-}: {
-  label: string
-  value: string
-  unit: string
-  tone?: 'slate' | 'rose' | 'emerald' | 'blue'
-  highlight?: boolean
-}) {
-  const toneClass =
-    tone === 'rose' ? 'text-rose-600' :
-    tone === 'emerald' ? 'text-emerald-600' :
-    tone === 'blue' ? 'text-blue-700' :
-    'text-slate-700'
-  const containerClass = highlight
-    ? 'bg-blue-50 border border-blue-200 rounded-lg px-2 py-2'
-    : 'px-2 py-2'
-  return (
-    <div className={`text-center ${containerClass}`}>
-      <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">{label}</div>
-      <div className={`text-base font-bold ${toneClass}`}>
-        {value}<span className="text-xs font-medium ml-0.5 opacity-70">{unit}</span>
-      </div>
     </div>
   )
 }
