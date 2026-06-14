@@ -481,6 +481,10 @@ export interface PointUncertaintyAnalysis {
   latestUtRatio: number | null              // 최신 U/T %
   maxUtRatio: number | null                 // 이력 중 최대 U/T %
   hasRecentDanger: boolean                  // 최근 conditional-fail 또는 non-conformant
+  // ── 가드밴드 개념도 차트용 (최신 교정 기준) ──
+  latestError: number | null                // 최신 오차 (%, 부호 포함) — 점 위치
+  latestUAbs: number | null                 // 최신 확장불확도 U (%, 절대값) — ±막대 길이
+  tolerance: number | null                  // 허용오차 ± (%) — 한계선
 }
 
 export interface UncertaintyRiskData {
@@ -552,6 +556,10 @@ export function step3_uncertaintyRisk(
     let latestUtRatio: number | null = null
     let maxUtRatio: number | null = null
     let hasRecentDanger = false
+    // 가드밴드 개념도 차트용: 최신 교정의 오차/U/허용오차
+    let latestError: number | null = null
+    let latestUAbs: number | null = null
+    let tolerance: number | null = null
 
     for (const p of s.points) {
       // null 측정값은 카운트에서 제외 (해당 시점에 측정 안 됨)
@@ -575,7 +583,13 @@ export function step3_uncertaintyRisk(
         if (latestUtRatio === null) latestUtRatio = p.utRatio
         if (maxUtRatio === null || p.utRatio > maxUtRatio) maxUtRatio = p.utRatio
       }
-      if (latestGuardBand !== null && latestUtRatio !== null) break
+      // 차트용: 오차/U/허용오차가 모두 있는 가장 최근 교정점 1건
+      if (latestError === null && p.오차 != null && p.불확도 != null && p.허용오차 != null) {
+        latestError = p.오차
+        latestUAbs = Math.abs(p.불확도)
+        tolerance = Math.abs(p.허용오차)
+      }
+      if (latestGuardBand !== null && latestUtRatio !== null && latestError !== null) break
     }
     // maxUtRatio 별도 전체 스캔 (위 loop는 break 되므로 부정확)
     for (const p of s.points) {
@@ -606,6 +620,9 @@ export function step3_uncertaintyRisk(
       latestUtRatio,
       maxUtRatio,
       hasRecentDanger,
+      latestError,
+      latestUAbs,
+      tolerance,
     })
   }
 

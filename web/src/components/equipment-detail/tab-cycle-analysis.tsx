@@ -26,6 +26,7 @@ import {
   type BaselineData,
   type TrendDriftData,
   type UncertaintyRiskData,
+  type PointUncertaintyAnalysis,
   type PeerBenchmarkStepData,
   type InterimSimComparison,
   type Prescription,
@@ -551,7 +552,13 @@ function BaselineDetails({ data, loading, error }: { data: BaselineData; loading
       {/* Top metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <MetricBox label="Baseline" value={`${data.baseMonths}`} unit="mo" primary />
-        <MetricBox label="Source" value={baselineSourceLabel(data.source)} unit="" textValue />
+        <MetricBox
+          label="Source"
+          value={baselineSourceLabel(data.source)}
+          unit=""
+          textValue
+          footnote={baselineBasisStandard(data.profileStandards)}
+        />
         <MetricBox
           label="Category"
           value={data.profileCategory ?? 'N/A'}
@@ -699,16 +706,21 @@ function DriftForecastSection({
   baseMonths: number
   finalMonths: number
 }) {
-  // 차트 가능한 포인트 = 실측 2회 이상. 위험도 순(urgent→watch→safe)으로 탭 정렬.
+  // 차트 가능한 포인트 = 실측 2회 이상. 측정점(토크값) 오름차순으로 탭 정렬
+  //   (50→100→…→250 N·m). 심각도는 정렬이 아니라 배경색으로 구분한다.
   const seriesByLabel = useMemo(() => new Map(series.map(s => [s.label, s])), [series])
   const selectable = useMemo(() => {
-    const rank = (r: string) => (r === 'urgent' ? 0 : r === 'watch' ? 1 : 2)
+    // 라벨에서 수치 추출 ("50 N·m" → 50). 숫자 없으면 큰 값으로 밀어 뒤로.
+    const numOf = (label: string) => {
+      const m = label.match(/-?\d+(?:\.\d+)?/)
+      return m ? parseFloat(m[0]) : Number.POSITIVE_INFINITY
+    }
     return [...data.points]
       .filter(p => {
         const s = seriesByLabel.get(p.label)
         return s != null && s.points.filter(pt => pt.오차 != null).length >= 2
       })
-      .sort((a, b) => rank(a.riskLevel) - rank(b.riskLevel) || (b.latestRatio ?? 0) - (a.latestRatio ?? 0))
+      .sort((a, b) => numOf(a.label) - numOf(b.label) || a.label.localeCompare(b.label))
   }, [data.points, seriesByLabel])
 
   const [activeLabel, setActiveLabel] = useState<string | null>(null)
@@ -734,27 +746,33 @@ function DriftForecastSection({
         Error trend & limit-crossing forecast — select a measurement point
       </div>
 
-      {/* point tabs (risk-ordered) */}
-      <div className="flex flex-wrap gap-1.5 mb-3">
+      {/* point tabs — ordered by torque (50→250); severity shown by background color */}
+      <div className="flex flex-wrap gap-1.5 mb-2">
         {selectable.map(p => {
           const on = p.label === active
+          // 심각도 = 배경색 (urgent 빨강 / watch 주황 / safe 초록). 선택 시 진하게.
           const tone =
-            p.riskLevel === 'urgent' ? (on ? 'bg-rose-600 text-white border-rose-600' : 'bg-rose-50 text-rose-700 border-rose-200') :
-            p.riskLevel === 'watch' ? (on ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 text-amber-700 border-amber-200') :
-            (on ? 'bg-slate-600 text-white border-slate-600' : 'bg-white text-slate-600 border-slate-200')
+            p.riskLevel === 'urgent' ? (on ? 'bg-rose-600 text-white border-rose-600 ring-2 ring-rose-300' : 'bg-rose-100 text-rose-700 border-rose-300') :
+            p.riskLevel === 'watch'  ? (on ? 'bg-amber-500 text-white border-amber-500 ring-2 ring-amber-300' : 'bg-amber-100 text-amber-700 border-amber-300') :
+                                       (on ? 'bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-300' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
           return (
             <button
               key={p.label}
               onClick={() => setActiveLabel(p.label)}
-              className={`text-[11px] font-medium px-2.5 py-1 rounded-md border transition-colors ${tone}`}
+              className={`text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-all ${tone}`}
             >
-              {p.riskLevel === 'urgent' && <span className="mr-1">●</span>}
-              {p.riskLevel === 'watch' && <span className="mr-1">●</span>}
               {p.label}
-              <span className="ml-1 opacity-70">{p.latestRatio != null ? `${p.latestRatio.toFixed(0)}%` : ''}</span>
+              <span className="ml-1 opacity-70 font-normal">{p.latestRatio != null ? `${p.latestRatio.toFixed(0)}%` : ''}</span>
             </button>
           )
         })}
+      </div>
+      {/* severity legend (background color = risk level) */}
+      <div className="flex items-center gap-3 mb-3 text-[10px] text-slate-500 flex-wrap">
+        <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-rose-100 border border-rose-300" /> Urgent</span>
+        <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-100 border border-amber-300" /> Watch</span>
+        <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-50 border border-emerald-200" /> Safe</span>
+        <span className="text-slate-400">· % = latest tolerance usage</span>
       </div>
 
       <ErrorForecastChart forecast={forecast} baseMonths={baseMonths} finalMonths={finalMonths} />
@@ -1113,6 +1131,167 @@ function RiskMetricBox({
 // Step 3 detail (Uncertainty Risk)
 // ─────────────────────────────────────────────────────────────────
 
+// ── Guard band concept chart (ILAC G-8) ──────────────────────────
+// 발표 슬라이드용 핵심 그림. "이 화면만 봐도" 가드밴드 개념이 이해되도록:
+//   각 측정점의 [측정 오차 점] 에 [± 확장불확도 U 막대]를 세우고,
+//   그 막대가 ±tolerance 한계선에 얼마나 가까운지를 한눈에 보여준다.
+//   - U 막대가 한계선 안에서 여유 → conformant (합격, 안전)
+//   - U 막대가 한계 ~ 한계 사이(가드밴드)에 닿음 → conditional (불확도 감안 시 초과 가능)
+//   - 점 자체가 한계 밖 → non-conformant
+// conformant 만 있어도 "한계까지의 여유"가 막대로 보이므로 그림이 살아있다.
+function GuardBandConceptChart({
+  points,
+}: {
+  points: PointUncertaintyAnalysis[]
+}) {
+  // 차트에 그릴 수 있는 점만 (오차·U·tol 모두 존재)
+  const pts = points.filter(
+    (p): p is PointUncertaintyAnalysis & { latestError: number; latestUAbs: number; tolerance: number } =>
+      p.latestError != null && p.latestUAbs != null && p.tolerance != null,
+  )
+  if (pts.length === 0) {
+    return (
+      <div className="text-xs text-slate-400 text-center py-3 bg-white border border-slate-200 rounded-lg">
+        No measured error / uncertainty data to plot.
+      </div>
+    )
+  }
+
+  // tolerance 는 보통 모든 점이 동일(±4%)하나, 혹시 다르면 최댓값 기준으로 축을 잡는다.
+  const tol = Math.max(...pts.map(p => p.tolerance))
+
+  // ── geometry ──
+  const W = 640, H = 320
+  const padL = 52, padR = 24, padT = 30, padB = 52
+  const plotW = W - padL - padR
+  const plotH = H - padT - padB
+
+  // Y = 오차%(0 중심 대칭). 한계선 + U막대 끝이 넉넉히 보이도록 여유.
+  const yReach = Math.max(
+    tol * 1.18,
+    ...pts.map(p => Math.abs(p.latestError) + p.latestUAbs),
+  )
+  const yMin = -yReach, yMax = yReach
+  const ySpan = (yMax - yMin) || 1
+  const sy = (e: number) => padT + (1 - (e - yMin) / ySpan) * plotH
+
+  // X = 측정점 균등 배치 (slot 중앙)
+  const n = pts.length
+  const slotW = plotW / n
+  const sx = (i: number) => padL + slotW * (i + 0.5)
+
+  // 판정별 색
+  const colorOf = (gb: PointUncertaintyAnalysis['latestGuardBand']) =>
+    gb === 'non-conformant' ? '#dc2626' :
+    gb === 'conditional-fail' ? '#f43f5e' :
+    gb === 'conditional-pass' ? '#f59e0b' :
+    '#10b981' // conformant or null → 안전색
+  const verdictLabel = (gb: PointUncertaintyAnalysis['latestGuardBand']) =>
+    gb === 'non-conformant' ? 'Fail' :
+    gb === 'conditional-fail' ? 'Cond. fail' :
+    gb === 'conditional-pass' ? 'Borderline' :
+    'Pass'
+
+  // Y축 눈금 (±tol 안에서 정수%, step = tol>=4 ? 2 : tol/2)
+  const yStep = tol >= 4 ? 2 : tol / 2
+  const yTicks: number[] = []
+  for (let v = 0; v <= yMax + 1e-6; v += yStep) yTicks.push(Math.round(v * 10) / 10)
+  const yTickAll = [...yTicks.slice(1).map(v => -v).reverse(), ...yTicks]
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg p-3">
+      <div className="text-xs font-bold text-slate-700 mb-0.5">
+        Guard band — measured error <span className="text-slate-400 font-normal">±</span> expanded uncertainty (U) vs tolerance limit
+      </div>
+      <div className="text-[10px] text-slate-400 mb-1.5">
+        ILAC G-8 · each bar is the measurement&apos;s ± U; how close it reaches the ±{tol}% limit decides conformance
+      </div>
+
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="block" preserveAspectRatio="xMidYMid meet">
+        {/* fail zones: beyond ±tolerance */}
+        <rect x={padL} y={padT} width={plotW} height={Math.max(0, sy(tol) - padT)} fill="#fecaca" fillOpacity="0.35" />
+        <rect x={padL} y={sy(-tol)} width={plotW} height={Math.max(0, (H - padB) - sy(-tol))} fill="#fecaca" fillOpacity="0.35" />
+
+        {/* y grid + tick labels */}
+        {yTickAll.map((v, i) => {
+          const atTol = Math.abs(Math.abs(v) - tol) < 1e-6
+          return (
+            <g key={`yt-${i}`}>
+              {v !== 0 && !atTol && <line x1={padL} y1={sy(v)} x2={W - padR} y2={sy(v)} stroke="#f1f5f9" strokeWidth="1" />}
+              {!atTol && (
+                <text x={padL - 7} y={sy(v) + 3} textAnchor="end" className="fill-slate-400" fontSize="9.5">
+                  {v > 0 ? '+' : ''}{v}
+                </text>
+              )}
+            </g>
+          )
+        })}
+
+        {/* zero baseline */}
+        <line x1={padL} y1={sy(0)} x2={W - padR} y2={sy(0)} stroke="#cbd5e1" strokeWidth="1.2" />
+
+        {/* ±tolerance limit lines */}
+        <line x1={padL} y1={sy(tol)} x2={W - padR} y2={sy(tol)} stroke="#ef4444" strokeWidth="1.6" strokeDasharray="6 3" />
+        <line x1={padL} y1={sy(-tol)} x2={W - padR} y2={sy(-tol)} stroke="#ef4444" strokeWidth="1.6" strokeDasharray="6 3" />
+        <text x={W - padR - 2} y={sy(tol) - 4} textAnchor="end" className="fill-rose-500" fontSize="9.5" fontWeight="700">+{tol}% limit</text>
+        <text x={W - padR - 2} y={sy(-tol) + 12} textAnchor="end" className="fill-rose-500" fontSize="9.5" fontWeight="700">−{tol}% limit</text>
+
+        {/* per-point: ± U bar + measured dot + verdict label */}
+        {pts.map((p, i) => {
+          const x = sx(i)
+          const e = p.latestError
+          const u = p.latestUAbs
+          const c = colorOf(p.latestGuardBand)
+          const yTop = sy(e + u), yBot = sy(e - u)
+          const cap = 7
+          // 한계까지 남은 여유(가장 위험한 쪽). conformant 일수록 큼.
+          const margin = tol - (Math.abs(e) + u)
+          return (
+            <g key={`gb-${i}`}>
+              {/* U bar body (반투명 굵은 띠) */}
+              <rect x={x - 9} y={yTop} width={18} height={Math.max(1, yBot - yTop)} rx={3} fill={c} fillOpacity="0.20" />
+              {/* whisker + caps */}
+              <line x1={x} y1={yTop} x2={x} y2={yBot} stroke={c} strokeWidth="2" />
+              <line x1={x - cap} y1={yTop} x2={x + cap} y2={yTop} stroke={c} strokeWidth="2" />
+              <line x1={x - cap} y1={yBot} x2={x + cap} y2={yBot} stroke={c} strokeWidth="2" />
+              {/* measured error dot */}
+              <circle cx={x} cy={sy(e)} r="4" fill={c} stroke="#fff" strokeWidth="1.4" />
+              {/* verdict badge above the bar */}
+              <g transform={`translate(${x}, ${Math.max(padT + 10, yTop - 8)})`}>
+                <text textAnchor="middle" fontSize="9.5" fontWeight="700" fill={c}
+                  stroke="#fff" strokeWidth="2.5" strokeLinejoin="round" paintOrder="stroke">
+                  {verdictLabel(p.latestGuardBand)}
+                </text>
+              </g>
+              {/* margin-to-limit chip below the bar (얼마나 여유 있나) */}
+              <text x={x} y={yBot + 13} textAnchor="middle" fontSize="8.5" className="fill-slate-400">
+                {margin >= 0 ? `${margin.toFixed(1)}% to limit` : `${Math.abs(margin).toFixed(1)}% over`}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* x axis */}
+        <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#e2e8f0" strokeWidth="1" />
+        {pts.map((p, i) => (
+          <text key={`xl-${i}`} x={sx(i)} y={H - padB + 16} textAnchor="middle" className="fill-slate-600" fontSize="10.5" fontWeight="600">
+            {p.label}
+          </text>
+        ))}
+        <text x={padL + plotW / 2} y={H - 6} textAnchor="middle" className="fill-slate-400" fontSize="10">Measurement point</text>
+        <text x={13} y={padT + plotH / 2} textAnchor="middle" className="fill-slate-400" fontSize="10.5" transform={`rotate(-90 13 ${padT + plotH / 2})`}>Error (%)</text>
+      </svg>
+
+      {/* legend */}
+      <div className="mt-2 flex items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 flex-wrap">
+        <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(16,185,129,0.25)', border: '1px solid #10b981' }} /> Pass (U bar clears the limit)</span>
+        <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(245,158,11,0.25)', border: '1px solid #f59e0b' }} /> Borderline (U bar touches limit)</span>
+        <span className="inline-flex items-center gap-1"><span className="w-4 h-0.5 bg-rose-500" style={{ borderTop: '2px dashed' }} /> ±{tol}% tolerance limit</span>
+      </div>
+    </div>
+  )
+}
+
 function UncertaintyRiskDetails({ data }: { data: UncertaintyRiskData }) {
   if (!data.dataQuality.enoughHistory) {
     return (
@@ -1136,16 +1315,18 @@ function UncertaintyRiskDetails({ data }: { data: UncertaintyRiskData }) {
 
   return (
     <div className="space-y-5">
-      <SignalsSection data={data} />
-      <GuardBandDistributionSection data={data} total={total} />
+      {/* ★ 발표 핵심 그림 — 가드밴드 개념도(맨 위 주인공) */}
       <div>
         <SubsectionHeader
-          icon="📈"
-          title="U/T ratio by point"
-          subtitle={`Sorted by risk — ${data.points.length} measurement point(s)`}
+          icon="🛡️"
+          title="Guard band at a glance"
+          subtitle="Measured error ± uncertainty (U) vs the tolerance limit — ILAC G-8"
         />
-        <PointsSection points={data.points} />
+        <GuardBandConceptChart points={data.points} />
       </div>
+      {/* 보조 요약: 시그널 카드 + 누적 분포 */}
+      <SignalsSection data={data} />
+      <GuardBandDistributionSection data={data} total={total} />
     </div>
   )
 }
@@ -1312,180 +1493,6 @@ function GuardBandDistributionSection({ data, total }: { data: UncertaintyRiskDa
           })}
         </div>
       </div>
-    </div>
-  )
-}
-
-function uncertaintyRiskOrder(gb: 'conformant' | 'conditional-pass' | 'conditional-fail' | 'non-conformant' | null, latestUtRatio: number | null): number {
-  if (gb === 'non-conformant') return 0
-  if (gb === 'conditional-fail') return 1
-  if (gb === 'conditional-pass') return 2
-  if (latestUtRatio != null && latestUtRatio > 50) return 2
-  if (latestUtRatio != null && latestUtRatio > 33) return 3
-  if (gb === 'conformant') return 4
-  return 5
-}
-
-function isRiskyPoint(p: import('@/lib/cycle-analysis').PointUncertaintyAnalysis): boolean {
-  if (p.latestGuardBand === 'non-conformant') return true
-  if (p.latestGuardBand === 'conditional-fail') return true
-  if (p.latestGuardBand === 'conditional-pass') return true
-  if (p.latestUtRatio != null && p.latestUtRatio > 33) return true
-  return false
-}
-
-function PointsSection({ points }: { points: import('@/lib/cycle-analysis').PointUncertaintyAnalysis[] }) {
-  const [showAllSafe, setShowAllSafe] = useState(false)
-
-  const sorted = [...points].sort((a, b) => {
-    const oa = uncertaintyRiskOrder(a.latestGuardBand, a.latestUtRatio)
-    const ob = uncertaintyRiskOrder(b.latestGuardBand, b.latestUtRatio)
-    return oa - ob
-  })
-  const risky = sorted.filter(isRiskyPoint)
-  const safe = sorted.filter(p => !isRiskyPoint(p))
-
-  const utValues = risky.map(p => p.latestUtRatio).filter((v): v is number => v != null)
-  const utMax = utValues.length > 0 ? Math.max(100, ...utValues) : 100
-
-  return (
-    <div className="space-y-3">
-      {risky.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-bold text-rose-700 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-rose-500" />
-              Risk / watch points ({risky.length})
-            </div>
-            <div className="text-[10px] text-slate-400">by U/T ratio</div>
-          </div>
-
-          <UtChartAxis utMax={utMax} />
-
-          <div className="space-y-1 mt-2">
-            {risky.map((p, i) => (
-              <UtChartRow key={i} point={p} utMax={utMax} />
-            ))}
-          </div>
-
-          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center gap-3 text-[10px] text-slate-500 flex-wrap">
-            <LegendDot color="bg-rose-500" label="U/T > 50% (check system)" />
-            <LegendDot color="bg-amber-400" label="U/T > 33% (high)" />
-            <LegendDot color="bg-rose-200" label="Cond. pass / risk verdict" />
-          </div>
-        </div>
-      )}
-
-      {safe.length > 0 && (
-        <div>
-          <button
-            onClick={() => setShowAllSafe(v => !v)}
-            className="w-full flex items-center justify-between px-3 py-2 bg-emerald-50/50 border border-emerald-100 rounded-lg hover:bg-emerald-50 transition-colors"
-          >
-            <span className="text-[10px] text-emerald-700 uppercase tracking-wide font-semibold flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Safe points ({safe.length})
-            </span>
-            <svg className={`w-3.5 h-3.5 text-emerald-600 transition-transform ${showAllSafe ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {showAllSafe && (
-            <div className="mt-2 space-y-1">
-              {safe.map((p, i) => (
-                <CompactSafeRow key={i} point={p} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {risky.length === 0 && safe.length === 0 && (
-        <div className="text-xs text-slate-400 text-center py-3">No point data</div>
-      )}
-    </div>
-  )
-}
-
-function UtChartAxis({ utMax }: { utMax: number }) {
-  const pct33 = (33 / utMax) * 100
-  const pct50 = (50 / utMax) * 100
-  const pct100 = (100 / utMax) * 100
-
-  return (
-    <div className="relative h-4 ml-[40%] border-b border-slate-200">
-      {pct33 < 100 && (
-        <div className="absolute top-0 bottom-0 border-l border-dashed border-amber-400" style={{ left: `${pct33}%` }}>
-          <span className="absolute -top-3 left-0.5 text-[9px] text-amber-600 whitespace-nowrap">33%</span>
-        </div>
-      )}
-      {pct50 < 100 && (
-        <div className="absolute top-0 bottom-0 border-l border-dashed border-rose-400" style={{ left: `${pct50}%` }}>
-          <span className="absolute -top-3 left-0.5 text-[9px] text-rose-600 whitespace-nowrap">50%</span>
-        </div>
-      )}
-      {pct100 <= 100 && (
-        <div className="absolute top-0 bottom-0 border-l border-slate-300" style={{ left: `${pct100}%` }}>
-          <span className="absolute -top-3 -translate-x-1/2 text-[9px] text-slate-500 whitespace-nowrap" style={{ left: `${pct100}%` }}>100%</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function UtChartRow({ point, utMax }: { point: import('@/lib/cycle-analysis').PointUncertaintyAnalysis; utMax: number }) {
-  const ut = point.latestUtRatio
-  const widthPct = ut != null ? (ut / utMax) * 100 : 0
-
-  const isVerdictDanger = point.latestGuardBand === 'non-conformant' || point.latestGuardBand === 'conditional-fail'
-  const barColor =
-    ut != null && ut > 50 ? 'bg-rose-500' :
-    ut != null && ut > 33 ? 'bg-amber-400' :
-    isVerdictDanger ? 'bg-rose-300' :
-    point.latestGuardBand === 'conditional-pass' ? 'bg-amber-300' :
-    'bg-emerald-400'
-
-  const verdictBadge =
-    point.latestGuardBand === 'non-conformant' ? { label: 'Non-conf.', cls: 'bg-rose-200 text-rose-800' } :
-    point.latestGuardBand === 'conditional-fail' ? { label: 'Cond. fail', cls: 'bg-rose-100 text-rose-700' } :
-    point.latestGuardBand === 'conditional-pass' ? { label: 'Borderline', cls: 'bg-amber-100 text-amber-700' } :
-    point.latestGuardBand === 'conformant' ? { label: 'Pass', cls: 'bg-emerald-100 text-emerald-700' } :
-    null
-
-  return (
-    <div className="flex items-center gap-2 text-[11px] hover:bg-slate-50 rounded px-1 py-0.5">
-      <div className="w-[40%] flex items-center gap-1.5 min-w-0">
-        {verdictBadge && (
-          <span className={`text-[9px] font-bold px-1 py-0.5 rounded shrink-0 ${verdictBadge.cls}`}>{verdictBadge.label}</span>
-        )}
-        <span className="text-slate-700 font-medium truncate" title={point.label}>{point.label}</span>
-      </div>
-      <div className="flex-1 relative h-5 bg-slate-50 rounded">
-        <div
-          className={`absolute top-0 bottom-0 left-0 rounded ${barColor} transition-all`}
-          style={{ width: `${Math.min(100, widthPct)}%` }}
-        />
-        <div className="absolute inset-0 flex items-center justify-end pr-1.5">
-          <span className={`text-[10px] font-bold ${widthPct > 20 ? 'text-white' : 'text-slate-700'}`} style={{ textShadow: widthPct > 20 ? '0 0 2px rgba(0,0,0,0.3)' : 'none' }}>
-            {ut != null ? `${ut.toFixed(1)}%` : '—'}
-          </span>
-        </div>
-      </div>
-      <span className="text-[10px] text-slate-400 w-8 text-right shrink-0">{point.guardBandStats.total}×</span>
-    </div>
-  )
-}
-
-function CompactSafeRow({ point }: { point: import('@/lib/cycle-analysis').PointUncertaintyAnalysis }) {
-  return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded text-[11px]">
-      <span className="text-emerald-600 text-[10px]">✓</span>
-      <span className="text-slate-700 font-medium truncate flex-1">{point.label}</span>
-      <span className="text-slate-400">
-        U/T {point.latestUtRatio != null ? `${point.latestUtRatio.toFixed(1)}%` : '—'}
-      </span>
-      <span className="text-slate-300">·</span>
-      <span className="text-slate-400">{point.guardBandStats.total}×</span>
     </div>
   )
 }
@@ -1926,25 +1933,84 @@ function SimMetric({
 
 function FinalBreakdown({ analysis }: { analysis: CycleAnalysisResult }) {
   const final = analysis.step5.data
+  const base = final.breakdown.base
+  const cb = final.crossingBased
+  const shorten = final.direction === 'shorten'
+  const extend = final.direction === 'extend'
+  // 결론 색조: 단축=빨강(위험)/연장=초록/유지=파랑
+  const tone = shorten
+    ? { ring: 'border-rose-300 bg-rose-50/60', dot: 'bg-rose-500', head: 'text-rose-700', pill: 'bg-rose-600' }
+    : extend
+    ? { ring: 'border-emerald-300 bg-emerald-50/60', dot: 'bg-emerald-500', head: 'text-emerald-700', pill: 'bg-emerald-600' }
+    : { ring: 'border-blue-300 bg-blue-50/60', dot: 'bg-blue-500', head: 'text-blue-700', pill: 'bg-blue-600' }
+
+  // crossing 근거가 있을 때(단축) 서술이 가장 풍부. 그 외엔 방향만 서술.
+  const crossingDriven = cb.drivenBy != null && cb.earliestCrossMonths != null
+
   return (
-    <div>
-      <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">Formula</div>
-      <div className="flex items-center flex-wrap gap-2 text-xs">
-        <BreakdownBox label="Base" value={`${final.breakdown.base}`} primary />
-        <span className="text-slate-400">+</span>
-        <BreakdownBox label="Step 2" value={`${formatSigned(final.breakdown.trendAdj)}`} />
-        <span className="text-slate-400">+</span>
-        <BreakdownBox label="Step 3" value={`${formatSigned(final.breakdown.riskAdj)}`} />
-        <span className="text-slate-400">+</span>
-        <BreakdownBox label="Step 4" value={`${formatSigned(final.breakdown.contextAdj)}`} />
-        <span className="text-slate-400">=</span>
-        <BreakdownBox label="Result" value={`${final.finalMonths} mo`} highlight />
+    <div className="space-y-3">
+      {/* ── 결론 서술 (the reasoning, in words) ── */}
+      <div className={`rounded-lg border p-3 ${tone.ring}`}>
+        <div className="flex items-start gap-2">
+          <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${tone.dot}`} />
+          <div className="flex-1 min-w-0">
+            <div className={`text-sm font-bold ${tone.head}`}>
+              {shorten ? `Shorten to ${final.finalMonths} months` :
+               extend ? `Extend to ${final.finalMonths} months` :
+               `Maintain the ${final.finalMonths}-month interval`}
+              <span className="text-slate-400 font-medium text-xs">
+                {' '}({formatSigned(final.finalMonths - base)} mo vs the {base}-mo baseline)
+              </span>
+            </div>
+            {crossingDriven ? (
+              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                Driven by <span className="font-bold text-slate-800">{cb.drivenBy}</span> — its error
+                (incl. uncertainty) reaches the tolerance limit at
+                <span className="font-bold text-slate-800"> ~{cb.earliestCrossMonths} mo</span>.
+                Subtracting a <span className="font-semibold">{cb.safetyMarginMonths}-mo</span> safety margin
+                gives the recommended <span className="font-bold text-slate-800">{final.finalMonths}-mo</span> interval.
+              </p>
+            ) : (
+              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                {extend
+                  ? `Drift, uncertainty and peer-fleet context all stay well within limits through the ${base}-month term — the interval can be reviewed for extension.`
+                  : `Drift and uncertainty stay within limits across the ${base}-month term — the standard interval is adequate.`}
+              </p>
+            )}
+          </div>
+          {/* 결론 수치 pill */}
+          <div className={`shrink-0 text-white rounded-lg px-3 py-1.5 text-center ${tone.pill}`}>
+            <div className="text-[9px] uppercase tracking-wide opacity-80 leading-none">Recommended</div>
+            <div className="text-lg font-bold leading-tight">{final.finalMonths}<span className="text-[10px] font-medium ml-0.5">mo</span></div>
+          </div>
+        </div>
       </div>
-      {final.guardrail.clamped && (
-        <p className="mt-3 text-[11px] text-amber-600">
-          Raw sum {final.breakdown.sum} mo → guardrail ({final.guardrail.minMonths}–{final.guardrail.maxMonths} mo) → {final.finalMonths} mo
-        </p>
-      )}
+
+      {/* ── 공식 (the math, as supporting evidence) ── */}
+      <div>
+        <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">How the number is built</div>
+        <div className="flex items-center flex-wrap gap-2 text-xs">
+          <BreakdownBox label="Base" value={`${final.breakdown.base}`} primary />
+          <span className="text-slate-400">+</span>
+          <BreakdownBox label="Step 2" value={`${formatSigned(final.breakdown.trendAdj)}`} />
+          <span className="text-slate-400">+</span>
+          <BreakdownBox label="Step 3" value={`${formatSigned(final.breakdown.riskAdj)}`} />
+          <span className="text-slate-400">+</span>
+          <BreakdownBox label="Step 4" value={`${formatSigned(final.breakdown.contextAdj)}`} />
+          <span className="text-slate-400">=</span>
+          <BreakdownBox label="Result" value={`${final.finalMonths} mo`} highlight />
+        </div>
+        {crossingDriven && (
+          <p className="mt-2 text-[10px] text-slate-400">
+            Note: when a measurement point crosses the limit within the baseline, the crossing date (− safety margin) governs the result.
+          </p>
+        )}
+        {final.guardrail.clamped && (
+          <p className="mt-2 text-[11px] text-amber-600">
+            Raw sum {final.breakdown.sum} mo → guardrail ({final.guardrail.minMonths}–{final.guardrail.maxMonths} mo) → {final.finalMonths} mo
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -1965,6 +2031,7 @@ function MetricBox({
   primary,
   textValue,
   muted,
+  footnote,
 }: {
   label: string
   value: string
@@ -1972,6 +2039,7 @@ function MetricBox({
   primary?: boolean
   textValue?: boolean
   muted?: boolean
+  footnote?: string | null
 }) {
   return (
     <div className={`px-3 py-2.5 rounded-lg border ${
@@ -1986,8 +2054,21 @@ function MetricBox({
         </span>
         {unit && <span className="text-[10px] text-slate-400 font-medium">{unit}</span>}
       </div>
+      {footnote && (
+        <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-600/80 font-medium">
+          <span className="text-blue-400">└</span>{footnote}
+        </div>
+      )}
     </div>
   )
+}
+
+// 근거 표준 줄 — 적용 표준 중 주기 결정 근거인 KOLAS 가이드를 우선 표시.
+//   (없으면 첫 표준. 그래도 없으면 null → 줄 미표시.)
+function baselineBasisStandard(standards: string[]): string | null {
+  if (!standards || standards.length === 0) return null
+  const kolas = standards.find(s => /KOLAS/i.test(s))
+  return `per ${kolas ?? standards[0]}`
 }
 
 function DataPair({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
