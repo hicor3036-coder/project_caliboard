@@ -1027,7 +1027,8 @@ export function buildInterimAugmentedSeries(
     }
     return Math.max(0.3, fReg.residualSd)
   })()
-  const interimU = Math.min(tol * 0.6, round1(formalU * 3.5))
+  // 키오스크 U = 정식의 약 2배(저정밀이지만 과하지 않게). tol 대비 상한.
+  const interimU = Math.min(tol * 0.4, round1(formalU * 2))
 
   const seed = hashSeed(`${meta.manufacturer ?? ''}|${meta.model ?? ''}|${s.label}|aug`)
   const rng = makeRng(seed)
@@ -1138,7 +1139,8 @@ export function buildInterimForecastOverlay(
     return Math.max(0.3, fReg.residualSd)
   })()
   // 키오스크 U = 정식의 약 3.5배 (저정밀). 단 tol 대비 과하지 않게 상한.
-  const interimU = Math.min(tol * 0.6, round1(formalU * 3.5))
+  // 키오스크 U = 정식의 약 2배(저정밀이지만 과하지 않게). tol 대비 상한.
+  const interimU = Math.min(tol * 0.4, round1(formalU * 2))
 
   // 키오스크점 합성: 마지막 정식 이후 월 1회, 정식 추세선 위 + 큰 노이즈
   const seed = hashSeed(`${meta.manufacturer ?? ''}|${meta.model ?? ''}|${s.label}|overlay`)
