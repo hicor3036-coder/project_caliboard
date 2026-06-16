@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
-    "start": "next start"
+    "start": "next start",
+    "sync-dochub": "node -e \"require('fs').copyFileSync('../docs/[KAI 해외수출패키지사업]/[학습_HTML]/index.html','public/afmetcal-hub.html');console.log('afmetcal-hub.html 갱신 완료')\""
   },
   "keywords": [],
   "author": "",

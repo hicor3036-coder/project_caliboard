@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { useT } from '@/lib/i18n'
 
-export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'profiles' | 'report' | 'reception' | 'data-source' | 'equipment-detail'
+export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'profiles' | 'report' | 'reception' | 'data-source' | 'equipment-detail' | 'doc-hub'
 
 interface SidebarProps {
   activeView: ViewType
@@ -98,6 +98,15 @@ export default function Sidebar({
           <ellipse cx="12" cy="6" rx="8" ry="3" strokeWidth={1.5} />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+        </svg>
+      ),
+    },
+    {
+      id: 'doc-hub',
+      label: t.nav.docHub,
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.5C10.5 5.5 8.5 5 6 5c-1 0-2 .2-3 .5v13c1-.3 2-.5 3-.5 2.5 0 4.5.5 6 1.5m0-13c1.5-1 3.5-1.5 6-1.5 1 0 2 .2 3 .5v13c-1-.3-2-.5-3-.5-2.5 0-4.5.5-6 1.5m0-13v13" />
         </svg>
       ),
     },

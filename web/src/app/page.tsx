@@ -327,6 +327,19 @@ export default function Home() {
               />
             )}
 
+            {view === 'doc-hub' && (
+              // 학습 HTML(self-contained)을 그대로 표시 — 업데이트는 public/afmetcal-hub.html 교체만으로 끝
+              // main의 p-6/lg:p-8 패딩을 음수 마진으로 상쇄해 화면을 꽉 채움
+              <div className="-m-6 lg:-m-8">
+                <iframe
+                  src="/afmetcal-hub.html"
+                  title={t.nav.docHub}
+                  className="w-full border-0"
+                  style={{ height: 'calc(100vh - 0px)' }}
+                />
+              </div>
+            )}
+
             {view === 'reception' && (
               receptionError ? (
                 <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">

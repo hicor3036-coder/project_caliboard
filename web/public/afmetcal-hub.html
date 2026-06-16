@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AFMETCAL 학습 허브 — 군 교정체계 구조 익히기</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2129; --panel2:#222b35; --line:#2f3b47;
+    --txt:#e6edf3; --dim:#8b98a5; --accent:#f0a500; --accent2:#4a9eff;
+    --kolas:#3fb950; --mil:#ff7b72; --gov:#d2a8ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:"Malgun Gothic","Segoe UI",sans-serif;line-height:1.6;font-size:14px}
+  .wrap{display:flex;min-height:100vh}
+  /* 좌측: 계층도 */
+  .left{width:46%;padding:24px;border-right:1px solid var(--line);overflow-y:auto;height:100vh}
+  .right{width:54%;padding:28px 32px;overflow-y:auto;height:100vh}
+  h1{font-size:20px;color:var(--accent);margin-bottom:4px}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:20px}
+  .tierlabel{font-size:11px;color:var(--dim);letter-spacing:1px;margin:18px 0 8px;text-transform:uppercase}
+  .tier-policy{border-left:3px solid var(--gov)}
+  .tier-mgmt{border-left:3px solid var(--accent)}
+  .tier-ops{border-left:3px solid var(--accent2)}
+  .tier-intl{border-left:3px solid var(--kolas)}
+  .doc{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:8px 0;cursor:pointer;transition:.15s;position:relative}
+  .doc:hover{background:var(--panel2);border-color:var(--accent)}
+  .doc.active{background:var(--panel2);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .doc .code{font-weight:700;font-size:15px}
+  .doc .name{color:var(--dim);font-size:12px;margin-top:2px}
+  .doc .tag{position:absolute;top:10px;right:12px;font-size:10px;padding:2px 7px;border-radius:10px}
+  .tag-done{background:#1f6f3f;color:#d3f5e0}
+  .tag-todo{background:#3a3a1a;color:#e8e0a0}
+  .arrow{text-align:center;color:var(--dim);font-size:18px;margin:-2px 0}
+  .flow{font-size:11px;color:var(--dim);text-align:center;margin:2px 0}
+  .legend{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--dim)}
+  .legend span{display:inline-block;margin-right:14px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  /* 우측 패널 */
+  .placeholder{color:var(--dim);text-align:center;margin-top:80px}
+  .placeholder .big{font-size:48px;margin-bottom:12px}
+  .panel-doc h2{font-size:22px;color:var(--accent);margin-bottom:2px}
+  .panel-doc .ename{color:var(--dim);font-size:13px;margin-bottom:18px}
+  .oneliner{background:var(--panel);border-left:3px solid var(--accent);padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:10px;font-size:15px}
+  /* 초보자 보조: 위치/계보 + 비유 */
+  .primer{display:flex;flex-direction:column;gap:6px;margin-bottom:20px}
+  .primer .row{display:flex;gap:8px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:12.5px;color:var(--dim)}
+  .primer .row .ic{flex-shrink:0;font-size:13px}
+  .primer .row b{color:var(--txt);font-weight:600}
+  .primer .lineage{border-left:3px solid var(--accent2)}
+  .primer .analogy{border-left:3px solid var(--kolas)}
+  .sec{margin-bottom:22px}
+  .sec h3{font-size:13px;color:var(--accent2);margin-bottom:8px;letter-spacing:.5px}
+  .flowlist{counter-reset:step}
+  .flowlist li{list-style:none;padding:6px 0 6px 30px;position:relative;border-bottom:1px solid var(--line)}
+  .flowlist li:before{counter-increment:step;content:counter(step);position:absolute;left:0;top:6px;background:var(--accent2);color:#fff;width:20px;height:20px;border-radius:50%;text-align:center;font-size:11px;line-height:20px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .col-kolas{color:var(--kolas)}
+  .col-mil{color:var(--mil)}
+  .strange{background:var(--panel);border:1px solid var(--mil);border-radius:8px;padding:12px 14px;margin-top:8px}
+  .strange .t{color:var(--mil);font-weight:700;font-size:12px;margin-bottom:6px}
+  .strange ol{margin-left:18px;font-size:13px}
+  .strange li{margin:4px 0}
+  .biz{background:#1a2a1f;border-left:3px solid var(--kolas);padding:12px 14px;border-radius:0 8px 8px 0;font-size:13px;margin-top:18px}
+  /* 원문 상세 접이식 */
+  .detail{margin-top:18px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .detail summary{cursor:pointer;padding:11px 14px;font-size:13px;font-weight:600;color:var(--accent);background:var(--panel);list-style:none;user-select:none}
+  .detail summary::-webkit-details-marker{display:none}
+  .detail summary::before{content:"▶ ";font-size:10px;color:var(--dim)}
+  .detail[open] summary::before{content:"▼ "}
+  .detail summary:hover{background:var(--panel2)}
+  .detail .body{padding:6px 16px 14px;font-size:13px;border-top:1px solid var(--line)}
+  .detail .grp{margin-top:12px}
+  .detail .grp:first-child{margin-top:6px}
+  .detail .grp .h{color:var(--accent2);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px}
+  .detail .grp ul{margin-left:18px}
+  .detail .grp li{margin:4px 0;line-height:1.55}
+  .detail .src{margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--dim)}
+  .biz b{color:var(--kolas)}
+  .todo-note{color:var(--dim);font-style:italic;margin-top:40px;text-align:center}
+  /* 탭 */
+  .tabs{display:flex;align-items:center;gap:6px;padding:10px 24px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .tab{background:transparent;border:1px solid var(--line);color:var(--dim);padding:7px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit}
+  .tab:hover{color:var(--txt);border-color:var(--accent)}
+  .tab.active{background:var(--accent);color:#1a1a1a;border-color:var(--accent);font-weight:700}
+  .tabhint{margin-left:auto;color:var(--dim);font-size:12px}
+  /* 용어집 */
+  .gloss-wrap{max-width:1100px;margin:0 auto;padding:24px 32px;height:calc(100vh - 53px);overflow-y:auto}
+  .gloss-head h1{font-size:20px;color:var(--accent);margin-bottom:4px}
+  #search{width:100%;margin:16px 0 12px;padding:11px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--txt);font-size:14px;font-family:inherit}
+  #search:focus{outline:none;border-color:var(--accent)}
+  .gfilter{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+  .gf{background:var(--panel);border:1px solid var(--line);color:var(--dim);padding:5px 12px;border-radius:14px;cursor:pointer;font-size:12px;font-family:inherit}
+  .gf:hover{color:var(--txt)}
+  .gf.active{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  .glosslist{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .term{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;border-left-width:3px}
+  .term.kr{border-left-color:var(--kolas)}
+  .term.us{border-left-color:var(--accent2)}
+  .term.mil{border-left-color:var(--mil)}
+  .term.metro{border-left-color:var(--accent)}
+  .term.doc{border-left-color:var(--gov)}
+  .term .abbr{font-weight:700;font-size:15px;color:var(--txt)}
+  .term .full{color:var(--dim);font-size:11px;margin:2px 0 6px;font-style:italic}
+  .term .desc{font-size:13px}
+  .term .desc b{color:var(--accent)}
+  .nohit{grid-column:1/-1;text-align:center;color:var(--dim);padding:40px}
+  @media(max-width:900px){.glosslist{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<!-- 상단 탭 -->
+<div class="tabs">
+  <button class="tab active" data-view="docs">📑 문서 계층</button>
+  <button class="tab" data-view="glossary">📖 용어집</button>
+  <span class="tabhint">교정체계 구조 학습</span>
+</div>
+
+<!-- 뷰 1: 문서 계층 -->
+<div class="view" id="view-docs">
+<div class="wrap">
+  <!-- 좌측: 계층도 -->
+  <div class="left">
+    <h1>AFMETCAL 학습 허브</h1>
+    <div class="sub">교정체계 구조 익히기 · 2026-06-16</div>
+
+    <div class="flow" style="margin:0 0 12px;color:var(--kolas)">▲ 위로 갈수록 넓은 층위(국제·전군) · ▼ 아래로 갈수록 좁은 층위(공군 전용)</div>
+
+    <div class="tierlabel" style="color:var(--kolas)">① 국제표준 (가장 넓음 · 군 체계가 결국 여기로 수렴 · KOLAS 익숙 영역)</div>
+    <div class="doc tier-intl" data-id="iso17025">
+      <div class="code">ISO/IEC 17025</div>
+      <div class="name">교정·시험소 적격성 (KOLAS 근거)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+    <div class="doc tier-intl" data-id="iso10012">
+      <div class="code">ISO 10012</div>
+      <div class="name">측정관리시스템</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+    <div class="doc tier-intl" data-id="z540">
+      <div class="code">ANSI/NCSL Z540.3</div>
+      <div class="name">측정·시험장비 교정 요구 (미민간)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+    <div class="doc tier-intl" data-id="rp1">
+      <div class="code">NCSL RP-1</div>
+      <div class="name">교정주기 설정·조정 방법론</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+    <div class="doc tier-intl" data-id="rp18">
+      <div class="code">NCSL RP-18</div>
+      <div class="name">측정 결정 리스크 (FAR/FRR)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+
+    <div class="tierlabel">② 미 국방부 전군 규격 (공군보다 위 · 군 계약 인용 · 수출 정합성)</div>
+    <div class="doc" data-id="milstd1839" style="border-left:3px solid var(--gov)">
+      <div class="code">MIL-STD-1839D</div>
+      <div class="name">교정·측정 요구사항 CMR (전군 · TUR 4:1 근거)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+
+    <div class="tierlabel">③ 미 공군 거버넌스 3계층 (정책→관리→운영 · 위에서 아래로 구현)</div>
+    <div class="doc tier-policy" data-id="dafpd">
+      <div class="code">DAFPD 21-1</div>
+      <div class="name">Tier 1 · 정책 — Maintenance of Military Materiel (군 장비 정비)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+
+    <div class="arrow">↓</div>
+    <div class="flow">implements (구현한다)</div>
+
+    <div class="doc tier-mgmt" data-id="dafman">
+      <div class="code">DAFMAN 21-113</div>
+      <div class="name">Tier 2 · 관리 — AF Metrology & Calibration Program Mgmt (교정 관리)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+
+    <div class="arrow">↓</div>
+    <div class="flow">implements (구현한다)</div>
+
+    <div class="doc tier-ops" data-id="to">
+      <div class="code">TO 00-20-14</div>
+      <div class="name">Tier 3 · 운영 — AFMETCAL Program (실제 운영 매뉴얼)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+    <div class="doc tier-ops" data-id="to33k">
+      <div class="code">TO 33K-1-100-1</div>
+      <div class="name">Tier 3 · 데이터 — 교정 절차·MDC 코드·CMS (데이터 본체)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+
+    <div class="tierlabel">④ 노란색 형제 시행규칙 (DAFI · 21-1 아래 같은 정책)</div>
+    <div class="doc tier-mgmt" data-id="dafi21101" style="border-left-color:#c9a227">
+      <div class="code">DAFI 21-101</div>
+      <div class="name">항공기·장비 정비 관리 (PMEL 운영규칙)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+    <div class="doc tier-mgmt" data-id="dafi20101" style="border-left-color:#c9a227">
+      <div class="code">DAFI 20-101 / 63-101</div>
+      <div class="name">통합 수명주기 관리 (획득~폐기)</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+
+    <div class="tierlabel">⑤ 인력 축 (사람 · 빨간 테두리=중요 표시 문서)</div>
+    <div class="doc" data-id="cfetp" style="border-left:3px solid var(--mil)">
+      <div class="code">CFETP 2P0X1</div>
+      <div class="name">PMEL 인력 교육훈련 계획</div>
+      <span class="tag tag-done">정리완료</span>
+    </div>
+
+    <div class="legend">
+      <span><i class="dot" style="background:var(--gov)"></i>정책</span>
+      <span><i class="dot" style="background:var(--accent)"></i>관리</span>
+      <span><i class="dot" style="background:var(--accent2)"></i>운영</span>
+      <span><i class="dot" style="background:var(--kolas)"></i>국제표준</span>
+      <br><br>
+      <span><i class="dot" style="background:var(--kolas)"></i>KOLAS 세계 (익숙)</span>
+      <span><i class="dot" style="background:var(--mil)"></i>군 세계 (생소)</span>
+    </div>
+  </div>
+
+  <!-- 우측: 상세 패널 -->
+  <div class="right" id="panel">
+    <div class="placeholder">
+      <div class="big">←</div>
+      <div>왼쪽에서 문서를 클릭하면<br>요점·흐름·KOLAS 대조가 여기 나타납니다.</div>
+      <div class="todo-note">"이해 먼저, HTML은 그 이해를 옮기는 그릇"<br>— 화려함이 아니라 구조 파악이 목적입니다.</div>
+    </div>
+  </div>
+</div>
+</div><!-- /view-docs -->
+
+<!-- 뷰 2: 용어집 -->
+<div class="view" id="view-glossary" style="display:none">
+  <div class="gloss-wrap">
+    <div class="gloss-head">
+      <h1>용어집 — 군 교정체계 약어 사전</h1>
+      <div class="sub">군 교정 문서에서 자주 등장하는 약어. 색=소속 세계. 검색 가능.</div>
+      <input type="text" id="search" placeholder="🔍 약어/뜻 검색 (예: AFPSL, 표준실, MLE...)">
+      <div class="gfilter">
+        <button class="gf active" data-cat="all">전체</button>
+        <button class="gf" data-cat="kr">🇰🇷 한국 기관</button>
+        <button class="gf" data-cat="us">🇺🇸 미국/국제 기관</button>
+        <button class="gf" data-cat="mil">군 개념</button>
+        <button class="gf" data-cat="metro">계측·통계</button>
+        <button class="gf" data-cat="doc">문서 종류</button>
+      </div>
+    </div>
+    <div id="glosslist" class="glosslist"></div>
+  </div>
+</div>
+
+<script>
+const DOCS = {
+  dafpd: {
+    code:"DAFPD 21-1", ename:"Department of the Air Force Policy Directive 21-1 — Maintenance of Military Materiel (8쪽)",
+    oneliner:"\"공군부(공군+우주군)는 모든 군 장비를 정비하며, 그 정비를 데이터로 측정·보고해 관리한다\"는 <b>최상위 정책 선언</b>. 교정은 이 '정비'의 일부.",
+    lineage:"<b>이 계보의 출발점(맨 위)</b>. 아래의 <b>DAFMAN 21-113</b>·<b>DAFI</b>·<b>TO</b>가 전부 이 선언을 근거로 만들어짐. 그 자체로는 '무엇을 할지'만 짧게 말하고, '누가·어떻게'는 아래 문서들에 위임.",
+    analogy:"회사로 치면 CEO가 발표하는 <b>'경영 방침 한 장'</b>. \"우리는 품질을 데이터로 관리한다\"는 큰 방향만 선언하고, 구체적 실행은 부서 규정에 맡기는 격.",
+    flow:[
+      "정책 선언 (§1): 정비를 3단계로 / 가능한 낮은 단계에서 / 표준화하고 / 검증된 절차로 / <b>데이터로</b> 관리한다",
+      "정비 3단계 정의 (§1.1): 부대(Organizational) → 중간(Intermediate) → 창(Depot)",
+      "책임 분배 (§2): 누가 정비 정책을 만들고 책임지는가 (장관급~사령관급)",
+      "용어 정의 (Attachment): maintenance, depot, readiness 등 기본 용어"
+    ],
+    table:[
+      ["최상위 근거","국가표준기본법 / ISO 17025","정책 디렉티브(PD) = 군의 '법'"],
+      ["왜 교정하나","시험·교정의 정확성 (기술적)","무기체계 가용성·임무 수행 (군사적)"],
+      ["'정비' 개념","거의 없음 (교정 ≈ 독립 서비스)","교정 = '정비(maintenance)'의 하위 개념"],
+      ["데이터 요구","성적서 중심","가용성·성과·추세를 데이터로 보고 (정책 의무)"]
+    ],
+    strange:[
+      "<b>정비 3단계 (부대/중간/창)</b> — 교정도 이 틀 안. PMEL=중간급, 창정비(MCF)=창급",
+      "<b>'교정은 정비의 일부'</b> — KOLAS는 교정을 독립 서비스로 보지만, 군은 '장비를 임무 가능하게 유지'하는 활동의 하나로 봄",
+      "<b>데이터 기반 관리가 정책 레벨 의무</b> — '교정 데이터로 무기 가용성을 평가·보고하라'까지 요구"
+    ],
+    biz:"이 문서의 <b>'데이터로 정비를 관리하라'</b>가 곧 우리(CaliBoard/PAMS-K)의 존재 이유.",
+    detail:{
+      src:"DAFPD 21-1 (2024.2.21, 8쪽) 원문 정독. 괄호 안 영어는 원문 용어.",
+      groups:[
+        {h:"이 문서가 언제·누구 것인가", items:[
+          "<b>2024년 2월판이 최신</b>, 단 <b>8쪽짜리로 매우 짧음</b> — 큰 방향만 선언하는 문서라 그럼",
+          "더 위에 미 국방부 지침(DoDD 4151.18)이 있고, <b>이 문서는 그걸 공군·우주군에 맞게 받아 적은 것</b>",
+          "쉽게: <b>\"우리 공군·우주군은 장비 정비를 이렇게 한다\"는 최상위 방향 선언문 한 장</b>"
+        ]},
+        {h:"1장 — 정책 (무엇을 할지 큰 방향)", items:[
+          "정비를 <b>3단계로 나눔</b>: <b>부대급</b>(현장에서 바로) → <b>중간급</b>(후방 정비소) → <b>창급</b>(분해·재생하는 큰 공장). 교정실도 이 중간급에 해당",
+          "<b>가능한 한 낮은 단계에서 처리하라</b> — 멀리 큰 공장 보내기 전에 현장에서 해결",
+          "<b>도구·절차·기술을 최대한 표준화하라</b> — 부대마다 제각각 하지 말 것",
+          "<b>장비 상태를 데이터로 관리해 오래 쓰게 하라</b> (fleet health) — 이 한 줄이 우리 CaliBoard의 존재 이유",
+          "<b>정비 성과를 측정·보고하라</b> — 감이 아니라 숫자로 가용성을 평가"
+        ]},
+        {h:"2장 — 누가 책임지나", items:[
+          "장관급부터 사령관급까지 <b>누가 어느 정비를 책임지는지 분배</b> — 공군 획득차관(SAF/AQ)·우주군 획득차관(SAF/SQ)·군수참모부(AF/A4) 등",
+          "공통적으로 모두에게 <b>\"정비 데이터를 측정·보고하라\"</b>는 의무가 반복됨 — 데이터 관리가 정책 레벨 명령",
+          "교정이라는 단어는 거의 없음 — 교정은 이 '정비'라는 큰 우산 아래 한 활동이고, 구체적 교정 규칙은 아래 문서(DAFMAN 21-113)에 위임"
+        ]}
+      ]
+    }
+  },
+  dafman: {
+    code:"DAFMAN 21-113", ename:"Department of the Air Force Manual 21-113 — AF Metrology and Calibration Program Management (29쪽) · 담당자가 '정신'이라 지목",
+    oneliner:"\"교정은 <b>PMEL</b>(기지 교정실)이 하고, <b>AFMETCAL</b>(공군 교정 총괄조직)이 총괄하며, <b>NIST</b>(미 국가표준)까지 <b>소급·신뢰성 85%</b>를 보장하라. 누가 무엇을 책임지는지 규정\"하는 교정의 <b>헌법</b>.",
+    lineage:"위로는 <b>DAFPD 21-1</b>(정책 선언)이 '교정을 관리하라'고 지시한 것을 받아, 이 문서가 <b>'누가·어떻게'를 규정</b>. 아래로는 <b>TO 00-20-14</b>(실무 절차서)가 이걸 현장 손발로 옮김. 즉 정책과 실무 사이의 <b>설계도</b>.",
+    analogy:"회사로 치면 <b>'조직 규정 + 직무 분장표'</b>. '품질을 챙겨라'(정책)와 '이 버튼을 눌러라'(매뉴얼) 사이에서, <b>부서·직책·책임 한계</b>를 정하는 문서.",
+    flow:[
+      "프로그램 철학 (Ch.1): 측정이 '안전·정확·균일·신뢰·소급' 가능하도록 — NIST까지 끊김없는 사슬",
+      "조직·소급성 (Ch.1): NIST → AFPSL(공군유일 표준실) → PMEL(기지) → 야전 TMDE",
+      "역할·책임 (Ch.2, 문서의 절반): AF/A4 → AFMC → AFMETCAL Director → MAJCOM → PMEL(Flight Chief~기술자)",
+      "직책명 표준 (Ch.3): PMEL 인력(2P0X1)의 공식 직책명"
+    ],
+    table:[
+      ["관할 범위","한 실험실 (ISO 17025 인정 단위)","전 세계 PMEL 네트워크 + 총괄조직"],
+      ["소급성 정점","KRISS (국가표준)","NIST → (AFPSL 경유) → PMEL"],
+      ["인정/인증 주체","KOLAS","AFMETCAL Director (인증/인증취소 단일권위)"],
+      ["핵심 숫자","측정불확도·CMC","주기말 신뢰성 85% / 가용률 92% / 회송 15일"]
+    ],
+    strange:[
+      "<b>★ PMEL = 교정만 하는 곳이 아니다</b> — 정의가 'maintain(<b>troubleshoot 진단 + align 조정 + repair 수리 + calibrate 교정</b>)'. 즉 <b>교정 = 정비(maintenance)의 일부</b>. KOLAS는 부적합→반송이지만, 군 PMEL은 직접 수리해서 복구. <b>KAI 프로젝트 핵심 개념</b>",
+      "<b>AFPSL — 공군에 단 하나뿐인 최상위 표준실</b> (오하이오 Heath). KOLAS엔 이런 '군 전용 1차표준실' 개념 없음",
+      "<b>AFMETCAL = 총괄조직</b> — KOLAS(인정)+KRISS(표준)+발주처를 합친 듯한 단일 군 기관",
+      "<b>신뢰성 85%</b> — '주기 말에 모집단 85%가 규격 이내'. KOLAS 권장주기엔 이런 통계 목표 명시 없음",
+      "<b>역할이 계급으로 고정</b> — Flight Chief, Section Chief, NCOIC 등 군 직책이 곧 품질 책임"
+    ],
+    biz:"사업 ⑥영역(METCAL Program)이 곧 '<b>DAFMAN 21-113 한국판</b>'. CaliBoard=PAMS-K가 이 관리체계의 데이터 엔진. 신뢰성 85% = 우리 교정주기 분석의 정당성 근거.",
+    detail:{
+      src:"DAFMAN 21-113 (2023.12.27, 29쪽) 원문 1~3장 정독. 괄호 안 영어는 원문 용어.",
+      groups:[
+        {h:"이 문서가 언제·누구 것인가", items:[
+          "<b>2023년 12월판이 최신</b>. 옛날 이름은 'AFMAN 21-113'이었는데, <b>우주군(2019년 신설)까지 함께 적용</b>하게 되면서 이름 앞에 'D'를 붙여 'DAFMAN'으로 바뀜",
+          "<b>지키는 게 의무</b>인 문서 (권장이 아니라 강제). 안 지키려면 면제 신청을 해야 하고, 사안의 무게에 따라 <b>T-0(가장 엄격)~T-3(현장 지휘관 선)</b> 승인이 필요",
+          "쉽게: <b>\"공군·우주군의 교정은 이 규칙대로 한다\"는 공식 규정집</b>"
+        ]},
+        {h:"1장 — 무엇을 추구하나 (교정의 목표)", items:[
+          "측정이 다섯 가지를 만족해야 함: <b>안전하고·정확하고·어디서나 같고·믿을 수 있고·국가표준까지 거슬러 올라갈 수 있을 것</b>",
+          "정확성의 뿌리를 타고 올라가는 사슬: <b>미국 국가표준(NIST) → 공군의 단 하나뿐인 최상위 표준실(AFPSL) → 각 기지의 교정실(PMEL) → 현장 계측기</b>",
+          "교정을 <b>총괄하는 본부 조직이 딱 하나</b> 있음 (이름은 AFLCMC/WNM, 보통 'AFMETCAL'이라 부름). \"교정 관련은 여기 한 곳이 책임진다\"는 뜻",
+          "<b>장비를 새로 살 때부터 교정 요구를 미리 챙기라</b>고 못박음 — 이때 전군 규격(MIL-STD-1839)을 따름",
+          "<b>각 장비를 어떤 절차로·얼마 주기로 교정할지는 별도 데이터 문서(TO 33K)에 있다</b>고 가리킴"
+        ]},
+        {h:"2장 — 누가 책임지나 (문서의 절반)", items:[
+          "<b>위에서 아래로 책임이 흐름</b>: 공군 군수참모부 → 자재사령부 → 교정 총괄 책임자(AFMETCAL Director) → 예하 사령부 → 비행대대 → 교정실 책임자들 → 현장 반장",
+          "<b>교정 총괄 책임자 한 명</b>이 인증·주기 결정·소급성을 다 쥠 — KOLAS로 치면 인정기구+표준원 권한을 한 사람이 가진 셈",
+          "기지 교정실(PMEL) 위에 <b>창(廠)급 큰 교정대(MCF)</b>가 따로 있음 — 더 무거운 장비를 다루는 상위 정비창",
+          "특이점: <b>직책이 곧 군 계급</b>. \"누가 품질을 책임지나\"가 사람이 아니라 보직으로 정해짐"
+        ]},
+        {h:"3장 — 사람을 어떻게 부르나", items:[
+          "교정 기술병(특기번호 <b>2P0X1</b>)의 <b>공식 직책 이름을 통일</b> — 인력 양성 문서(CFETP)와 짝",
+          "교정실도 '정비부대'라서, <b>공구 분실 방지·이물질 관리 같은 정비 현장 규칙(DAFI 21-101)도 같이 지켜야 함</b>"
+        ]}
+      ]
+    }
+  },
+  dafi21101: {
+    code:"DAFI 21-101", ename:"Aircraft and Equipment Maintenance Management (309쪽) · 시행규칙(I) · A4L 발급",
+    oneliner:"공군 정비부대가 <b>매일 항공기·장비를 어떻게 정비·관리하나</b>의 현장 규칙. <b>PMEL</b>(기지 교정실)<b>도 '정비기관'이라 이걸 따라야 함</b> (교정 절차가 아니라 운영 규칙).",
+    lineage:"<b>DAFMAN 21-113</b>(교정 헌법)이 §1.7에서 '<b>PMEL도 정비부대니 이 규칙을 지켜라</b>'고 위임한 문서. 교정 '기술'이 아니라 정비부대 '운영'(공구·FOD·평가)을 규정 — 즉 교정 계보의 <b>옆가지(운영 규칙)</b>.",
+    analogy:"교정실의 <b>'일반 안전·시설 관리 수칙'</b>. 측정 기술과 별개로, '공구 분실 말 것·이물질 떨어뜨리지 말 것' 같은 <b>작업장 운영 규칙</b>에 해당. 어느 정비소든 따르는 공통 수칙.",
+    flow:[
+      "21-113이 위임 (§1.7): PMEL은 FOD·공구관리·MSEP 등 21-101 해당 조항 준수",
+      "정비 표준화·평가(MSEP): 정비 품질을 정기 평가",
+      "공구·장비 관리(CTK): 공구키트 재물조사·추적",
+      "FOD 방지: 이물질 손상 예방 (출장 교정 시 특히)"
+    ],
+    table:[
+      ["이게 뭐냐","KOLAS엔 대응물 거의 없음","정비부대 운영 규칙. PMEL도 정비기관이라 적용"],
+      ["교정과 관계","교정 절차와는 무관","PMEL '운영'과는 직접 관련 (FOD/CTK/MSEP)"],
+      ["왜 PMEL이?","-","PMEL이 수리(repair)하는 정비기관이라서"]
+    ],
+    strange:[
+      "<b>교정실험실이 왜 FOD·공구키트를 관리?</b> — PMEL이 항공기 옆에서 수리도 하는 정비기관이기 때문. KOLAS 교정소엔 없는 개념",
+      "<b>MSEP(정비표준화평가)</b> — 정비부대로서 정비 품질 평가받음",
+      "교정 '기술'과는 무관, PMEL '운영'과는 관련 — 이 구분이 핵심"
+    ],
+    biz:"KAI 사업 시 PAMS-K가 교정 이력만 아니라 <b>PMEL 운영(공구·FOD·평가)</b>까지 관리 대상일 수 있음. 군색 짙음.",
+    detail:{
+      src:"DAFI 21-101 (309쪽) 원문 정독. AFPD 21-1 구현. 1~2장·머리말 직접 확인.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "공군의 <b>모든 무기체계·지원장비 정비관리의 '기본 규칙서'</b> — 가장 두꺼운 정비 규정(309쪽)",
+          "교정 절차서가 아니라 <b>정비부대를 어떻게 운영하나</b>의 규칙 — 교정실(PMEL)도 정비부대라서 해당 조항을 지켜야 함",
+          "쉽게: <b>정비 현장의 '작업장 운영·안전 수칙 종합판'</b>"
+        ]},
+        {h:"교정실이 지켜야 하는 부분", items:[
+          "<b>FOD(이물질 손상) 방지</b> — 항공기 옆에서 출장 교정 시 공구·부품 흘리면 엔진 사고 → 공구 출입검수 의무",
+          "<b>공구키트(CTK) 관리</b> — 수리하니 공구를 쓰고, 분실 추적·재물조사 필수",
+          "<b>MSEP(정비 표준화·평가)</b> — 정비부대로서 정비 품질을 정기 평가받음",
+          "<b>특별인증명부(SCR)</b> — 특정 작업 자격자를 명부로 관리"
+        ]},
+        {h:"핵심 통찰", items:[
+          "<b>교정 '기술'과는 무관, PMEL '운영'과는 관련</b> — 이 구분이 헷갈림의 핵심",
+          "KOLAS 교정소엔 <b>FOD·공구키트 같은 개념이 아예 없음</b> — 군 교정실이 '항공기 옆 정비소'이기 때문"
+        ]}
+      ]
+    }
+  },
+  dafi20101: {
+    code:"DAFI 20-101 / 63-101", ename:"Integrated Life Cycle Management (ILCM, 202쪽) · 시행규칙(I) · SAF/AQ 발급",
+    oneliner:"무기체계를 <b>개발→획득→운용→폐기 일생 전체</b>로 관리하는 규칙. 20-101(군수)+63-101(획득)을 합친 문서. 교정과는 <b>간접 관련</b>.",
+    lineage:"교정 계보의 <b>바깥 큰 틀</b>. 교정 문서들이 '지금 있는 장비를 어떻게 교정하나'라면, 이건 그보다 위에서 '<b>장비를 살 때부터 폐기까지</b>' 전체를 관할. 교정은 이 일생 중 '운용' 단계의 한 활동으로 끼어듦.",
+    analogy:"교정이 '자동차 정기점검'이라면, 이 문서는 <b>'차를 구매·등록·보험·폐차까지 관리하는 행정 전체'</b>. 점검은 그 안의 한 항목일 뿐 — 그래서 교정과는 간접 관련.",
+    flow:[
+      "획득(63-101): 장비를 살 때부터 계획",
+      "군수·지속(20-101): 운용 중 지속 지원",
+      "통합: '사고(획득)→쓰고(군수)'를 일관 관리",
+      "교정 연결(간접): 획득 시 교정요구(CMRS·MIL-STD-1839) 반영"
+    ],
+    table:[
+      ["시점","KOLAS는 '지금 있는 장비 교정'","장비 일생(요람~무덤) 전체"],
+      ["발급","-","SAF/AQ(획득차관) — 21-101과 출처 다름"],
+      ["교정 관계","거의 없음","획득 단계 교정요구 설계 (간접)"]
+    ],
+    strange:[
+      "<b>'장비를 살 때부터 교정 요구를 설계한다'</b> — KOLAS엔 없는 발상. 획득 단계에서 미래 교정·계측 요구를 미리 반영",
+      "번호 2개인 이유: 20-101(군수)+63-101(획득) 통합",
+      "PMEL 일상 운영과는 거리 있음 — 사업 거버넌스 맥락에서만 알면 충분"
+    ],
+    biz:"관련도 낮음. 사업 ⑥거버넌스 맥락에서 '이런 문서가 있다' 수준. 깊은 정리 불필요.",
+    detail:{
+      src:"DAFI 20-101/63-101 (Integrated Life Cycle Management) 원문 정독. 획득·지속(sustainment) 조항 확인.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "무기체계를 <b>설계·구매(획득)부터 운용·폐기까지 일생 전체</b>로 관리하는 규칙",
+          "번호가 둘인 이유: <b>63-101(획득) + 20-101(군수 지속)</b>을 합친 통합 문서",
+          "쉽게: <b>\"장비를 사서·쓰고·버리기까지 전 과정을 관리하는 행정 규정\"</b>"
+        ]},
+        {h:"무슨 내용인가", items:[
+          "프로그램 매니저(PM)가 <b>획득 전략·디지털 엔지니어링·비용·일정·성능</b>을 관리·보고",
+          "<b>지속(sustainment) 단계 관리</b> — 산 다음 오래 잘 쓰도록 지원",
+          "교정과의 연결은 <b>간접</b>: 장비를 살 때 미래 교정·측정 요구(MIL-STD-1839 등)를 미리 반영"
+        ]},
+        {h:"왜 여기 있나 (교정 관점)", items:[
+          "<b>'장비를 살 때부터 교정 요구를 설계한다'</b>는 발상 — KOLAS엔 없는 개념",
+          "교정 일상 운영과는 거리가 멂 — <b>사업 거버넌스 맥락에서 '이런 큰 틀이 있다'</b> 정도만 알면 충분"
+        ]}
+      ]
+    }
+  },
+  to: {
+    code:"TO 00-20-14", ename:"Technical Order 00-20-14 — AFMETCAL Program (102쪽) · 실제 운영 매뉴얼('손발')",
+    oneliner:"<b>DAFMAN 21-113</b>(교정 헌법)이 '하라'고 한 것을 <b>'이렇게 하라'고 알려주는 실무 절차서</b>. 교정주기 결정법·라벨·<b>PMEL</b>(기지 교정실) 평가/인증이 다 여기.",
+    lineage:"이 계보의 <b>맨 아래 '손발'</b>. 정책(DAFPD)→설계도(DAFMAN)를 받아, <b>현장에서 실제로 따르는 단계별 절차</b>로 옮긴 문서. 교정주기 우선순위 트리·인증 도장·라벨 양식 등 '실행 디테일'이 전부 여기 모임.",
+    analogy:"현장 작업자가 손에 들고 보는 <b>'작업표준서(SOP) / 매뉴얼'</b>. 규정이 '품질을 인증하라'고 하면, 이 문서는 '이 도장을 이 위치에 찍어라'까지 알려주는 <b>실전 사용설명서</b>.",
+    flow:[
+      "운영 (§3): 교정주기 결정 우선순위(CMS>33K-2>33K-1>정비TO>상용), 신규품 최대 12개월, 사용자 책임",
+      "지원·양식 (§4~5): 지원협정, K Stamp(인증도장), 인증 라벨, 성적서",
+      "평가·품질 (§7·9·10): PMEL 인증등급, 자체평가, 부적합(NC)·근본원인(RC), 리스크매트릭스",
+      "시설·실험실 (§8·12·13): 온습도·진동 요건, PMEL 종류(IIA~IV), 창정비(MCF)"
+    ],
+    table:[
+      ["교정주기 결정","제조사 권장 / KOLAS 관행","우선순위 트리(§3.4.1) + 데이터로 조정(85%)"],
+      ["인증 라벨","교정성적서 + 스티커","K Stamp + AFTO Form 99/108/394 등 표준 라벨"],
+      ["실험실 평가","KOLAS 정기심사","AFMETCAL 평가팀 + 자체평가(MICT) + 인증등급"],
+      ["품질 부적합","부적합 보고서","NC/RC 코드 체계 + 근본원인분석 의무"]
+    ],
+    strange:[
+      "<b>교정주기 결정 우선순위 트리 (§3.4.1)</b> — CMS>33K-2>33K-1>... 순서가 규칙으로 명문. KOLAS엔 이런 통일 트리 없음",
+      "<b>데이터로 주기를 '조정'한다</b> — '85% 신뢰성 유지되게 데이터로 modify'. KOLAS는 보통 권장주기 고정",
+      "<b>SART</b> (Safety·Accuracy·Reliability·Traceability) — 품질 판단의 4대 군사 가치",
+      "<b>Type IV PMEL은 미군 폐지, FMS 수출국엔 존재</b> — KAI 사업의 정확한 표적(§1.4.21e)"
+    ],
+    biz:"PAMS-K(우리 시스템)의 <b>기능 명세서</b>. §3.4(교정주기)·§7(평가·인증)이 우리 모듈에 1:1 대응. §3.4.1 우선순위 트리는 그대로 코드 로직.",
+    detail:{
+      src:"TO 00-20-14 (2023, 약 100쪽) 원문 정독. §3.4·§5·§7 등. 괄호 안 영어는 원문 용어.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "<b>교정실이 실제로 일할 때 손에 들고 보는 작업 매뉴얼</b> — 윗 문서(DAFMAN)가 정한 걸 단계별 절차로 풀어 씀",
+          "쉽게: <b>\"이 장비는 이 주기로, 이 도장 찍어서, 이 라벨 붙여서 교정한다\"는 실전 설명서</b>"
+        ]},
+        {h:"3장 — 교정주기를 어떻게 정하나 (가장 중요)", items:[
+          "<b>★ 교정주기의 정의가 원문에 박혀 있음</b>: \"주기 말에 모집단의 <b>85% 이상이 규격 안에 있도록</b> 통계로 정한 기간\" — 이 85%가 우리 교정주기 분석의 근거",
+          "<b>주기는 고정이 아니라, 전체 장비 데이터로 계속 수정</b>한다 — KOLAS가 권장주기를 보통 고정하는 것과 정반대",
+          "주기를 정할 땐 <b>정해진 우선순위</b>가 있음: 무기체계별 권위문서(CMS)를 1순위로, 그 다음 표준 데이터 문서(33K) 순",
+          "예외 유형도 정함: <b>쓸 때만 교정(CBU)</b>, <b>처음 한 번만(ICO)</b>, <b>상위 조립품과 함께(NHA)</b> 등"
+        ]},
+        {h:"5장 — 교정 끝나면 무엇을 남기나", items:[
+          "<b>K Stamp(인증 도장)</b> — \"이 장비 교정 완료\"를 찍는 공식 도장",
+          "<b>인증 라벨</b>(AFTO Form 99 등) — 다음 교정일·상태를 장비에 붙이는 스티커. KOLAS 성적서+스티커의 군 버전",
+          "성적서·바코드·보정표(correction chart)까지 양식이 다 표준화돼 있음"
+        ]},
+        {h:"7·8장 — 교정실 자체를 평가·관리", items:[
+          "<b>§7 교정실(PMEL) 정기 평가·인증</b> — 교정실이 자격 있는지 주기적으로 검사하고 등급을 매김 (KOLAS 정기심사의 군 버전)",
+          "<b>§8 시설 요건</b> — 온습도·진동까지 규정. <b>수출국용 PMEL(FMS Type IV/II) 시설 기준</b>도 별도로 있음 = KAI 사업의 직접 표적"
+        ]}
+      ]
+    }
+  },
+  iso17025: {
+    code:"ISO/IEC 17025", ename:"교정 및 시험기관의 적격성에 대한 일반 요구사항 (2017, 7개 절) · KOLAS 인정의 근거 · 국제표준",
+    oneliner:"\"교정·시험소가 <b>적격(competent)</b>한가\"를 판정하는 국제표준. <b>KOLAS</b>(한국인정기구) 인정이 곧 이 표준 충족. 우리가 수십 년 지켜온 바로 그 문서.",
+    lineage:"군 계보와 <b>다른 세계의 표준</b>이지만, 결국 군 문서(DAFMAN/TO)도 '측정이 정확한가'라는 <b>같은 바닥</b>으로 수렴. 위로는 ILAC(국제인정협력체)·아래로는 각국 인정기구가 이걸 공통 잣대로 씀 — 즉 <b>전 세계 공통 기준선</b>.",
+    analogy:"운전으로 치면 <b>'국제 운전면허 시험 기준'</b>. 군이든 민간이든 '운전할 자격이 있나'를 재는 잣대는 같듯, 어느 교정소든 '적격한가'를 재는 만국 공통 기준.",
+    flow:[
+      "일반 요구 (4): 공정성·기밀성",
+      "구조 요구 (5): 조직·책임",
+      "자원 요구 (6): 인력·시설·<b>장비(§6.4)</b> — 교정·소급성·중간점검(§6.4.10)",
+      "프로세스 요구 (7): 방법·샘플링·결과보고·성적서",
+      "경영시스템 요구 (8): 문서·심사·개선"
+    ],
+    table:[
+      ["이게 뭐냐","우리가 매일 지키는 그 표준","군 체계의 '품질 바닥' — 모든 PMEL도 이걸 충족해야"],
+      ["교정주기","§6.4.7 '교정 프로그램 검토·조정' (사실 조정 허용)","AFMETCAL도 결국 이 원리 위에"],
+      ["중간점검","§6.4.10 'intermediate check' (명문)","키오스크 중간점검의 직접 근거"],
+      ["군과 관계","KOLAS=이것만","군 문서(DAFMAN/TO)가 결국 이리로 수렴"]
+    ],
+    strange:[
+      "<b>이건 생소하지 않습니다</b> — 가장 익숙한 홈그라운드. 군 체계를 '내가 아는 17025가 어떻게 확장됐나'로 이해하면 빠름",
+      "<b>§6.4.10 중간점검</b>이 명문이라는 점 — 평소 안 쓰던 조항이지만 키오스크 사업의 근거",
+      "<b>§6.4.7</b>이 '주기 조정 허용'을 이미 말한다는 점 — 막은 건 표준이 아니라 입증 부담"
+    ],
+    biz:"<b>전면에 내세울 표준</b>. '군 방식'이 아니라 '국제표준 17025의 데이터 기반 실현'으로 프레이밍. ILAC MRA로 각국 인정기구와 상호 호환 = 우호 요소.",
+    detail:{
+      src:"KS Q ISO/IEC 17025:2017 국문판 원문 정독. 조항 번호·문구는 원문 그대로 확인함.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "<b>\"이 교정·시험소가 믿을 만한가(적격한가)\"를 판정하는 국제 잣대</b> — KOLAS 인정이 곧 이 표준 충족",
+          "전체가 <b>4~8번, 다섯 묶음</b>으로 돼 있음. 우리(KOLAS 출신)에겐 가장 익숙한 홈그라운드",
+          "쉽게: <b>전 세계 어느 교정소든 통과해야 하는 공통 시험 기준</b>"
+        ]},
+        {h:"다섯 묶음이 무슨 내용인가", items:[
+          "<b>4번 일반</b>: 공평하게(4.1) · 고객 정보는 비밀로(4.2)",
+          "<b>5번 조직</b>: 책임·구조를 갖춰라",
+          "<b>6번 자원</b>: 사람(6.2)·시설(6.3)·<b>장비(6.4)</b>·<b>측정소급성(6.5)</b> — 측정이 국가표준까지 \"끊기지 않는 사슬\"로 이어질 것(6.5.1)",
+          "<b>7번 실행</b>: 방법·시료취급·<b>측정불확도 평가(7.6)</b>·<b>결과보고(7.8)</b>",
+          "<b>8번 경영</b>: 문서·내부심사·경영검토로 시스템을 굴려라"
+        ]},
+        {h:"★ 우리 사업과 직결되는 조항 (원문 확인)", items:[
+          "<b>§6.4.7 (원문)</b>: \"교정 프로그램을 수립하고, <b>교정 상태 신뢰성 유지를 위해 필요에 따라 검토·조정</b>되어야 한다\" → '데이터로 교정주기 바꿔도 된다'의 국제표준 근거",
+          "<b>§6.4.10 (원문)</b>: \"장비 성능 신뢰성 유지를 위해 <b>중간점검이 필요하면 절차에 따라 실시</b>한다\" → 키오스크 중간점검의 직접 근거",
+          "<b>§7.1.3</b>: 적합성 진술(<b>합격/불합격, 허용차 이내/벗어남</b>)을 고객이 요청할 수 있음 → 판정 리스크(가드밴드)와 연결되는 지점"
+        ]}
+      ]
+    }
+  },
+  iso10012: {
+    code:"ISO 10012", ename:"측정관리시스템 — 측정 프로세스 및 측정장비에 대한 요구사항 (2003) · 국제표준",
+    oneliner:"\"측정을 <b>하나의 경영시스템(PDCA</b>=계획·실행·점검·개선 순환<b>)</b>으로 관리하라\"는 국제표준. 교정주기 데이터 조정의 <b>핵심 근거(§7.1.2)</b>가 여기.",
+    lineage:"<b>ISO 17025</b>의 짝꿍 표준. 17025가 '교정소가 적격한가'를 보는 반면, 이건 '측정을 <b>조직 차원에서 굴리는 방법</b>'에 특화. 우리가 '데이터로 교정주기를 바꿔도 된다'고 주장할 때 <b>§7.1.2</b>가 그 법적 근거가 됨.",
+    analogy:"17025가 '운전 실력 시험'이라면, 이건 <b>'운송회사 전체의 차량 관리 규정'</b>. 개별 차(측정) 하나가 아니라, <b>점검 주기를 데이터로 정하고 개선하는 시스템</b>을 다룸.",
+    flow:[
+      "일반 요구 (4): 측정관리시스템 수립",
+      "경영 책임 (5): 계량기능·고객중시·품질목표·경영검토",
+      "자원 관리 (6): 인력·정보·물적·외주",
+      "<b>계량학적 확인 (7): §7.1.2 확인주기 — 데이터로 결정·변경</b>",
+      "분석·개선 (8): 심사·부적합관리·개선"
+    ],
+    table:[
+      ["성격","17025보다 덜 쓰지만 측정 '관리'에 특화","측정을 경영시스템으로"],
+      ["교정주기 핵심","<b>§7.1.2: 교정이력·SPC 데이터로 주기 결정·변경</b>","우리 논리의 1차 근거"],
+      ["우리 활용","'데이터 기반 주기 조정'의 근거","CaliBoard가 실현하는 그 시스템"]
+    ],
+    strange:[
+      "<b>§7.1.2가 결정적</b> — '교정이력 데이터와 SPC 기록으로 확인주기를 결정·변경할 수 있다'를 국제표준이 명시. = 우리 사업의 법적 정당성",
+      "<b>OIML D10을 참고문헌으로 지목</b> — 주기 방법론은 별도 문서로 위임 (RP-1과 같은 역할)",
+      "KOLAS 실무선 17025만큼 자주 안 쓰지만, <b>'데이터로 주기 바꿔도 된다'의 근거</b>로 가장 강력"
+    ],
+    biz:"<b>'데이터로 교정주기 조정' 주장의 최강 근거</b>. KAI 사업에서 '함부로 바꾸는 게 아니라 ISO 10012 §7.1.2가 명시한 정도'라고 방어 가능.",
+    detail:{
+      src:"ISO 10012:2003 원문(영문) + KS Q ISO 10012 국문 정리본 §7.1.2 직접 대조. 조항·문구 원문 확인.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "측정을 낱개가 아니라 <b>하나의 시스템으로 굴리는 방법</b>을 정한 국제표준 — 17025의 짝꿍",
+          "핵심 용어 <b>'계량학적 확인(metrological confirmation)'</b> = 교정 + 그 결과가 쓸 만한지 판단까지 묶은 개념",
+          "쉽게: <b>\"측정 장비를 계획·교정·점검·개선의 순환으로 관리하는 회사 규정\"</b>"
+        ]},
+        {h:"전체 묶음 구조", items:[
+          "<b>4 일반</b>: 측정관리시스템을 세워라",
+          "<b>5 경영 책임</b>: 계량 기능·고객 중시·품질 목표·경영 검토",
+          "<b>6 자원</b>: 사람·정보·장비·외주 관리",
+          "<b>7 계량학적 확인</b>(핵심): 교정하고 확인 간격을 관리 — <b>7.1.2가 우리 주제</b>",
+          "<b>8 분석·개선</b>: 심사·부적합 관리로 시스템을 고침"
+        ]},
+        {h:"★ §7.1.2 — 교정주기의 국제표준 근거 (원문 그대로)", items:[
+          "<b>본문(원문)</b>: \"확인 간격을 정하거나 바꾸는 방법은 문서화해야 하며, <b>이 간격은 필요시 검토·조정</b>되어야 한다\"",
+          "<b>지침(원문)</b>: \"<b>교정·확인 이력 데이터</b>와 <b>통계적 프로세스 관리(SPC) 기록</b>을 <b>주기 수정 여부 결정에 사용</b>할 수 있다\" → 우리 CaliBoard 교정주기 분석이 바로 이 문장의 실현",
+          "<b>부적합 장비를 수리·조정·개조할 때마다 주기를 재검토</b>하라고도 명시",
+          "주기 방법론 자체는 별도 문서(OIML D10)로 위임 — RP-1이 그 역할을 더 정교하게 함"
+        ]}
+      ]
+    }
+  },
+  z540: {
+    code:"ANSI/NCSL Z540.3", ename:"Requirements for the Calibration of Measuring and Test Equipment (2006, R2013) · 미국 민간 국가표준",
+    oneliner:"\"교정 결과의 <b>통계적 신뢰성</b>을 보장하라\"는 미국 민간표준. 사업의 <b>TUR</b>(불확도 대비 정밀도 비율)<b>≥4:1 · False Accept</b>(불합격품을 합격 처리할 확률)<b>≤2%</b>가 여기서 나옴. (군 아님, 군이 계약에 인용)",
+    lineage:"군 문서도 ISO도 아닌 <b>제3의 줄기(미국 민간 표준)</b>. 군이 직접 만들진 않았지만 <b>계약서에 '이걸 따르라'고 끌어다 씀</b>. '교정이 얼마나 믿을 만한가'를 <b>숫자(2%, 4:1)로 못 박은</b> 정량 기준 — 뒤의 RP-18이 이걸 더 정교하게 비판·발전시킴.",
+    analogy:"제품 검사로 치면 <b>'불량률 합격 기준치'</b>. \"불량을 통과시킬 확률은 2% 이하여야 한다\"처럼, <b>합격/불합격을 가르는 구체적 숫자 약속</b>. 발주처가 계약서에 박아두는 품질 보증 수치.",
+    flow:[
+      "교정 시스템 요구: 소급성·불확도·신뢰성",
+      "<b>§5.3: False Accept Risk ≤ 2% 요구</b>",
+      "TUR ≥ 4:1 대안 (FAR 계산 어려울 때)"
+    ],
+    table:[
+      ["소속","ANSI(표준협회)+NCSL(계측학회) = 미국 <b>민간</b>","군 규격 아님. 군이 계약서에 '이거 따르라' 인용"],
+      ["핵심 숫자","KOLAS엔 명시적으로 없음","<b>FAR≤2%, TUR≥4:1</b> (군계약 필수)"],
+      ["한계","-","RP-18이 '4:1은 조잡하다'고 비판 (위계차)"]
+    ],
+    strange:[
+      "<b>'민간 표준'인데 군에서 쓴다</b> — 군이 만든 게 아니라 계약서에 인용. KOLAS엔 이런 '정량 리스크 기준'이 명시 안 됨",
+      "<b>False Accept 2%</b> — '불합격품을 합격으로 오판할 확률 2% 이하'. 가드밴드와 직결",
+      "<b>TUR 4:1</b> — 같은 NCSL의 RP-18(2014)이 '낡았다'고 비판 → 우리는 RP-18 권장 수준으로"
+    ],
+    biz:"사업기획서 정량 KPI(FAR≤2%, TUR 4:1)의 출처. CaliBoard Phase G-3 가드밴드를 이 기준에 맞추면 'False Accept ≤2% 보장' 가능 (RP-18 §B.4.2 리스크기반 가드밴드).",
+    detail:{
+      src:"ANSI/NCSL Z540.3-2006 (R2013) 원문 정독. §5.3 b·§3.8·§5.4 직접 확인.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "\"교정 결과가 <b>통계적으로 얼마나 믿을 만한가</b>\"를 숫자로 못박은 미국 민간 표준",
+          "군이 만든 게 아니라 <b>군 계약서가 \"이거 따르라\"고 끌어다 씀</b> — 그래서 군 사업에 등장",
+          "쉽게: <b>\"불량을 통과시킬 확률은 이 % 이하여야 한다\"는 합격 기준 수치집</b>"
+        ]},
+        {h:"★ 핵심 수치 — §5.3 b항 (원문 그대로)", items:[
+          "<b>\"오수락(false accept) 확률이 2%를 넘지 않아야 하고, 문서화해야 한다\"</b> — 불합격품을 합격으로 잘못 판정할 확률 상한 2%",
+          "<b>\"이 확률 추정이 현실적으로 어려우면, 측정 비율(TUR)이 4:1 이상이어야 한다\"</b> — 교정기가 피교정기보다 4배는 정확할 것",
+          "즉 <b>2% 또는 4:1</b> 둘 중 하나로 신뢰성을 보증 — KAI 사업기획서 KPI의 원천"
+        ]},
+        {h:"나머지 구조", items:[
+          "<b>§3.8 측정신뢰성(measurement reliability) 정의</b>: \"장비의 모든 측정량이 규격 안에 있을 확률\" — 시간의 함수 (RP-1의 신뢰성 곡선과 연결)",
+          "<b>§5.4 교정주기</b>: 사용량 또는 경과시간 기준으로 정함",
+          "<b>6장 평가·개선</b>: 경영검토·감사·모니터링·시정/예방조치",
+          "한계: 같은 NCSL의 <b>RP-18(2014)이 \"4:1은 낡았다\"고 비판</b> → 다음 단계는 RP-18의 리스크 정량화"
+        ]}
+      ]
+    }
+  },
+  rp1: {
+    code:"NCSL RP-1", ename:"Recommended Practice 1 — Establishment and Adjustment of Calibration Intervals (174쪽) · 미국 민간 학회",
+    oneliner:"교정주기를 <b>'어떻게 산출/조정하나'</b>의 유일한 방법론서. 데이터에 신뢰성 곡선을 <b>피팅</b>(통계적으로 맞춰 그림) → 목표(85%) 닿는 시점 = 최적주기.",
+    lineage:"앞 문서들이 '<b>데이터로 주기를 바꿔도 된다</b>'(ISO 10012 §7.1.2)고 <b>허락</b>했다면, 이 문서는 그 '<b>어떻게</b>'를 알려주는 <b>구체적 계산법</b>. 즉 정당성(ISO)→방법론(RP-1)으로 이어지는 손. CaliBoard 교정주기 분석의 직접 교과서.",
+    analogy:"'운동하면 건강해진다'(정책)가 아니라, <b>'몇 세트·몇 회 해야 하는지 알려주는 트레이닝 매뉴얼'</b>. 막연한 권장이 아니라 <b>데이터로 최적 주기를 뽑는 레시피</b>.",
+    flow:[
+      "개념 (Ch.2): 측정신뢰성=규격내 확률. 시간↑→불확도성장→신뢰성↓",
+      "5가지 방법: General / Borrowed / Engineering / Reactive(A1~A3) / MLE(S1~S3)",
+      "MLE가 최상위 — 단 데이터 20~40건 필요 (모델/클래스 단위 묶음)",
+      "방법 선택 결정트리 (Ch.4): 재고규모·데이터·예산 따라"
+    ],
+    table:[
+      ["주기 변경","KOLAS 권장주기 고정 (관행)","데이터로 조정 — ISO 10012 §7.1.2도 허용"],
+      ["방법론","제조사 권장 의존","MLE 등 5가지 통계 방법"],
+      ["데이터 단위","개별 장비","모델/클래스 묶음(fleet) 20~40건"],
+      ["누가 가능","데이터 적어 어려움","대규모 데이터 보유자(KTL) = 해자"]
+    ],
+    strange:[
+      "<b>MLE (최대우도추정)</b> — 데이터에 신뢰성 곡선을 통계적으로 피팅. 개별 장비론 데이터 부족, fleet 묶음 필요",
+      "<b>데이터 가진 자만 가능</b> — 표준 자체가 진입장벽을 만듦 = KTL의 구조적 강점",
+      "<b>측정신뢰성 ≠ 측정불확도</b> — 신뢰성은 '규격내 확률', 불확도는 'GUM 측정과정 분석'"
+    ],
+    biz:"우리 교정주기 분석의 국제표준 근거. 현재 CaliBoard는 RP-1 기준 Reactive A1(비권장)+독자 crossing 수준 → '측정신뢰성 축 도입'이 최우선 개선.",
+    detail:{
+      src:"NCSL RP-1 (Establishment and Adjustment of Calibration Intervals) 원문 정독. Ch.2·4·5 직접 확인.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "교정주기를 <b>어떻게 산출·조정·평가하는지</b>를 다룬 사실상 유일한 방법론서",
+          "<b>경영 설명(앞부분) + 통계 수학(뒷부분·부록)</b>으로 나뉨 — 관리자도 기술자도 보게 구성",
+          "쉽게: <b>\"데이터로 최적 교정주기를 뽑는 레시피북\"</b>"
+        ]},
+        {h:"핵심 개념 — '측정신뢰성' (원문 정의)", items:[
+          "<b>측정신뢰성(measurement reliability)</b> = \"장비가 규격(허용차) 안에 있을 확률\"",
+          "<b>시간이 지날수록 불확도가 커지고 → 규격 안에 있을 확률(신뢰성)이 떨어진다</b>",
+          "그래서 <b>신뢰성이 목표선(target) 밑으로 떨어지기 직전</b>이 최적 주기 — CaliBoard가 그리려는 바로 그 곡선",
+          "주의: <b>측정신뢰성 ≠ 측정불확도</b>. 신뢰성은 '규격내 확률', 불확도는 측정 과정의 흔들림"
+        ]},
+        {h:"5가지 방법 (§4.3~4.7)", items:[
+          "<b>General / Borrowed / Engineering / Reactive / MLE</b> 다섯 가지 — 데이터·예산에 따라 골라 씀(§4.8 결정트리)",
+          "<b>MLE(최대우도추정)가 최상위 방법</b> — 데이터에 신뢰성 곡선을 통계로 맞춤. 단 <b>장비를 모델별로 20~40건 묶어야</b> 가능",
+          "<b>★ 데이터를 많이 가진 자만 쓸 수 있음</b> = 표준 자체가 진입장벽 = KTL/CaliBoard의 구조적 강점(해자)"
+        ]}
+      ]
+    }
+  },
+  rp18: {
+    code:"NCSL RP-18", ename:"Recommended Practice 18 — Estimation and Evaluation of Measurement Decision Risk (213쪽) · RP-1과 한 계보",
+    oneliner:"교정 <b>'합격/불합격 판정이 맞나'</b>의 리스크 방법론. False Accept(불합격품을 합격), False Reject(합격품을 불합격), <b>가드밴드</b>(합격선을 규격 안쪽으로 좁히는 안전여유). 사업기획서 'FAR≤2%·TUR 4:1'의 근거.",
+    lineage:"<b>RP-1의 형제 문서</b>(저자 동일, 같은 NCSL 계보). RP-1이 '<b>언제 교정하나(주기)</b>'를 다룬다면, 이건 '<b>그 판정을 얼마나 믿나(리스크)</b>'를 다룸. 앞의 Z540.3이 박은 '4:1'을 \"조잡하다\"며 한 단계 정교하게 발전시킨 <b>최신 버전</b>.",
+    analogy:"건강검진으로 치면 <b>'오진 확률 관리'</b>. '검사 주기'(RP-1)와 별개로, <b>\"병이 있는데 정상이라 오판할 확률\"을 정량으로 통제</b>하는 기법. 가드밴드는 '애매하면 재검사 보내는 안전선'에 해당.",
+    flow:[
+      "MDR 개념 (Ch.1·3): FAR(불합격품을 합격) / FRR(합격품을 불합격)",
+      "TUR 4:1 비판 (§3.5): '조잡한 도구, 리스크 통제 못함. 리스크 직접 계산하라. 베이지안이 낫다'",
+      "리스크 계산법 (Ch.4): Classical / Bayesian / Confidence Level",
+      "가드밴드 (§5.3): 합격선을 규격 안쪽으로 → FAR↓ FRR↑. 목표 FAR에서 폭 역산"
+    ],
+    table:[
+      ["판정 리스크","개념 약함","FAR/FRR 정량화"],
+      ["TUR 4:1","군계약 인용값","RP-18은 '조잡, 정량화가 낫다'"],
+      ["가드밴드","ILAC-G8 판정","목표 FAR→가드밴드 폭 역산(리스크기반)"]
+    ],
+    strange:[
+      "<b>같은 미국 표준끼리 입장차</b> — Z540.3(2006)='4:1 충족' vs RP-18(2014)='4:1은 조잡'. 충돌 아니라 요구 vs 권장 위계차",
+      "<b>리스크 정량화/베이지안</b> — 경쟁사는 4:1, 우리는 RP-18 권장수준 = 한 세대 앞섬",
+      "<b>가드밴드 = FAR↔FRR 트레이드오프</b> — 합격선 좁히면 안전↑ 비용↑"
+    ],
+    biz:"키오스크 중간점검과 연결: 중간점검(ISO17025 §6.4.10)이 FAR을 저감. '4:1 넘어 리스크 정량화'가 차별화 포인트. 단 'FAR≤2% 보장'은 코드 개선 후 진실.",
+    detail:{
+      src:"NCSL RP-18 (Estimation and Evaluation of Measurement Decision Risk, 2014) 원문 정독. §2·3.5·4.3·부록B 직접 확인.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "교정 <b>합격/불합격 판정이 틀릴 위험(MDR)</b>을 어떻게 계산·통제하는지의 방법론서 — RP-1의 형제(같은 NCSL)",
+          "RP-1이 '<b>언제 교정하나(주기)</b>'라면, 이건 '<b>그 판정을 얼마나 믿나(리스크)</b>'",
+          "쉽게: <b>\"멀쩡한 걸 불량이라 하거나, 불량을 멀쩡하다 할 확률\"을 숫자로 다루는 책</b>"
+        ]},
+        {h:"두 가지 위험 (§2 원문 정의)", items:[
+          "<b>오수락(False Accept Risk)</b> = 규격 벗어난 장비를 \"합격\"으로 잘못 통과시킴 → 더 위험",
+          "<b>오기각(False Reject Risk)</b> = 멀쩡한 장비를 \"불합격\"으로 잘못 버림 → 비용 낭비",
+          "이 둘을 합쳐 <b>측정결정리스크(MDR)</b> — 계측 판정의 품질을 재는 핵심 지표"
+        ]},
+        {h:"★ 4:1 비판과 더 나은 방법 (§3.5·4.3)", items:[
+          "<b>§3.5.2 (원문 제목 'A Critique of the 4:1 Requirement')</b>: Z540.3의 <b>'TUR 4:1'은 거칠다</b>고 비판 — 리스크를 직접 통제 못 함",
+          "대안: <b>§4.3 베이지안(Bayesian) 분석</b> 등으로 <b>리스크를 직접 계산</b>하라 = 한 세대 앞선 방식",
+          "경쟁사는 4:1에 머물고, 우리가 RP-18 수준으로 가면 차별화"
+        ]},
+        {h:"가드밴드 (부록 B.4.2)", items:[
+          "<b>가드밴드(guardband)</b> = 합격선을 규격보다 <b>살짝 안쪽으로 좁히는 안전여유</b>",
+          "<b>§B.4.2 (원문 'Establishing Risk-Based Guardbands')</b>: <b>목표 오수락률(예: 2%)을 정하면 거기서 가드밴드 폭을 역산</b> — CaliBoard 가드밴드(Phase G-3)가 향할 방향",
+          "트레이드오프: 합격선을 좁히면 <b>오수락↓(안전↑) 대신 오기각↑(비용↑)</b>"
+        ]}
+      ]
+    }
+  },
+  milstd1839: {
+    code:"MIL-STD-1839D", ename:"Calibration and Measurement Requirements (CMR) · 美 국방부(DoD) 표준 · 공군 작성(AREA QCIC) · 12-May-2010 (NOTICE 1: 2016 유효 재확인)",
+    oneliner:"\"교정·측정이 갖춰야 할 <b>전군 공통 요구사항</b>\"을 정한 미 국방부 표준. <b>TUR</b>(교정기가 피교정기보다 몇 배 정확한가)<b> 4:1</b>·<b>NIST</b>(미 국가표준)<b> 소급성</b>·교정주기 등 군 계약의 정량 기준이 여기서 나옴.",
+    lineage:"공군 전용(DAFMAN/TO)보다 <b>한 단계 위</b>의 <b>전군(육·해·공·해병) 공통</b> 규격. 단 <b>관리는 공군 AFMETCAL</b>이 맡음(\"공군이 펜을 쥔 전군 규격\"). 군 계약서가 이걸 인용 → 아래로 ISO/Z540.3의 정량 기준과 맞물림.",
+    analogy:"한 회사(공군) 사규가 아니라 <b>그룹사 전체(국방부)에 적용되는 공통 품질 규격</b>. \"우리 그룹 모든 계열사는 부품을 이 정밀도로 검사한다\"처럼, <b>발주처가 계약에 박는 최소 기준선</b>.",
+    flow:[
+      "적용 범위: 美 전군(육·해·공·해병) 공통 — DoD 표준 (NOT MEASUREMENT SENSITIVE = 비밀 아님)",
+      "핵심 요구: NIST까지 끊김없는 소급성 / TUR ≥ 4:1 / 교정주기 관리",
+      "관리 주체: 공군 AFMETCAL(Heath, OH)이 전군 대표로 펜을 쥠",
+      "계약 연계: 군 조달 계약서가 이 표준을 '따르라'고 인용 → 벤더 의무화"
+    ],
+    table:[
+      ["소속","ISO=국제 / KOLAS=한국","美 국방부(DoD) 전군 공통"],
+      ["TUR 4:1","KOLAS엔 명시 없음","§4 명문 — 군계약 필수"],
+      ["소급성","KRISS 경유","NIST 경유 (끊김없는 사슬 의무)"],
+      ["수출 함의","-","전군 규격이라 NATO 판매 정합성에 유리"]
+    ],
+    strange:[
+      "<b>'공군 전용'이 아니라 '전군 공통'</b> — 표지 Custodians에 Army·Navy·Air Force 다 있음. 공군은 '작성·관리'만 대표로",
+      "<b>'NOT MEASUREMENT SENSITIVE'</b> — 내용이 측정값에 민감하단 뜻이 아니라 '비밀 아님'을 알리는 행정 표시",
+      "<b>TUR 4:1이 여기서 군 계약으로 들어옴</b> — 같은 4:1을 Z540.3(민간)도 말하지만, 군에선 이 문서가 근거"
+    ],
+    biz:"사업 ①장비·⑦교정서비스의 <b>정량 기준 뿌리</b>. \"NIST·KRISS·NATO 3중 표준정합·Vendor-Neutral\"(기획서 p.15) 주장의 근거 — 전군·국제 층위를 잡아야 NATO 32개국 수출 가능. TUR 4:1은 우리 시스템이 보증할 KPI.",
+    detail:{
+      src:"※ 우리가 가진 PDF는 NOTICE 1(유효성 재확인 1쪽)뿐이라 본문은 없음. 아래는 표지 확인 + DAFMAN §1.6 원문 인용 + KAI 정리문서(01·02) 근거.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "교정·측정이 갖춰야 할 <b>요구사항(CMR)</b>을 정한 미 국방부 표준 — 제목 'Calibration and Measurement Requirements'",
+          "<b>주의</b>: 우리가 가진 파일은 \"2010년판이 2016년에도 유효하다\"는 <b>재확인 고시 1장</b>뿐. 실제 요구 수치 본문은 별도 (아래는 표지·상위문서·정리자료 근거)",
+          "쉽게: <b>\"군 장비 교정은 이 정도 정밀도는 돼야 한다\"는 전군 공통 최소 기준</b>"
+        ]},
+        {h:"표지에서 확인되는 사실 (직접 확인)", items:[
+          "관리(Custodians)에 <b>육군·해군·공군이 모두</b> 올라 있음 → <b>'공군 전용'이 아니라 전군 공통</b>",
+          "작성·관리(Preparing Activity)는 <b>공군(Air Force-36)</b> → \"공군이 펜을 쥔 전군 규격\"",
+          "<b>'NOT MEASUREMENT SENSITIVE'</b> = 비밀이 아니라는 행정 표시 (측정값에 민감하단 뜻 아님), 공개 배포(Distribution A)"
+        ]},
+        {h:"상위 문서가 이 표준을 부르는 지점 (DAFMAN 원문)", items:[
+          "<b>DAFMAN 21-113 §1.6 (원문)</b>: \"장비를 획득할 때 교정·측정 요구를 평가하고, <b>MIL-STD-1839를 준수</b>하라(T-0)\" — 즉 군이 장비를 살 때 이 표준이 의무로 걸림",
+          "해설서 짝꿍 <b>MIL-HDBK-1839A</b>가 '어떻게'를 보조",
+          "정리자료 근거 핵심 수치: <b>TUR 4:1 · NIST 소급성 의무</b> (Z540.3와 같은 4:1을 군 계약 쪽에서 받는 문서)"
+        ]}
+      ]
+    }
+  },
+  to33k: {
+    code:"TO 33K-1-100-1", ename:"Calibration Procedures / MDC Codes / CMS (2022) · 미 공군 기술교범(TO) · 교정 데이터의 본체",
+    oneliner:"\"각 장비를 <b>실제로 어떻게 교정하나</b>\"의 절차·코드 데이터 모음. <b>CMS</b>(장비별 교정 권위 문서)·<b>MDC</b>(교정 데이터 코드)가 여기. TO 00-20-14가 정한 우선순위 트리의 <b>1순위 데이터 원천</b>.",
+    lineage:"<b>TO 00-20-14</b>(운영 절차서)의 바로 <b>아래 '데이터층'</b>. 절차서가 '교정주기는 CMS를 1순위로 따르라'고 하면, 그 CMS 데이터가 실제로 담긴 곳이 이 33K 시리즈. 즉 <b>정신(21-113)→절차(00-20-14)→데이터(33K)</b> 사슬의 맨 끝 실데이터.",
+    analogy:"요리로 치면 절차서가 '레시피 규칙'이라면, 이건 <b>'재료별 구체적 조리표'</b>. \"이 장비는 이 표준으로, 이 주기로 교정\"이 장비마다 적힌 <b>데이터 사전</b>.",
+    flow:[
+      "교정 절차: 장비 유형별 표준 교정 방법",
+      "MDC 코드: 교정 데이터를 표준 코드로 기록 (전산 관리용)",
+      "CMS 연계: 무기체계별 교정 권위 문서 — 주기 결정 1순위",
+      "짝 문서 33K-1-100-2-1(주기표)은 'PMEL Only' 배포제한 — 우리는 k-tools 실데이터로 대체"
+    ],
+    table:[
+      ["성격","KOLAS 권장주기·관행","장비별 교정 절차·코드의 표준 데이터"],
+      ["주기 결정","제조사 권장 의존","CMS(33K) 1순위 → 데이터로 조정(85%)"],
+      ["기록","성적서 중심","MDC 코드 체계로 전산 표준화"],
+      ["우리 자산","-","주기 '결과표'는 못 구해도, '도출 과정'은 k-tools 9311건으로 보유"]
+    ],
+    strange:[
+      "<b>'결과표(33K-2-1)'는 군 통제문서</b> — 배포제한이 설계상 당연. 우리에겐 결과표가 아니라 '도출 과정 데이터'가 자산",
+      "<b>MDC 코드 = 교정 데이터의 바코드</b> — 자유서술이 아니라 표준 코드로 기록해야 전산 분석 가능",
+      "<b>CMS가 교정주기 우선순위 1위</b> — 제조사 권장보다 위. KOLAS엔 이런 통일 권위 데이터 없음"
+    ],
+    biz:"사업 ③문서화의 'K-METCAL TO Library' 뼈대. CaliBoard/PAMS-K가 다루는 <b>교정 이력 데이터의 표준 형식</b>이 곧 이 33K 체계 — 우리 9311건이 33K가 요구하는 '도출 과정 데이터'에 해당.",
+    detail:{
+      src:"TO 33K-1-100-1 (2022.11.30, 46쪽) 원문 정독. 이 문서는 공개(Distribution A). 괄호 안 영어는 원문 용어.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "<b>각 계측기를 어떻게 읽고·기록하고·어느 교정 절차서로 교정할지</b>를 코드로 표준화한 데이터 문서",
+          "참고: <b>우리가 가진 이 문서는 '공개' 버전</b>. 정작 장비별 실제 교정주기표(33K-1-100-2-1)는 'PMEL 전용'이라 외부 입수가 막힘 — 그 알맹이는 우리 k-tools 실데이터로 대체",
+          "쉽게: <b>\"이 계측기는 이렇게 읽고, 이 코드로 기록하고, 이 절차로 교정한다\"는 데이터 사전</b>"
+        ]},
+        {h:"1장 — 계측기를 어떻게 읽나", items:[
+          "<b>분해능(resolution)</b>을 아날로그/디지털로 나눠 규정 — 눈금을 어디까지 읽어야 하는지의 기준",
+          "장비의 <b>전형적 규격(specification)</b>을 어떻게 해석하는지 — 정확도 판정의 출발점"
+        ]},
+        {h:"2장 — 교정 결과를 코드로 기록", items:[
+          "<b>MDC(정비 데이터 수집 코드)</b> = 교정에서 무슨 일을 했는지를 <b>자유서술이 아니라 표준 코드로</b> 남김",
+          "왜 코드냐: 코드여야 <b>전산으로 모아 분석</b>할 수 있음 — 데이터 기반 주기 조정의 전제",
+          "부록 A에 <b>받았을 때 상태 / 조치 내용 / 돌려줄 때 상태</b> 코드가 정리됨"
+        ]},
+        {h:"3·4·7장 — 절차·권위·온라인 열람", items:[
+          "<b>CMS(교정·측정 요약)</b> = 무기체계별 '이 장비는 이 표준으로 교정' 권위 문서 — 교정주기 우선순위 1위",
+          "<b>★ 7장 AFCAV / WebAFCAV</b> = 교정 권위 데이터를 <b>온라인으로 열람하는 뷰어</b> — KAI 사업기획서의 'WebAFCAV 동등 뷰어'가 바로 이것 (CaliBoard가 만들 대상)"
+        ]}
+      ]
+    }
+  },
+  cfetp: {
+    code:"CFETP 2P0X1", ename:"Career Field Education and Training Plan — PMEL(2P0X1 특기) 인력 교육훈련 계획 · 미 공군",
+    oneliner:"\"<b>PMEL</b>(기지 교정실) <b>교정 인력을 어떻게 길러내나</b>\"의 교육훈련 로드맵. 장비·절차가 아니라 <b>'사람(자격·숙련도)'</b>을 보증하는 문서. 2P0X1 = 정밀측정장비 실험실 특기 코드.",
+    lineage:"교정 계보의 <b>'사람 축'</b>. 다른 문서가 정책·절차·데이터를 다룬다면, 이건 그것을 <b>실행할 인력의 자격</b>을 규정. ISO 17025도 '인력 적격성(§6.2)'을 요구하므로, 이 문서가 그 군(軍) 버전 — <b>장비·절차가 완벽해도 사람이 없으면 무효</b>이기에 빨간 테두리(중요) 표시된 문서.",
+    analogy:"<b>'직무 자격증 + 단계별 교육 커리큘럼'</b>. 신입이 어떤 훈련을 거쳐 숙련 기술자가 되는지의 로드맵. 병원으로 치면 '전공의 수련 과정표'에 해당.",
+    flow:[
+      "특기 정의 (2P0X1): 정밀측정장비 실험실(PMEL) 기술자 — 숫자가 클수록 숙련도↑",
+      "단계별 훈련: 입문 → 기능 자격(3급) → 숙련(5급) → 감독(7급) 등 등급 체계",
+      "지식·기술 목록: 각 등급에서 갖춰야 할 교정 지식·실기 항목",
+      "자격 인증: 훈련 완료·평가를 거쳐 PMEL 업무 수행 자격 부여"
+    ],
+    table:[
+      ["무엇을 보증","장비·절차의 정확성","교정 '사람'의 자격·숙련도"],
+      ["KOLAS 대응","§6.2 인력 적격성 요구","이걸 군 등급 체계로 구체화"],
+      ["사업 역할","-","④훈련 영역 전부 — 인력 양성 패키지"],
+      ["왜 중요","-","장비·절차 완벽해도 인력 없으면 교정체계 작동 불가"]
+    ],
+    strange:[
+      "<b>교정 문서인데 내용이 '사람'</b> — 측정 기술이 아니라 인력 양성 계획. KOLAS는 인력 요구를 짧게 말하지만 군은 등급별 커리큘럼으로 명문화",
+      "<b>등급이 곧 권한</b> — 몇 급 기술자냐가 어떤 교정을 책임질 수 있느냐를 결정 (DAFMAN의 '역할=계급'과 짝)",
+      "<b>2P0X1 = 특기 코드</b> — X 자리에 숙련등급 숫자가 들어감 (2P031=3급, 2P051=5급 식)"
+    ],
+    biz:"사업 ④훈련(Training) 영역의 근거 표준 전체. K-METCAL 수출 시 '교정 시스템(SW+HW)'만이 아니라 <b>인력 양성 프로그램까지 패키지</b>로 파는 핵심 — 한국형 PMEL 인력 양성 체계의 설계도.",
+    detail:{
+      src:"CFETP 2P0X1 (2025.7.24, 32쪽) 원문 정독. 발급: AFMETCAL(AFLCMC/ROM). Part 1·2 직접 확인.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "공군 <b>교정 기술병(특기 2P0X1)을 어떻게 길러내나</b>의 평생 교육·훈련 계획서",
+          "장비·절차가 아니라 <b>'사람'을 다루는 문서</b> — 그래서 빨간 테두리(중요) 표시됨",
+          "쉽게: <b>\"신입이 어떤 훈련을 거쳐 숙련 기술자가 되는지\"의 커리큘럼 + 자격 체계</b>"
+        ]},
+        {h:"두 부분으로 구성", items:[
+          "<b>Part 1 (관리용)</b>: 경력이 어떻게 올라가나, 등급별 자격 요건, 필요한 자원(예산·장비·시설)",
+          "<b>Part 2 (훈련용)</b>: <b>STS(특기훈련표준)</b> — 등급마다 배워야 할 과제·핵심 임무 목록"
+        ]},
+        {h:"★ 등급 체계 (숫자가 곧 숙련도)", items:[
+          "<b>3급(입문)</b> → <b>5급(기능)</b> → <b>7급(숙련·감독)</b> → <b>9급</b>으로 올라감 — 특기코드 2P0<b>X</b>1의 X 자리 숫자",
+          "<b>초기기술훈련</b>: 입대 후 교육사령부(AETC)에서 3급 자격 양성",
+          "<b>상위훈련(upgrade)·자격훈련</b>: 실제 장비로 손에 익히며 5·7·9급으로 진급",
+          "원리: <b>몇 급이냐가 어떤 교정을 책임질 수 있느냐를 결정</b> (DAFMAN의 '직책=책임'과 짝)"
+        ]}
+      ]
+    }
+  }
+};
+
+const panel = document.getElementById('panel');
+function render(id){
+  const d = DOCS[id];
+  if(!d) return;
+  let t = `<div class="panel-doc"><h2>${d.code}</h2><div class="ename">${d.ename}</div>`;
+  t += `<div class="oneliner">${d.oneliner}</div>`;
+  if(d.lineage || d.analogy){
+    t += `<div class="primer">`;
+    if(d.lineage) t += `<div class="row lineage"><span class="ic">🔗</span><div><b>이 문서의 자리</b> — ${d.lineage}</div></div>`;
+    if(d.analogy) t += `<div class="row analogy"><span class="ic">💡</span><div><b>쉽게 비유하면</b> — ${d.analogy}</div></div>`;
+    t += `</div>`;
+  }
+  t += `<div class="sec"><h3>흐름 — 이 문서가 말하는 순서</h3><ol class="flowlist">`;
+  d.flow.forEach(f=> t+=`<li>${f}</li>`);
+  t += `</ol></div>`;
+  t += `<div class="sec"><h3>KOLAS vs 군 — 대조</h3><table><tr><th>항목</th><th class="col-kolas">KOLAS 세계 (익숙)</th><th class="col-mil">군 세계 (생소)</th></tr>`;
+  d.table.forEach(r=> t+=`<tr><td>${r[0]}</td><td class="col-kolas">${r[1]}</td><td class="col-mil">${r[2]}</td></tr>`);
+  t += `</table></div>`;
+  t += `<div class="strange"><div class="t">⚠ 가장 생소할 개념</div><ol>`;
+  d.strange.forEach(s=> t+=`<li>${s}</li>`);
+  t += `</ol></div>`;
+  t += `<div class="biz">💼 <b>사업 관점</b> — ${d.biz}</div>`;
+  if(d.detail){
+    t += `<details class="detail"><summary>📖 원문 상세 — 조항·수치·구조 (원문 근거)</summary><div class="body">`;
+    d.detail.groups.forEach(g=>{
+      t += `<div class="grp"><div class="h">${g.h}</div><ul>`;
+      g.items.forEach(i=> t+=`<li>${i}</li>`);
+      t += `</ul></div>`;
+    });
+    if(d.detail.src) t += `<div class="src">📄 출처: ${d.detail.src}</div>`;
+    t += `</div></details>`;
+  }
+  t += `</div>`;
+  panel.innerHTML = t;
+  panel.scrollTop = 0;
+}
+document.querySelectorAll('.doc').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    document.querySelectorAll('.doc').forEach(d=>d.classList.remove('active'));
+    el.classList.add('active');
+    render(el.dataset.id);
+  });
+});
+
+/* ===== 용어집 ===== */
+const TERMS = [
+  // 한국 기관 (kr)
+  {a:"ROKAF", f:"Republic of Korea Air Force", c:"kr", d:"<b>대한민국 공군</b>. 본 사업 내수 고객. 자체 85정밀표준정비창 운영, 현대화 대상."},
+  {a:"KRISS", f:"Korea Research Institute of Standards and Science", c:"kr", d:"<b>한국표준과학연구원</b> = 한국의 NIST. 국가측정표준 보유. CMC 세계 6위."},
+  {a:"KOLAS", f:"Korea Laboratory Accreditation Scheme", c:"kr", d:"<b>한국인정기구</b>. ISO 17025 시험·교정소 인증 주체 (ILAC MRA). <b>우리가 수십년 해온 체계</b>."},
+  {a:"KTL", f:"Korea Testing Laboratory", c:"kr", d:"<b>한국산업기술시험원</b>. 시험·교정 전문기관."},
+  {a:"DAPA", f:"Defense Acquisition Program Administration", c:"kr", d:"<b>방위사업청</b>. 국방 획득·수출지원 총괄 외청. 본 사업 국내 발주처·정책 파트너."},
+  {a:"DTaQ", f:"Defense Technology Quality", c:"kr", d:"<b>국방기술품질원</b>. 국방 품질. NATO AQAP 인정 연계."},
+  // 미국/국제 기관 (us)
+  {a:"DoD", f:"Department of Defense", c:"us", d:"<b>미국 국방부</b>. MIL-STD 등 전군 규격의 발급 주체."},
+  {a:"DAF", f:"Department of the Air Force", c:"us", d:"<b>미 공군부</b> = 공군(USAF) + <b>우주군(USSF)</b>. 'AF'→'DAF' 개명은 2019년 우주군 창설 때문."},
+  {a:"USAF / USSF", f:"US Air Force / US Space Force", c:"us", d:"미 공군 / 미 우주군. 둘을 합친 게 DAF."},
+  {a:"NIST", f:"National Institute of Standards and Technology", c:"us", d:"<b>미 국립표준기술원</b>. 미국 소급성의 종착점 (한국 KRISS에 해당)."},
+  {a:"AFMETCAL", f:"Air Force Metrology and Calibration", c:"us", d:"<b>미 공군 교정 총괄</b> 프로그램·조직 (= AFLCMC/WNM, 오하이오 Heath). 인증/주기결정/소급성 단일 권위."},
+  {a:"AFPSL", f:"Air Force Primary Standards Laboratory", c:"us", d:"<b>공군 1차표준실험실</b>. 미 공군에 <b>단 하나뿐인 최상위 표준실</b>(오하이오 Heath). NIST 직결. KOLAS엔 없는 '군 전용 1차표준실' 개념."},
+  {a:"NCSL(I)", f:"NCSL International (옛 National Conference of Standards Laboratories)", c:"us", d:"<b>미국 계측 표준 실험실 학회</b> (민간, 군 아님). RP-1·RP-18 발급. '국제 계측학계 모범사례'로 통용."},
+  {a:"Heath, Ohio", f:"미국 오하이오주 Heath시 (지명)", c:"us", d:"<b>미 공군 교정의 본부 도시</b>. AFPSL + AFMETCAL 본부(AFLCMC/WNM)가 여기 집중. 한국의 '대전 KRISS' 같은 상징 지명. 사업 'K-AFMETCAL Center=Heath 한국판'."},
+  {a:"BIPM", f:"Bureau International des Poids et Mesures", c:"us", d:"<b>국제도량형국</b> (프랑스 Sèvres). SI 단위 최정점. 모든 국가표준이 여기로 수렴."},
+  {a:"ILAC", f:"International Laboratory Accreditation Cooperation", c:"us", d:"<b>국제시험소인정협력체</b>. MRA(상호인정)로 KOLAS·CNAS 등이 서로 인정. 수출 핵심."},
+  // 군 개념 (mil)
+  {a:"TMDE", f:"Test, Measurement, and Diagnostic Equipment", c:"mil", d:"<b>측정·시험·진단 장비</b> = 교정 대상 모든 계측기(토크렌치·압력계·멀티미터…). 교정의 '환자'."},
+  {a:"PMEL", f:"Precision Measurement Equipment Laboratory", c:"mil", d:"<b>정밀측정장비 실험실</b>. 기지마다 있는 교정 실험실. 기지표준 소유권 보유. 교정의 '병원'. Type IIA~IV 등급."},
+  {a:"MCF", f:"Metrology and Calibration Flight", c:"mil", d:"<b>창정비(Depot)급 교정대</b>. ALC(창)에 소속. PMEL의 창급 버전."},
+  {a:"MAJCOM", f:"Major Command", c:"mil", d:"<b>주요사령부</b>. 야전 PMEL을 운영하는 상위 군 조직."},
+  {a:"FMS", f:"Foreign Military Sales", c:"mil", d:"<b>대외군사판매</b>. 미국이 동맹국에 무기 판매. <b>Type IV PMEL은 미군 폐지됐으나 FMS 수출국엔 존재 → KAI 사업 표적</b>."},
+  {a:"SART", f:"Safety, Accuracy, Reliability, Traceability", c:"mil", d:"<b>안전·정확·신뢰·소급</b>. TO 00-20-14의 품질 판단 4대 군사 가치. 21-113의 5단어와 짝."},
+  {a:"CMS", f:"Calibration and Measurement Summary", c:"mil", d:"<b>무기체계별 교정 권위 문서</b>(TO). 교정주기 결정 우선순위 1위."},
+  {a:"K Stamp", f:"TMDE Certification Stamp", c:"mil", d:"<b>교정 완료 인증 도장</b>. 교정됐음을 표시하는 물리적 증표 (TO 00-20-14 §5.1)."},
+  {a:"Tier (T-0~T-3)", f:"Waiver Authority Tier", c:"mil", d:"규정 뒤 붙는 <b>면제 권한 등급</b>. T-0=가장 엄격(외부 법령), T-3=현장 지휘관 수준."},
+  {a:"★ 교정=정비의 일부", f:"Calibration ⊂ Maintenance", c:"mil", d:"<b>KAI 프로젝트 최重要 개념</b>. 군에선 PMEL이 maintain(<b>진단+조정+수리+교정</b>)을 다 함. 교정은 4개 중 하나. KOLAS(교정=판정·반송)와 근본 차이. <b>KAI 사업엔 필수 개념</b>."},
+  {a:"maintain (4요소)", f:"troubleshoot · align · repair · calibrate", c:"mil", d:"PMEL이 TMDE에 하는 일 = <b>고장진단·정렬조정·수리·교정</b>. 전장에선 제조사 보낼 시간 없어 PMEL이 원스톱 정비. → PMEL=계측기 전문 정비소."},
+  {a:"FOD", f:"Foreign Object Damage", c:"mil", d:"<b>이물질 손상</b>. PMEL이 항공기 출장교정 시 공구·부품 흘리면 엔진 빨려들어가 사고. → 공구 출입검수 의무(DAFI 21-101). KOLAS엔 없는 개념."},
+  {a:"CTK", f:"Consolidated Tool Kit", c:"mil", d:"<b>통합 공구키트</b>. PMEL이 수리하니 공구 사용→분실추적·재물조사 필수(DAFI 21-101). PMEL은 보통 비반출(non-dispatchable)."},
+  {a:"MSEP", f:"Maintenance Standardization and Evaluation Program", c:"mil", d:"<b>정비 표준화·평가 프로그램</b>. PMEL이 정비기관으로서 정비 품질을 정기 평가받음(DAFI 21-101)."},
+  {a:"ILCM", f:"Integrated Life Cycle Management", c:"mil", d:"<b>통합 수명주기 관리</b>(DAFI 20-101/63-101). 장비 개발→획득→운용→폐기 일생 관리. 교정과는 간접(획득 시 교정요구 반영)."},
+  // 계측·통계 (metro)
+  {a:"MLE", f:"Maximum Likelihood Estimation", c:"metro", d:"<b>최대우도추정</b>. 관측 데이터를 가장 잘 설명하는 신뢰성 곡선을 역추정. RP-1 최상위 교정주기 방법. <b>데이터 20~40건 필요 → 데이터 가진 자(KTL)만 가능</b>."},
+  {a:"Measurement Reliability", f:"측정 신뢰성", c:"metro", d:"그 시점에 장비가 <b>규격 이내(in-tolerance)일 확률</b>. 시간↑→불확도성장→신뢰성↓. 85%선 닿는 시점=교정주기. (측정불확도와 다름!)"},
+  {a:"FAR / FRR", f:"False Accept / False Reject Risk", c:"metro", d:"<b>오수락(불합격품을 합격)</b> / <b>오기각(합격품을 불합격)</b>. RP-18 핵심. 사업 'FAR≤2%'."},
+  {a:"TUR", f:"Test Uncertainty Ratio", c:"metro", d:"<b>시험 불확도 비율</b>. 교정기가 피교정기보다 몇 배 정확한가. 군계약 'TUR≥4:1'. 단 RP-18은 '4:1은 조잡, 리스크 정량화가 낫다'."},
+  {a:"Guard Band", f:"가드밴드", c:"metro", d:"합격선을 규격선 <b>안쪽으로 좁힘</b> → FAR↓ FRR↑. CaliBoard Phase G-3에 ILAC-G8 기반 구현됨."},
+  {a:"GUM / VIM", f:"Guide to Uncertainty in Measurement / Vocab. in Metrology", c:"metro", d:"<b>측정 불확도 평가 지침(JCGM 100) / 국제 계량 용어(JCGM 200)</b>. BIPM 국제표준. 불확도의 보편 근거."},
+  {a:"In-tolerance / OOT", f:"In-tolerance / Out-of-tolerance", c:"metro", d:"<b>규격 이내 / 규격 벗어남</b>. OOT = 사실상 '부정확해짐'. 신뢰성 85%='주기말 85%가 in-tolerance'."},
+  // 문서 종류 (doc)
+  {a:"PD", f:"Policy Directive", c:"doc", d:"<b>정책 지침</b> = 군의 '헌법/법률'급. '~를 한다'는 의지 선언. 짧고 추상적. (DAFPD 21-1)"},
+  {a:"MAN", f:"Manual", c:"doc", d:"<b>매뉴얼</b> = '시행령'급. 정책을 '이렇게 운영한다' — 조직·역할·책임. (DAFMAN 21-113)"},
+  {a:"I", f:"Instruction", c:"doc", d:"<b>지시</b> = '시행규칙'급. 야전 부대가 지키는 현장 규칙. (DAFI 21-101)"},
+  {a:"TO", f:"Technical Order", c:"doc", d:"<b>기술교범</b> = '작업표준서(SOP)'. 손으로 따라 하는 실제 절차. (TO 00-20-14)"},
+  {a:"AFMAN vs DAFMAN", f:"AF vs DAF Manual", c:"doc", d:"<b>같은 문서의 옛/새 이름</b>. AF(공군만)→DAF(공군+우주군). 2019 우주군 창설로 개명."},
+  {a:"MIL-STD / MIL-PRF", f:"Military Standard / Performance Spec", c:"doc", d:"<b>미 국방부(DoD) 규격</b>. 전군(육·해·공) 공통. 공군전용 아님. (MIL-STD-1839D는 공군 AFMETCAL이 관리)"},
+  {a:"ANSI/NCSL Z540.3", f:"-", c:"doc", d:"<b>미국 민간 국가표준</b>(군 아님). 군이 계약서에 인용. TUR 4:1·FAR≤2% 출처."},
+  {a:"ISO/IEC 17025", f:"-", c:"doc", d:"<b>교정·시험소 적격성 국제표준</b>. <b>KOLAS의 근거</b>. §6.4.7(주기조정)·§6.4.10(중간점검)이 우리 논리 근거."},
+  {a:"ISO 10012", f:"-", c:"doc", d:"<b>측정관리시스템 국제표준</b>. §7.1.2 '데이터로 주기 조정하라' = 우리 핵심 근거."},
+  {a:"RP-1 / RP-18", f:"NCSL Recommended Practice", c:"doc", d:"<b>RP-1=교정주기 방법론</b> / <b>RP-18=판정리스크(FAR/FRR)</b>. 둘 다 NCSL 민간학회. 저자 동일(Castrup)."},
+  {a:"CFETP", f:"Career Field Education and Training Plan", c:"doc", d:"<b>특기 교육훈련 계획</b>. CFETP 2P0X1 = PMEL 기술자(특기코드 2P0X1) 양성 계획."},
+];
+const CATNAME = {kr:"🇰🇷 한국 기관", us:"🇺🇸 미국/국제", mil:"군 개념", metro:"계측·통계", doc:"문서 종류"};
+const glossEl = document.getElementById('glosslist');
+let curCat = 'all', curQ = '';
+function renderGloss(){
+  const q = curQ.trim().toLowerCase();
+  const hits = TERMS.filter(t=>{
+    if(curCat!=='all' && t.c!==curCat) return false;
+    if(!q) return true;
+    return (t.a+t.f+t.d).toLowerCase().includes(q);
+  });
+  if(!hits.length){ glossEl.innerHTML = `<div class="nohit">검색 결과 없음</div>`; return; }
+  glossEl.innerHTML = hits.map(t=>
+    `<div class="term ${t.c}"><div class="abbr">${t.a}</div><div class="full">${t.f}</div><div class="desc">${t.d}</div></div>`
+  ).join('');
+}
+document.getElementById('search').addEventListener('input', e=>{ curQ=e.target.value; renderGloss(); });
+document.querySelectorAll('.gf').forEach(b=>b.addEventListener('click', ()=>{
+  document.querySelectorAll('.gf').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); curCat=b.dataset.cat; renderGloss();
+}));
+
+/* ===== 탭 전환 ===== */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click', ()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  const v = t.dataset.view;
+  document.getElementById('view-docs').style.display = (v==='docs')?'block':'none';
+  document.getElementById('view-glossary').style.display = (v==='glossary')?'block':'none';
+  if(v==='glossary') renderGloss();
+}));
+</script>
+</body>
+</html>
