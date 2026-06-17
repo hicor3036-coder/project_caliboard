@@ -256,11 +256,11 @@ export default function TabCycleAnalysis({
             </svg>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-800">Interim Check Simulation</h3>
+                <h3 className="text-sm font-bold text-slate-800">Interim-Check Kiosk — a safeguard for the extended interval</h3>
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 uppercase tracking-wide">Future Work</span>
               </div>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                What happens to the prediction once kiosk-based interim check data flows in
+                A low-precision kiosk watches the wrench between calibrations — early warning, so a longer interval runs safely
               </p>
             </div>
           </div>
@@ -657,7 +657,9 @@ function baselineSourceLabel(source: BaselineData['source']): string {
 // Step 2 detail (Trend Drift)
 // ─────────────────────────────────────────────────────────────────
 
-function TrendDriftDetails({ data, series, baseMonths, finalMonths, manufacturer, model }: { data: TrendDriftData; series: TrendSeries[]; baseMonths: number; finalMonths: number; manufacturer: string; model: string }) {
+// export: 신뢰성 탭(tab-reliability)의 Reactive(tier-4) 칸에서 이 섹션을 그대로 재사용.
+//   (로직/렌더 변경 없이 export만 추가 — 기존 탭 동작 무영향)
+export function TrendDriftDetails({ data, series, baseMonths, finalMonths, manufacturer, model, showInterimToggle = false }: { data: TrendDriftData; series: TrendSeries[]; baseMonths: number; finalMonths: number; manufacturer: string; model: string; showInterimToggle?: boolean }) {
   if (!data.dataQuality.enoughHistory) {
     return (
       <div className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -703,7 +705,7 @@ function TrendDriftDetails({ data, series, baseMonths, finalMonths, manufacturer
       )}
 
       {/* Error forecast — the key picture: trend → prediction → limit-crossing → shorten */}
-      <DriftForecastSection data={data} series={series} baseMonths={baseMonths} finalMonths={finalMonths} manufacturer={manufacturer} model={model} />
+      <DriftForecastSection data={data} series={series} baseMonths={baseMonths} finalMonths={finalMonths} manufacturer={manufacturer} model={model} showInterimToggle={showInterimToggle} />
     </div>
   )
 }
@@ -767,6 +769,15 @@ function DriftForecastSection({
     return buildErrorForecast(src, horizonMonths, baseMonths)
   }, [active, seriesByLabel, horizonMonths, baseMonths, interimActive, manufacturer, model])
 
+  // 키오스크 토글 ON일 때만, OFF 기준(키오스크 없는 원본)의 권장주기(개월)도 구해
+  //   "7mo → 9mo" 전후 비교 라벨에 쓴다. (감시로 확인되니 안심하고 연장 — 안전장치 보너스)
+  const priorRecMonths = useMemo<number | null>(() => {
+    if (!interimActive || !active) return null
+    const s = seriesByLabel.get(active)
+    if (!s) return null
+    return buildErrorForecast(s, horizonMonths, baseMonths).crossing.bestMonths ?? null
+  }, [interimActive, active, seriesByLabel, horizonMonths, baseMonths])
+
   if (selectable.length === 0 || !forecast) {
     return (
       <div className="text-xs text-slate-400 text-center py-3">Not enough calibration history to forecast.</div>
@@ -800,8 +811,8 @@ function DriftForecastSection({
         <div className="mb-2 flex items-center gap-1.5 text-[10px] text-purple-700 bg-purple-50/70 border border-purple-200 rounded-md px-2 py-1">
           <span>🔮</span>
           <span>
-            <span className="font-semibold">Interim checks added</span> — low-precision (large U), high-frequency points are
-            now folded in. The regression, limit-crossing and recommended date update live below.
+            <span className="font-semibold">Interim checks shown</span> — low-precision (large U), high-frequency points appear
+            between formal calibrations. They don&apos;t replace calibration — they watch for early drift in the gap below.
           </span>
         </div>
       )}
@@ -835,7 +846,7 @@ function DriftForecastSection({
         <span className="text-slate-400">· % = latest tolerance usage</span>
       </div>
 
-      <ErrorForecastChart forecast={forecast} baseMonths={baseMonths} finalMonths={finalMonths} />
+      <ErrorForecastChart forecast={forecast} baseMonths={baseMonths} finalMonths={finalMonths} priorRecMonths={priorRecMonths} />
     </div>
   )
 }
@@ -851,10 +862,13 @@ function ErrorForecastChart({
   forecast,
   baseMonths,
   finalMonths,
+  priorRecMonths = null,
 }: {
   forecast: ErrorForecast
   baseMonths: number
   finalMonths: number
+  // 키오스크 토글 ON일 때, OFF 기준(키오스크 없는) 권장주기 — "7mo → 9mo" 전후 표시용
+  priorRecMonths?: number | null
 }) {
   const { points, tolerance: tol, nowDate, crossing } = forecast
   const measured = points.filter(p => p.measured)
@@ -924,7 +938,15 @@ function ErrorForecastChart({
   //   라벨까지 ㄱ자 꺾은선으로 잇는다. 라벨이 X로 겹치면 좌우로 밀어(collision)
   //   배치하므로, 마커가 아무리 붙어도 글자는 안 겹친다.
   const flagDefs = [
-    xCross != null ? { key: 'rec',  anchorX: xCross,  half: 58, label: '✓ Recalibrate by', sub: `${recDate ? fmtMonthYear(recDate) : ''}${recMonths != null ? ` (${recMonths}mo)` : ''}`, tone: 'blue' as const } : null,
+    xCross != null ? { key: 'rec',  anchorX: xCross,  half: 58, label: '✓ Recalibrate by',
+      // 키오스크 전후가 있으면 "7mo → 9mo", 없으면 "(9mo)"
+      sub: `${recDate ? fmtMonthYear(recDate) : ''}${
+        recMonths != null
+          ? (priorRecMonths != null && priorRecMonths !== recMonths
+              ? ` (${priorRecMonths} → ${recMonths}mo)`
+              : ` (${recMonths}mo)`)
+          : ''
+      }`, tone: 'blue' as const } : null,
     xDueSpec <= W - padR ? { key: 'spec', anchorX: xDueSpec, half: 46, label: `Spec due · ${baseMonths}mo`, sub: fmtMonthYear(addMonthsStr(lastCalDate, baseMonths)), tone: 'slate' as const } : null,
   ].filter((f): f is NonNullable<typeof f> => f != null)
   // 앵커X 순으로 정렬 후, 인접 라벨이 겹치면(중심거리 < 두 half합) 우측을 오른쪽으로 민다.
@@ -1135,6 +1157,13 @@ function ErrorForecastChart({
                 At this drift the unit would sit <span className="font-bold text-rose-700">out of tolerance</span> for the rest of the original {baseMonths}-month term — so it must be recalibrated earlier.
               </div>
             </>
+          ) : priorRecMonths != null && recMonths != null && recMonths !== priorRecMonths ? (
+            // 키오스크 토글 ON + 연장됨 — 안전장치 프레이밍 (단순 "adequate"가 아니라 연장 정당화)
+            <div className="text-xs text-slate-600">
+              Interim checks keep confirming headroom through the longer interval — the recommended date moves out from
+              {' '}<span className="font-semibold">~{priorRecMonths} mo</span> to <span className="font-bold text-emerald-700">~{recMonths} mo</span>.
+              The kiosk watches the gap, so the interval can be extended <em>safely</em>.
+            </div>
           ) : (
             <div className="text-xs text-slate-600">
               The prediction stays within tolerance through the full {baseMonths}-month term — the standard interval is adequate.
@@ -1178,10 +1207,10 @@ function ChartFlag({
       {level > 0 && (
         <line x1={tx} y1={topY - 4} x2={tx} y2={topY + dy + 2} stroke={subColor} strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" />
       )}
-      <text x={tx + off} y={topY - 18 + dy} textAnchor={anchor} fontSize="10" fontWeight={tone === 'blue' ? 800 : 700}
-        fill={color} stroke="#fff" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke">{label}</text>
-      <text x={tx + off} y={topY - 6 + dy} textAnchor={anchor} fontSize="9" fontWeight="600"
-        fill={subColor} stroke="#fff" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke">{sub}</text>
+      <text x={tx + off} y={topY - 18 + dy} textAnchor={anchor} fontSize="12" fontWeight={tone === 'blue' ? 800 : 700}
+        fill={color} stroke="#fff" strokeWidth="3.4" strokeLinejoin="round" paintOrder="stroke">{label}</text>
+      <text x={tx + off} y={topY - 5 + dy} textAnchor={anchor} fontSize="11" fontWeight="600"
+        fill={subColor} stroke="#fff" strokeWidth="3.4" strokeLinejoin="round" paintOrder="stroke">{sub}</text>
     </g>
   )
 }
@@ -1207,10 +1236,10 @@ function LeaderFlag({
       <path d={path} fill="none" stroke={subColor} strokeWidth={shifted ? 1 : 0.9} strokeOpacity={shifted ? 0.85 : 0.5} strokeDasharray={shifted ? 'none' : '2 2'} />
       <circle cx={anchorX} cy={markerY} r="2" fill={color} />
       {/* 라벨 2줄 (흰 외곽선으로 가독성) */}
-      <text x={labelX} y={laneY - 6} textAnchor="middle" fontSize="10" fontWeight={tone === 'blue' ? 800 : 700}
-        fill={color} stroke="#fff" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke">{label}</text>
-      <text x={labelX} y={laneY + 5} textAnchor="middle" fontSize="9" fontWeight="600"
-        fill={subColor} stroke="#fff" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke">{sub}</text>
+      <text x={labelX} y={laneY - 7} textAnchor="middle" fontSize="12" fontWeight={tone === 'blue' ? 800 : 700}
+        fill={color} stroke="#fff" strokeWidth="3.4" strokeLinejoin="round" paintOrder="stroke">{label}</text>
+      <text x={labelX} y={laneY + 6} textAnchor="middle" fontSize="11" fontWeight="600"
+        fill={subColor} stroke="#fff" strokeWidth="3.4" strokeLinejoin="round" paintOrder="stroke">{sub}</text>
     </g>
   )
 }
@@ -1957,15 +1986,15 @@ function InterimSimulationView({
     <div className="bg-gradient-to-br from-purple-50/60 via-white to-white border-2 border-purple-200 rounded-2xl overflow-hidden">
       {/* Headline metrics */}
       <div className="px-5 pt-5 pb-4">
-        <div className="text-[10px] text-purple-600/70 font-bold uppercase tracking-widest mb-2">If interim check data flows in…</div>
+        <div className="text-[10px] text-purple-600/70 font-bold uppercase tracking-widest mb-2">What the kiosk safeguard buys you…</div>
         <div className="grid grid-cols-3 gap-2">
-          <SimMetric label="Interim checks added" value={`${s.totalInterimChecks}`} sub={`over ${s.monthsSpan} mo, all points`} tone="purple" />
+          <SimMetric label="Checks in the gap" value={`${s.totalInterimChecks}`} sub={`over ${s.monthsSpan} mo, all points`} tone="purple" />
           <SimMetric label="Earliest drift caught" value={driftRep?.earlyDetectionMonths != null ? `${driftRep.earlyDetectionMonths}` : '—'} sub="months earlier" tone="purple" big />
-          <SimMetric label="Kiosk uncertainty" value={repU ? `~${repU.interimU}%` : '—'} sub={repU ? `vs formal ±${repU.formalU}%` : ''} tone="slate" textValue />
+          <SimMetric label="Kiosk uncertainty" value={repU ? `~${repU.interimU}%` : '—'} sub={repU ? `vs formal ±${repU.formalU}% — low precision is fine for early warning` : ''} tone="slate" textValue />
         </div>
         <p className="mt-2 text-[10px] text-slate-400">
           See the live overlay on the <span className="font-semibold text-purple-600">Step 2 chart</span> — toggle
-          {' '}&ldquo;+ Interim kiosk checks&rdquo; to fold these points in and watch the forecast update.
+          {' '}&ldquo;+ Interim kiosk checks&rdquo; to show these points between calibrations and watch the gap get covered.
         </p>
       </div>
 
@@ -2010,7 +2039,7 @@ function InterimSimulationView({
           </div>
         </div>
         <p className="mt-2.5 text-[11px] text-purple-700 font-medium text-center">
-          ∴ Interim checks are worth it both ways — catch drift sooner, and stop over-calibrating stable points.
+          ∴ A low-cost safeguard, both ways — it catches drift early in a longer interval, and confirms when stable points can run longer.
         </p>
       </div>
 

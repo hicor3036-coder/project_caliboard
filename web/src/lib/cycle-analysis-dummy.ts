@@ -763,7 +763,8 @@ export function buildDemoCalDates(): string[] {
 }
 
 /**
- * 발표용 demo profile — base 주기를 12개월로 만들기 위한 mock 사양서.
+ * 발표용 demo profile — base 주기를 6개월로 만들기 위한 mock 사양서.
+ * (KOLAS 토크렌치 권장 교정주기 = 6개월)
  * 데모 타깃 장비일 때만 사용. (실제 profile이 404라서)
  */
 export function buildDemoProfile(): {
@@ -773,7 +774,7 @@ export function buildDemoProfile(): {
   return {
     category: 'Torque Wrench',
     calibration: {
-      recommended_cycle: '12개월',
+      recommended_cycle: '6개월',
       standards: ['KOLAS-G-008', 'ISO 6789-1:2017', 'ISO 6789-2:2017'],
     },
   }

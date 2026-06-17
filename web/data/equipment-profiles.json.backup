@@ -1,0 +1,6075 @@
+[
+  {
+    "manufacturer": "OMEGA",
+    "model": "CO1-K",
+    "category": "열전대 (Thermocouple)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.omega.com/en-us/temperature/thermocouple-probes"
+    ],
+    "spec": {
+      "range": "-200~1260°C",
+      "accuracy": "±2.2°C 또는 ±0.75% (큰 쪽)",
+      "resolution": null,
+      "units": [
+        "°C",
+        "°F"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-200~1260°C (K-type)",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV (열기전력)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "IEC 60584",
+        "ASTM E230"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "K-type 열전대, 환원 분위기에서 열화 주의"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.omega.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "352C33",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com/products?m=352C33"
+    ],
+    "spec": {
+      "range": "±50g pk",
+      "accuracy": null,
+      "resolution": "0.0005g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±5000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "100mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 16063"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "ICP 전원 필요, 케이블 장력 주의"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "PCB 352C04",
+        "PCB 352C65"
+      ],
+      "approx_price": "$400~600",
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ISL",
+    "model": "J-TYPE",
+    "category": "열전대 (Thermocouple)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": "-40~750°C",
+      "accuracy": "±2.2°C 또는 ±0.75%",
+      "resolution": null,
+      "units": [
+        "°C",
+        "°F"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-40~750°C (J-type)",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV (열기전력)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "IEC 60584"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "J-type, 산화 분위기 500°C 이상 사용 제한"
+    ],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "KISTLER",
+    "model": "8636C50",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.kistler.com"
+    ],
+    "spec": {
+      "range": "±50g",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~120°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP/IEPE",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "100mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "스위스",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.kistler.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "65HT-10",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com/accelerometer/65ht"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±1000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~288°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Charge output",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g (with charge amp)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "MIL-STD-810"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "고온용, 차지앰프 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "ENDEVCO 65-100"
+      ],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "356B21",
+    "category": "3축 가속도계 (Triaxial Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com/products?m=356B21"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": "0.004g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±5000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g (3채널)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 16063"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "3축 동시 측정, 마운팅 방향 정확히 확인"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$900~1,200",
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "66F12",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com"
+    ],
+    "spec": {
+      "range": "±50g pk",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP/IEPE",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "100mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "7290A-50",
+    "category": "가속도계 (Variable Capacitance Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com/accelerometer/7290a"
+    ],
+    "spec": {
+      "range": "±50g",
+      "accuracy": null,
+      "resolution": "0.0002g",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "DC (8~30V)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "200mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "DC 응답 가능, 정적 가속도 측정 가능"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "STARRETT",
+    "model": "467M",
+    "category": "두께 게이지 (Thickness Gauge)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.starrett.com"
+    ],
+    "spec": {
+      "range": "0.04~5mm",
+      "accuracy": null,
+      "resolution": "0.01mm",
+      "units": [
+        "mm"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "5~40°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "측정면 청결 유지"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.starrett.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "65-100",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com/accelerometer/65"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~177°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Charge output",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10pC/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "차지앰프 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "ENDEVCO 65HT-10"
+      ],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "DYTRAN",
+    "model": "3023B3",
+    "category": "3축 가속도계 (Triaxial Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.dytran.com/3023b3"
+    ],
+    "spec": {
+      "range": "±50g pk",
+      "accuracy": null,
+      "resolution": "0.0004g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±500g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "IEPE (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "100mV/g (3채널)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "3축 동시 측정"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.dytran.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "DYTRAN",
+    "model": "3035B1G",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.dytran.com/3035bg"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "IEPE (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "1mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.dytran.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "352C65",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com/products?m=352C65"
+    ],
+    "spec": {
+      "range": "±50g pk",
+      "accuracy": null,
+      "resolution": "0.00035g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±5000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "100mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 16063"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "ICP 전원 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "PCB 352C33",
+        "PCB 352C04"
+      ],
+      "approx_price": "$400~600",
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "DYTRAN",
+    "model": "3055D2",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.dytran.com/3055d"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "IEPE",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.dytran.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "DRUCK",
+    "model": "ADTS505",
+    "category": "에어 데이터 테스트 세트 (Air Data Test Set)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.bakerhughes.com/druck/adts505"
+    ],
+    "spec": {
+      "range": "Ps: 1~2300 mbar, Pt: 0~5500 knots equivalent",
+      "accuracy": "±0.005% FS",
+      "resolution": "0.001 mbar",
+      "units": [
+        "mbar",
+        "inHg",
+        "hPa",
+        "knots",
+        "ft"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-20~55°C",
+      "storage_temp": "-40~70°C",
+      "operating_humidity": "0~95% RH",
+      "ip_rating": null,
+      "warmup_time": "15분"
+    },
+    "power": {
+      "type": "AC 100~240V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "RS232",
+        "USB"
+      ],
+      "software": "ADTS Touch",
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": false,
+      "standards": [
+        "DO-160",
+        "MIL-STD-810"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정 및 누설 검사"
+      }
+    ],
+    "cautions": [
+      "항공기 피토/스태틱 시스템 테스트용, 연결 시 누설 확인 필수"
+    ],
+    "meta": {
+      "country": "영국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$15,000~25,000",
+      "support_url": "https://www.bakerhughes.com/druck",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "INTERFACE",
+    "model": "1210AF-2K",
+    "category": "로드셀 (Load Cell)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.interfaceforce.com/products/load-cells/1210"
+    ],
+    "spec": {
+      "range": "0~2000 lbf",
+      "accuracy": "±0.04% FS",
+      "resolution": null,
+      "units": [
+        "lbf",
+        "N",
+        "kgf"
+      ],
+      "overload_limit": "150% FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-53~93°C",
+      "storage_temp": "-53~93°C",
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "3mV/V"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ASTM E4",
+        "ISO 376"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "과부하 주의, 측면 하중 금지"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$2,000~4,000",
+      "support_url": "https://www.interfaceforce.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "KULITE",
+    "model": "HEL-375-25A",
+    "category": "압력 변환기 (Pressure Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.kulite.com/products/hel-375"
+    ],
+    "spec": {
+      "range": "0~25 psia",
+      "accuracy": "±0.1% FS",
+      "resolution": null,
+      "units": [
+        "psia",
+        "bar",
+        "kPa"
+      ],
+      "overload_limit": "2x FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-55~232°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/V"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "고온 환경용 반도체 압력센서"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.kulite.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "BOSCH",
+    "model": "EXACT ION 12-450",
+    "category": "전동 스크류드라이버 (Cordless Screwdriver)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.boschtools.com"
+    ],
+    "spec": {
+      "range": "2~12 N·m",
+      "accuracy": "±10%",
+      "resolution": null,
+      "units": [
+        "N·m"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~50°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Li-ion",
+      "battery": "12V 2.0Ah",
+      "battery_life": null,
+      "charge_time": "30분"
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매월",
+        "task": "배터리 상태 점검"
+      },
+      {
+        "cycle": "6개월",
+        "task": "토크 교정 확인"
+      }
+    ],
+    "cautions": [
+      "충전 배터리 분리 보관, 토크 설정 확인 후 사용"
+    ],
+    "meta": {
+      "country": "독일",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "BOSCH EXACT412"
+      ],
+      "approx_price": "$300~500",
+      "support_url": "https://www.boschtools.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "FLUKE",
+    "model": "87V",
+    "category": "디지털 멀티미터 (Digital Multimeter)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.fluke.com/en-us/product/electrical-testing/digital-multimeters/fluke-87v"
+    ],
+    "spec": {
+      "range": "DC V: 0~1000V, AC V: 0~1000V, DC A: 0~10A, Ω: 0~50MΩ",
+      "accuracy": "±0.05% DC V",
+      "resolution": "0.01mV (600mV range)",
+      "units": [
+        "V",
+        "A",
+        "Ω",
+        "Hz",
+        "°C"
+      ],
+      "overload_limit": "1000V CAT III",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-20~55°C",
+      "storage_temp": "-40~60°C",
+      "operating_humidity": "0~90% RH (non-condensing)",
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "9V (6LR61)",
+      "battery_life": "400시간 (DC V)",
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "Analog bar graph"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "IEC 61010"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      },
+      {
+        "cycle": "필요 시",
+        "task": "퓨즈 교체"
+      }
+    ],
+    "cautions": [
+      "CAT III 1000V/CAT IV 600V 안전등급, 프로브 절연 상태 확인"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "FLUKE 179",
+        "FLUKE 189"
+      ],
+      "approx_price": "$350~450",
+      "support_url": "https://www.fluke.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "KEYSIGHT",
+    "model": "34401A",
+    "category": "6.5자리 디지털 멀티미터 (6½ Digit DMM)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.keysight.com/us/en/product/34401A/digital-multimeter-6-digit.html"
+    ],
+    "spec": {
+      "range": "DC V: 0.1~1000V, AC V: 0.1~750V, Ω: 100~100MΩ",
+      "accuracy": "±0.0035% DC V (1년)",
+      "resolution": "100nV (0.1V range)",
+      "units": [
+        "V",
+        "A",
+        "Ω",
+        "Hz"
+      ],
+      "overload_limit": "1000V DC/750V AC",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~55°C",
+      "storage_temp": "-40~70°C",
+      "operating_humidity": "0~80% RH",
+      "ip_rating": null,
+      "warmup_time": "1시간 (정밀 측정 시)"
+    },
+    "power": {
+      "type": "AC 100~240V, 50/60Hz",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "GPIB",
+        "RS-232"
+      ],
+      "software": "BenchVue",
+      "wireless": null,
+      "memory": "512 readings"
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": true,
+      "standards": [
+        "ISO/IEC 17025"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      },
+      {
+        "cycle": "1시간",
+        "task": "워밍업 (정밀 측정 전)"
+      }
+    ],
+    "cautions": [
+      "정밀 측정 시 1시간 워밍업 필요, GPIB 주소 설정 확인"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": true,
+      "successor_model": "34461A",
+      "alternatives": [
+        "KEYSIGHT 34461A",
+        "KEYSIGHT 34465A"
+      ],
+      "approx_price": "$1,000~1,500",
+      "support_url": "https://www.keysight.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "TEKTRONIX",
+    "model": "TDS3014B",
+    "category": "오실로스코프 (Oscilloscope)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.tek.com/en/products/oscilloscopes/tds3000"
+    ],
+    "spec": {
+      "range": "4채널, 100MHz, 1.25GS/s",
+      "accuracy": "±1.5% (수직)",
+      "resolution": "9-bit ADC",
+      "units": [
+        "V",
+        "s",
+        "Hz"
+      ],
+      "overload_limit": "300V CAT II",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~50°C",
+      "storage_temp": "-40~71°C",
+      "operating_humidity": "5~80% RH",
+      "ip_rating": null,
+      "warmup_time": "20분"
+    },
+    "power": {
+      "type": "AC 100~240V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "GPIB",
+        "RS-232",
+        "Centronics"
+      ],
+      "software": "OpenChoice",
+      "wireless": null,
+      "memory": "10,000 waveforms"
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": true,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "300V CAT II 입력 제한, 프로브 감쇠비 확인"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": true,
+      "successor_model": "TDS3014C",
+      "alternatives": [
+        "TEKTRONIX TDS3014C"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.tek.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "MITUTOYO",
+    "model": "293-340",
+    "category": "디지털 마이크로미터 (Digital Micrometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.mitutoyo.com/products/micrometers"
+    ],
+    "spec": {
+      "range": "0~25.4mm (0~1\")",
+      "accuracy": "±0.001mm (±0.00005\")",
+      "resolution": "0.001mm",
+      "units": [
+        "mm",
+        "inch"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "5~40°C",
+      "storage_temp": null,
+      "operating_humidity": "80% RH 이하",
+      "ip_rating": "IP65",
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "SR44 x1",
+      "battery_life": "2년",
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "SPC (Digimatic)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "JIS B 7502"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "사용 전",
+        "task": "영점 조정"
+      }
+    ],
+    "cautions": [
+      "측정면 청결 유지, 래칫 스톱 사용 권장"
+    ],
+    "meta": {
+      "country": "일본",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$150~250",
+      "support_url": "https://www.mitutoyo.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "VISHAY",
+    "model": "CEA-06-250UW-350",
+    "category": "스트레인 게이지 (Strain Gauge)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.vishaypg.com/micro-measurements"
+    ],
+    "spec": {
+      "range": "±5% strain (typical)",
+      "accuracy": "±0.5% (gauge factor)",
+      "resolution": null,
+      "units": [
+        "με",
+        "Ω"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-75~175°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "350Ω (Wheatstone bridge)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": [
+        "ASTM E251"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "접착제 경화 조건 준수, 납땜 시 과열 주의, 습기 보호"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.vishaypg.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "BOSCH",
+    "model": "EXACT412",
+    "category": "전동 스크류드라이버 (Cordless Screwdriver)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.boschtools.com"
+    ],
+    "spec": {
+      "range": "0.5~4 N·m",
+      "accuracy": "±10%",
+      "resolution": null,
+      "units": [
+        "N·m"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~50°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Li-ion",
+      "battery": "3.6V 1.5Ah",
+      "battery_life": null,
+      "charge_time": "30분"
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매월",
+        "task": "배터리 상태 점검"
+      }
+    ],
+    "cautions": [
+      "토크 설정 확인 후 사용"
+    ],
+    "meta": {
+      "country": "독일",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "BOSCH EXACT ION 12-450"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.boschtools.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "E+E ELEKTRONIK",
+    "model": "EE210",
+    "category": "온습도 트랜스미터 (Humidity/Temperature Transmitter)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.epluse.com/products/humidity-instruments/humidity-transmitters/ee210"
+    ],
+    "spec": {
+      "range": "0~100% RH, -40~180°C",
+      "accuracy": "±1.3% RH, ±0.1°C",
+      "resolution": "0.1% RH, 0.1°C",
+      "units": [
+        "%RH",
+        "°C"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-40~60°C (전자부)",
+      "storage_temp": null,
+      "operating_humidity": "0~100% RH",
+      "ip_rating": "IP65",
+      "warmup_time": null
+    },
+    "power": {
+      "type": "DC 12~30V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "4~20mA",
+        "0~10V"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO/IEC 17025"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "6개월",
+        "task": "센서 캡 청소"
+      }
+    ],
+    "cautions": [
+      "센서 오염 시 측정 오차 발생, 필터 캡 주기적 교체"
+    ],
+    "meta": {
+      "country": "오스트리아",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.epluse.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "SENSOTEC",
+    "model": "TJE",
+    "category": "압력 변환기 (Pressure Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.honeywell.com/us/en/products/sensing"
+    ],
+    "spec": {
+      "range": "다양한 레인지 (0~5 ~ 0~60000 psi)",
+      "accuracy": "±0.10% FS (BSL)",
+      "resolution": "Infinite (아날로그)",
+      "units": [
+        "psi",
+        "bar",
+        "kPa"
+      ],
+      "overload_limit": "2x FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V DC",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "3mV/V (4선식)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "과압 주의, 호환 미디어 확인"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "HONEYWELL TJE"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.honeywell.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ELCOMETER",
+    "model": "T99022255-1",
+    "category": "코팅 두께 측정기 프로브",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.elcometer.com"
+    ],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "영국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.elcometer.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "7290DM12-50",
+    "category": "가속도계 (Variable Capacitance Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com"
+    ],
+    "spec": {
+      "range": "±50g",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "DC excitation",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "DC 응답 가능, 정적/동적 가속도 측정"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "MEGGITT 7290DM12-50-D-30"
+      ],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "MEGGITT",
+    "model": "7290DM12-50-D-30",
+    "category": "가속도계 (Variable Capacitance Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.meggitt.com/sensing"
+    ],
+    "spec": {
+      "range": "±50g",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "DC excitation",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "영국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "ENDEVCO 7290DM12-50"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.meggitt.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "352C68",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com/products?m=352C68"
+    ],
+    "spec": {
+      "range": "±50g pk",
+      "accuracy": null,
+      "resolution": "0.0004g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±5000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "100mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 16063"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "ICP 전원 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "PCB 352C33",
+        "PCB 352C65"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "2271AM2",
+    "category": "압전 압력 변환기 (Piezoelectric Pressure Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com/pressure/2271am"
+    ],
+    "spec": {
+      "range": "0~2 psi",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "psi",
+        "kPa"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Charge output",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "pC/psi"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "동적 압력 측정 전용, 정적 측정 불가"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "ENDEVCO 2271AM20"
+      ],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "353B15",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com/products?m=353B15"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": "0.004g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±5000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 16063"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "ICP 전원 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "PCB 352A21"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "DRUCK",
+    "model": "DPI 610",
+    "category": "압력 교정기 (Pressure Calibrator)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.bakerhughes.com/druck/dpi-610"
+    ],
+    "spec": {
+      "range": "-1~20 bar (모듈에 따라 다양)",
+      "accuracy": "±0.025% FS",
+      "resolution": "0.001% FS",
+      "units": [
+        "bar",
+        "psi",
+        "kPa",
+        "mbar"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-20~50°C",
+      "storage_temp": "-20~70°C",
+      "operating_humidity": "0~90% RH",
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "AA x4",
+      "battery_life": "30시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "RS-232"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": "100 readings"
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "압력 모듈 호환성 확인, 과압 보호"
+    ],
+    "meta": {
+      "country": "영국",
+      "discontinued": true,
+      "successor_model": "DPI 620",
+      "alternatives": [
+        "DRUCK DPI 620"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.bakerhughes.com/druck",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "FLUKE",
+    "model": "179",
+    "category": "디지털 멀티미터 (Digital Multimeter)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.fluke.com/en-us/product/electrical-testing/digital-multimeters/fluke-179"
+    ],
+    "spec": {
+      "range": "DC V: 0~1000V, AC V: 0~1000V, Ω: 0~50MΩ",
+      "accuracy": "±0.09% DC V",
+      "resolution": "0.1mV",
+      "units": [
+        "V",
+        "A",
+        "Ω",
+        "Hz",
+        "°C"
+      ],
+      "overload_limit": "1000V CAT III",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-10~50°C",
+      "storage_temp": "-40~60°C",
+      "operating_humidity": "0~90% RH",
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "9V (6LR61)",
+      "battery_life": "200시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "IEC 61010"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "CAT III 1000V/CAT IV 600V 안전등급"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "FLUKE 87V"
+      ],
+      "approx_price": "$300~400",
+      "support_url": "https://www.fluke.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "CEDAR",
+    "model": "DIS-IP200",
+    "category": "토크 테스터 (Torque Tester)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://cedar.co.jp/en/",
+      "https://www.checkline.com/product/DIS-IP/DIS-IP200"
+    ],
+    "spec": {
+      "range": "0~200 N·m",
+      "accuracy": "±0.5% F.S. ±1 LSD",
+      "resolution": "0.01 N·m",
+      "units": [
+        "N·m",
+        "lbf·in",
+        "kgf·cm"
+      ],
+      "overload_limit": "300 N·m",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~38°C",
+      "storage_temp": "-10~50°C",
+      "operating_humidity": "80% RH 이하",
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "AC adapter",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "USB"
+      ],
+      "software": "SW-1SV-USB",
+      "wireless": null,
+      "memory": "800 peaks"
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": false,
+      "standards": [
+        "ISO 6789"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매월",
+        "task": "프로브 청소"
+      }
+    ],
+    "cautions": [
+      "전동/임팩트 드라이버 사용 금지"
+    ],
+    "meta": {
+      "country": "일본",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$2,000~3,000",
+      "support_url": "https://cedar.co.jp/en/",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "OMEGA",
+    "model": "5SRTC-TT-K-24-36",
+    "category": "열전대 (Thermocouple)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.omega.com/en-us/temperature/thermocouple-probes"
+    ],
+    "spec": {
+      "range": "-200~1260°C (K-type)",
+      "accuracy": "±2.2°C 또는 ±0.75%",
+      "resolution": null,
+      "units": [
+        "°C",
+        "°F"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-200~1260°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV (열기전력)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "IEC 60584",
+        "ASTM E230"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "K-type, Super OMEGACLAD XL 외피, 고온 환경용"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.omega.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "THERMO ELECTRIC",
+    "model": "SF053-647",
+    "category": "열전대 (Thermocouple)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "°C"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "UNIMEASURE",
+    "model": "PB-10",
+    "category": "선형 위치 변환기 (Linear Position Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.unimeasure.com/position-sensors/pb-series"
+    ],
+    "spec": {
+      "range": "0~10인치 (254mm)",
+      "accuracy": "±0.25% FS",
+      "resolution": "Infinite (포텐셔미터)",
+      "units": [
+        "inch",
+        "mm"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-40~93°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation ≤25V DC",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "저항 비례 출력"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "와이어 장력 유지, 급격한 당김 금지"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "UNIMEASURE PB-5-S10-NOS-10C"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.unimeasure.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "2221F",
+    "category": "가속도계 (Piezoelectric Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~260°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Charge output",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10pC/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "고온용, 차지앰프 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "353B18",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com/products?m=353B18"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": "0.003g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±5000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 16063"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "ICP 전원 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "PCB 353B15"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "7264-2000",
+    "category": "충격 가속도계 (Shock Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com/accelerometer/7264"
+    ],
+    "spec": {
+      "range": "±2000g",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±10000g",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Piezoresistive (DC excitation)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "충격/진동 시험 전용, DC 응답 가능"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "352C04",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com/products?m=352C04"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": "0.004g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±5000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 16063"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "ICP 전원 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "PCB 352C33",
+        "PCB 352C65"
+      ],
+      "approx_price": "$400~600",
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "DYTRAN",
+    "model": "3273A",
+    "category": "3축 가속도계 (Triaxial Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.dytran.com/3273a"
+    ],
+    "spec": {
+      "range": "±500g pk (축별 감도 다양: 10~100mV/g)",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "IEPE (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10~100mV/g (3채널)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "3축 동시 측정, 마운팅 방향 확인"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.dytran.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "HONEYWELL",
+    "model": "TJE",
+    "category": "압력 변환기 (Pressure Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.honeywell.com/us/en/products/sensing"
+    ],
+    "spec": {
+      "range": "다양한 레인지 (0~5 ~ 0~60000 psi)",
+      "accuracy": "±0.10% FS (BSL)",
+      "resolution": "Infinite (아날로그)",
+      "units": [
+        "psi",
+        "bar",
+        "kPa"
+      ],
+      "overload_limit": "2x FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V DC",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "3mV/V (4선식)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "과압 주의, 호환 미디어 확인"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "SENSOTEC TJE"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.honeywell.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "8507C-2",
+    "category": "소형 압력 변환기 (Miniature Pressure Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com/pressure/8507c"
+    ],
+    "spec": {
+      "range": "0~2 psi",
+      "accuracy": "±0.5% FS",
+      "resolution": null,
+      "units": [
+        "psi",
+        "kPa"
+      ],
+      "overload_limit": "3x FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V DC",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/V"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "극소형 실리콘 다이어프램, 과압 주의"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "ENDEVCO 8507C-5"
+      ],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "8530C-15",
+    "category": "압력 센서 (Piezoresistive Pressure Sensor)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com/pressure/8530c"
+    ],
+    "spec": {
+      "range": "0~15 psia",
+      "accuracy": "±0.25% FS",
+      "resolution": null,
+      "units": [
+        "psia",
+        "kPa"
+      ],
+      "overload_limit": "3x FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V DC",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/V"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "절대압 측정, 대기압 기준"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "KULITE",
+    "model": "HEM-375-50A",
+    "category": "압력 변환기 (Pressure Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.kulite.com"
+    ],
+    "spec": {
+      "range": "0~50 psia",
+      "accuracy": "±0.1% FS",
+      "resolution": null,
+      "units": [
+        "psia",
+        "bar",
+        "kPa"
+      ],
+      "overload_limit": "2x FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-55~232°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/V"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "고온 환경용 반도체 압력센서"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "KULITE HEL-375-25A"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.kulite.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "352A56",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com/products?m=352A56"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": "0.003g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±5000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 16063"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "ICP 전원 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "DYTRAN",
+    "model": "3030B4",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.dytran.com/3030b"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "IEPE (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "1mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.dytran.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "MTS",
+    "model": "661.20F-02",
+    "category": "로드셀 (Force Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.mts.com"
+    ],
+    "spec": {
+      "range": "0~50 kN",
+      "accuracy": "±0.08% FS",
+      "resolution": null,
+      "units": [
+        "kN",
+        "lbf"
+      ],
+      "overload_limit": "150% FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~93°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/V"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ASTM E4",
+        "ISO 376"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "과부하 주의, 측면 하중 금지"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.mts.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "KISTLER",
+    "model": "9272",
+    "category": "다분력 센서 (Multicomponent Force Sensor)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.kistler.com/en/product/type-9272/"
+    ],
+    "spec": {
+      "range": "Fx/Fy: ±5 kN, Fz: -5~20 kN, Mz: ±200 N·m",
+      "accuracy": "±1%",
+      "resolution": null,
+      "units": [
+        "N",
+        "kN",
+        "N·m"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~70°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": "IP67",
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Charge output (압전)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "pC/N (4채널)"
+      ],
+      "software": "DynoWare",
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 376"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "차지앰프 필수, 정적 측정 시 drift 주의"
+    ],
+    "meta": {
+      "country": "스위스",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$10,000~15,000",
+      "support_url": "https://www.kistler.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "2271AM20",
+    "category": "압전 압력 변환기 (Piezoelectric Pressure Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com/pressure/2271am"
+    ],
+    "spec": {
+      "range": "0~20 psi",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "psi",
+        "kPa"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Charge output",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "pC/psi"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "동적 압력 측정 전용"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "ENDEVCO 2271AM2"
+      ],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "352A21",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com/products?m=352A21"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": "0.003g rms",
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": "±5000g pk",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP (2~20mA)",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 16063"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "ICP 전원 필요"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "AMETEK",
+    "model": "JOFRA CTC-660A",
+    "category": "온도 교정기 (Temperature Calibrator)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.ametek-calibration.com/products/temperature-calibrators/dry-block/ctc-660a"
+    ],
+    "spec": {
+      "range": "28~660°C",
+      "accuracy": "±0.4°C",
+      "resolution": "0.01°C",
+      "units": [
+        "°C",
+        "°F"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "5~40°C",
+      "storage_temp": "-20~70°C",
+      "operating_humidity": "0~90% RH",
+      "ip_rating": null,
+      "warmup_time": "15분"
+    },
+    "power": {
+      "type": "AC 100~240V, 50/60Hz",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "RS-232"
+      ],
+      "software": "JOFRA MCal",
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "IEC 60584",
+        "ITS-90"
+      ],
+      "stability_spec": "±0.05°C",
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "인서트 크기 확인, 고온부 접촉 주의"
+    ],
+    "meta": {
+      "country": "덴마크",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$3,000~5,000",
+      "support_url": "https://www.ametek-calibration.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "FLUKE",
+    "model": "724",
+    "category": "온도 교정기 (Temperature Calibrator)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.fluke.com/en-us/product/calibration-tools/temperature-calibrators/fluke-724"
+    ],
+    "spec": {
+      "range": "열전대: -200~1800°C, RTD: -200~800°C",
+      "accuracy": "±0.025% rdg (전기)",
+      "resolution": "0.1°C",
+      "units": [
+        "°C",
+        "°F",
+        "mV",
+        "Ω"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-10~50°C",
+      "storage_temp": "-30~60°C",
+      "operating_humidity": "0~90% RH",
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "AA x4",
+      "battery_life": "36시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "IEC 61010"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "소스/측정 동시 가능, 열전대 타입 설정 확인"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$1,500~2,000",
+      "support_url": "https://www.fluke.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "AGILENT",
+    "model": "E4980A",
+    "category": "LCR 미터 (Precision LCR Meter)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.keysight.com/us/en/product/E4980A/precision-lcr-meter.html"
+    ],
+    "spec": {
+      "range": "20Hz~2MHz",
+      "accuracy": "±0.05% (기본)",
+      "resolution": "6자리",
+      "units": [
+        "Ω",
+        "H",
+        "F",
+        "Hz"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~55°C",
+      "storage_temp": "-40~70°C",
+      "operating_humidity": "0~80% RH",
+      "ip_rating": null,
+      "warmup_time": "30분"
+    },
+    "power": {
+      "type": "AC 100~240V, 50/60Hz",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "GPIB",
+        "USB",
+        "LAN"
+      ],
+      "software": "BenchVue",
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": true,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      },
+      {
+        "cycle": "30분",
+        "task": "워밍업 (정밀 측정 전)"
+      }
+    ],
+    "cautions": [
+      "테스트 픽스처 보정 필요, DUT 접촉 저항 주의"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$8,000~15,000",
+      "support_url": "https://www.keysight.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "TEKTRONIX",
+    "model": "DMM4050",
+    "category": "6.5자리 디지털 멀티미터 (6½ Digit DMM)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.tek.com/en/products/digital-multimeters/dmm4050"
+    ],
+    "spec": {
+      "range": "DC V: 0.1~1000V, Ω: 1~100MΩ",
+      "accuracy": "±0.0024% DC V",
+      "resolution": "100nV",
+      "units": [
+        "V",
+        "A",
+        "Ω",
+        "Hz",
+        "°C"
+      ],
+      "overload_limit": "1000V DC",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~50°C",
+      "storage_temp": "-40~70°C",
+      "operating_humidity": "5~80% RH",
+      "ip_rating": null,
+      "warmup_time": "30분"
+    },
+    "power": {
+      "type": "AC 100~240V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "GPIB",
+        "USB",
+        "RS-232",
+        "LAN"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": "1000 readings"
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": true,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "정밀 측정 시 워밍업 30분"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "KEYSIGHT 34401A"
+      ],
+      "approx_price": "$2,000~3,000",
+      "support_url": "https://www.tek.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "CRYSTAL",
+    "model": "XP2I",
+    "category": "디지털 압력 게이지 (Digital Pressure Gauge)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.ametek-calibration.com/products/digital-pressure-gauges/xp2i"
+    ],
+    "spec": {
+      "range": "다양한 레인지 (0~15 ~ 0~15000 psi)",
+      "accuracy": "±0.1% rdg",
+      "resolution": "0.01% FS",
+      "units": [
+        "psi",
+        "bar",
+        "kPa",
+        "inHg",
+        "cmH2O"
+      ],
+      "overload_limit": "2x FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-20~50°C",
+      "storage_temp": "-40~75°C",
+      "operating_humidity": "0~95% RH",
+      "ip_rating": "IP67",
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "AA x2",
+      "battery_life": "1500시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "RS-232"
+      ],
+      "software": "Crystal Control",
+      "wireless": null,
+      "memory": "15000 readings"
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "야외 사용 가능 (IP67), 압력 포트 청결 유지"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$1,000~2,000",
+      "support_url": "https://www.ametek-calibration.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "MENSOR",
+    "model": "CPT9000",
+    "category": "정밀 압력 기준기 (Precision Pressure Reference)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.mensor.com/products/digital-pressure-gauges/cpt9000"
+    ],
+    "spec": {
+      "range": "다양한 레인지",
+      "accuracy": "±0.008% FS",
+      "resolution": "0.0001% FS",
+      "units": [
+        "psi",
+        "bar",
+        "kPa",
+        "mbar"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "15~45°C",
+      "storage_temp": "-20~60°C",
+      "operating_humidity": "0~95% RH",
+      "ip_rating": null,
+      "warmup_time": "30분"
+    },
+    "power": {
+      "type": "AC 100~240V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "RS-232",
+        "IEEE-488",
+        "Ethernet"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": true,
+      "standards": [
+        "ISO/IEC 17025"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "기준급 정밀도, 온도 안정 환경 필수"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$5,000~10,000",
+      "support_url": "https://www.mensor.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "KISTLER",
+    "model": "8763A500",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.kistler.com"
+    ],
+    "spec": {
+      "range": "±500g",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~120°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP/IEPE",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "50mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "스위스",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.kistler.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ASHCROFT",
+    "model": "K1",
+    "category": "디지털 압력 게이지 (Digital Pressure Gauge)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.ashcroft.com"
+    ],
+    "spec": {
+      "range": "다양한 레인지 (0~15 ~ 0~10000 psi)",
+      "accuracy": "±0.25% FS",
+      "resolution": null,
+      "units": [
+        "psi",
+        "bar",
+        "kPa"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-10~60°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": "IP65",
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "3V 리튬",
+      "battery_life": "2000시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.ashcroft.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "8507C-5",
+    "category": "소형 압력 변환기 (Miniature Pressure Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com/pressure/8507c"
+    ],
+    "spec": {
+      "range": "0~5 psi",
+      "accuracy": "±0.5% FS",
+      "resolution": null,
+      "units": [
+        "psi",
+        "kPa"
+      ],
+      "overload_limit": "3x FS",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V DC",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/V"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "극소형 실리콘 다이어프램, 과압 주의"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "ENDEVCO 8507C-2"
+      ],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "OMEGA",
+    "model": "HH12B",
+    "category": "핸드헬드 온도계 (Handheld Thermometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.omega.com/en-us/temperature/temperature-meters/handheld-meters/hh12b"
+    ],
+    "spec": {
+      "range": "-200~1370°C (K-type), -200~400°C (T-type)",
+      "accuracy": "±0.1% rdg + 0.6°C",
+      "resolution": "0.1°C",
+      "units": [
+        "°C",
+        "°F"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~50°C",
+      "storage_temp": "-20~60°C",
+      "operating_humidity": "0~90% RH",
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "9V x1",
+      "battery_life": "1000시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "2채널 동시 측정 가능, 열전대 타입 설정 확인"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$100~200",
+      "support_url": "https://www.omega.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "KISTLER",
+    "model": "8704B100",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.kistler.com"
+    ],
+    "spec": {
+      "range": "±100g",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~120°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP/IEPE",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "50mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "스위스",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.kistler.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "GE",
+    "model": "PACE5000",
+    "category": "정밀 압력 컨트롤러 (Precision Pressure Controller)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.bakerhughes.com/druck/pace-5000"
+    ],
+    "spec": {
+      "range": "다양한 모듈 (진공~210 bar)",
+      "accuracy": "±0.005% FS",
+      "resolution": "0.0001% FS",
+      "units": [
+        "bar",
+        "psi",
+        "kPa",
+        "mbar"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "15~40°C",
+      "storage_temp": "-20~60°C",
+      "operating_humidity": "0~80% RH",
+      "ip_rating": null,
+      "warmup_time": "15분"
+    },
+    "power": {
+      "type": "AC 100~240V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "RS-232",
+        "IEEE-488",
+        "USB",
+        "Ethernet"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO/IEC 17025"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "기준급 정밀도, 온도 안정 환경 필수, 압력 모듈 교체 가능"
+    ],
+    "meta": {
+      "country": "영국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "GE PACE6000"
+      ],
+      "approx_price": "$10,000~20,000",
+      "support_url": "https://www.bakerhughes.com/druck",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "KEYSIGHT",
+    "model": "U1242B",
+    "category": "핸드헬드 멀티미터 (Handheld DMM)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.keysight.com/us/en/product/U1242B"
+    ],
+    "spec": {
+      "range": "DC V: 0~1000V, AC V: 0~750V, Ω: 0~100MΩ",
+      "accuracy": "±0.09% DC V",
+      "resolution": "0.1mV",
+      "units": [
+        "V",
+        "A",
+        "Ω",
+        "Hz",
+        "°C"
+      ],
+      "overload_limit": "1000V CAT III",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-20~55°C",
+      "storage_temp": "-40~70°C",
+      "operating_humidity": "0~80% RH",
+      "ip_rating": "IP67",
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "AA x4",
+      "battery_life": "300시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "IR-USB"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "IEC 61010"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "IP67 방수/방진, 야외 사용 가능"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$300~500",
+      "support_url": "https://www.keysight.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "YOKOGAWA",
+    "model": "CA700",
+    "category": "압력 교정기 (Pressure Calibrator)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.yokogawa.com/solutions/products-and-services/test-measurement/calibrators/ca700/"
+    ],
+    "spec": {
+      "range": "다양한 모듈 (-100 kPa ~ 70 MPa)",
+      "accuracy": "±0.01% rdg",
+      "resolution": "0.001 kPa",
+      "units": [
+        "kPa",
+        "MPa",
+        "bar",
+        "psi"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-10~50°C",
+      "storage_temp": "-20~60°C",
+      "operating_humidity": "5~90% RH",
+      "ip_rating": "IP54",
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "AA x4",
+      "battery_life": "12시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "USB"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": "100 readings"
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "모듈 교체 가능, 압력 포트 청결 유지"
+    ],
+    "meta": {
+      "country": "일본",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$3,000~5,000",
+      "support_url": "https://www.yokogawa.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "DEWETRON",
+    "model": "DEWE-43A",
+    "category": "데이터 수집 장치 (DAQ System)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.dewetron.com/products/dewe-43a/"
+    ],
+    "spec": {
+      "range": "8채널, 24-bit, 200kS/s per ch",
+      "accuracy": "±0.01% FS",
+      "resolution": "24-bit",
+      "units": [
+        "V",
+        "mV"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-20~50°C",
+      "storage_temp": "-30~70°C",
+      "operating_humidity": "5~95% RH",
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "USB 버스 전원 또는 외부 12V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "USB 2.0"
+      ],
+      "software": "OXYGEN",
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "USB 전원 제한 시 외부 전원 사용, TEDS 지원"
+    ],
+    "meta": {
+      "country": "오스트리아",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$5,000~8,000",
+      "support_url": "https://www.dewetron.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "BEAMEX",
+    "model": "MC6",
+    "category": "다기능 교정기 (Multifunction Calibrator)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.beamex.com/products/beamex-mc6/"
+    ],
+    "spec": {
+      "range": "압력/온도/전기 통합 교정",
+      "accuracy": "±0.005% rdg (전기)",
+      "resolution": "0.001",
+      "units": [
+        "V",
+        "mA",
+        "Ω",
+        "°C",
+        "bar",
+        "psi"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-10~50°C",
+      "storage_temp": "-20~60°C",
+      "operating_humidity": "0~90% RH",
+      "ip_rating": "IP65",
+      "warmup_time": null
+    },
+    "power": {
+      "type": "충전식 배터리",
+      "battery": "Li-ion",
+      "battery_life": "16시간",
+      "charge_time": "4시간"
+    },
+    "interface": {
+      "output": [
+        "USB",
+        "RS-232"
+      ],
+      "software": "Beamex CMX",
+      "wireless": "Bluetooth (옵션)",
+      "memory": "수천건 교정 결과"
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO/IEC 17025"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "다기능 통합 교정기, 교정 관리 소프트웨어 연동 가능"
+    ],
+    "meta": {
+      "country": "핀란드",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$8,000~15,000",
+      "support_url": "https://www.beamex.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "TORQUELEADER",
+    "model": "TT50",
+    "category": "토크 드라이버 (Torque Driver)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.torqueleader.com"
+    ],
+    "spec": {
+      "range": "0~50 cN·m",
+      "accuracy": "±6%",
+      "resolution": null,
+      "units": [
+        "cN·m",
+        "lbf·in"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "5~40°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 6789"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "프리셋 토크 드라이버, 설정값 확인 후 사용"
+    ],
+    "meta": {
+      "country": "영국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.torqueleader.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "SNAP-ON",
+    "model": "QD2R200",
+    "category": "토크 렌치 (Torque Wrench)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.snapon.com"
+    ],
+    "spec": {
+      "range": "40~200 lbf·ft",
+      "accuracy": "±2% CW, ±3% CCW",
+      "resolution": null,
+      "units": [
+        "lbf·ft",
+        "N·m"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "5~40°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 6789",
+        "ASME B107.300"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "사용 후",
+        "task": "최저 눈금으로 복귀"
+      }
+    ],
+    "cautions": [
+      "클릭 타입, 사용 후 반드시 최저 눈금으로 리셋"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$300~500",
+      "support_url": "https://www.snapon.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "CDI",
+    "model": "2502LDIN",
+    "category": "토크 렌치 (Torque Wrench)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.cditools.com"
+    ],
+    "spec": {
+      "range": "50~250 lbf·in",
+      "accuracy": "±4% CW",
+      "resolution": null,
+      "units": [
+        "lbf·in",
+        "N·m"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "5~40°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "ISO 6789"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "사용 후",
+        "task": "최저 눈금으로 복귀"
+      }
+    ],
+    "cautions": [
+      "클릭 타입 토크 렌치"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.cditools.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "TOHNICHI",
+    "model": "BTG36CN",
+    "category": "토크 게이지 (Torque Gauge)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.tohnichi.com/products/btg.html"
+    ],
+    "spec": {
+      "range": "4~36 cN·m",
+      "accuracy": "±2%",
+      "resolution": "0.2 cN·m",
+      "units": [
+        "cN·m"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "5~35°C",
+      "storage_temp": null,
+      "operating_humidity": "45~85% RH",
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "다이얼 표시, 피크 홀드 기능"
+    ],
+    "meta": {
+      "country": "일본",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.tohnichi.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "METTLER TOLEDO",
+    "model": "XS205DU",
+    "category": "정밀 저울 (Analytical Balance)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.mt.com/int/en/home/products/Laboratory_Weighing_Solutions/analytical-balances.html"
+    ],
+    "spec": {
+      "range": "81g/220g (듀얼 레인지)",
+      "accuracy": "±0.01mg/±0.1mg",
+      "resolution": "0.01mg/0.1mg",
+      "units": [
+        "g",
+        "mg",
+        "ct"
+      ],
+      "overload_limit": "220g",
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "10~30°C",
+      "storage_temp": null,
+      "operating_humidity": "10~80% RH",
+      "ip_rating": null,
+      "warmup_time": "30분"
+    },
+    "power": {
+      "type": "AC adapter",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "RS-232",
+        "USB"
+      ],
+      "software": "LabX",
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": true,
+      "standards": [
+        "GLP/GMP"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매일",
+        "task": "수평 확인"
+      },
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "진동/기류 차단, 수평 조정 필수, 워밍업 30분"
+    ],
+    "meta": {
+      "country": "스위스",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$5,000~10,000",
+      "support_url": "https://www.mt.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "GE",
+    "model": "DPI 104",
+    "category": "디지털 압력 게이지 (Digital Pressure Gauge)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.bakerhughes.com/druck/dpi-104"
+    ],
+    "spec": {
+      "range": "다양한 레인지 (진공~1400 bar)",
+      "accuracy": "±0.05% FS",
+      "resolution": "0.001% FS",
+      "units": [
+        "bar",
+        "psi",
+        "kPa",
+        "mbar"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-20~50°C",
+      "storage_temp": "-20~70°C",
+      "operating_humidity": "0~90% RH",
+      "ip_rating": "IP65",
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "AA x2",
+      "battery_life": "15000시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "RS-232 (옵션)"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "현장 기준급 압력계, 압력 포트 청결 유지"
+    ],
+    "meta": {
+      "country": "영국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$800~1,500",
+      "support_url": "https://www.bakerhughes.com/druck",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "FLUKE",
+    "model": "726",
+    "category": "다기능 프로세스 교정기 (Multifunction Process Calibrator)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.fluke.com/en-us/product/calibration-tools/multifunction-calibrators/fluke-726"
+    ],
+    "spec": {
+      "range": "V/mA/Ω/RTD/TC 소스 및 측정",
+      "accuracy": "±0.01% rdg (DC V)",
+      "resolution": "0.001",
+      "units": [
+        "V",
+        "mA",
+        "Ω",
+        "°C",
+        "Hz"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-10~50°C",
+      "storage_temp": "-30~60°C",
+      "operating_humidity": "0~90% RH",
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "배터리",
+      "battery": "AA x4",
+      "battery_life": "20시간",
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": "8 태스크"
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": [
+        "IEC 61010"
+      ],
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "소스/측정 동시 가능"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [
+        "FLUKE 724"
+      ],
+      "approx_price": "$2,000~3,000",
+      "support_url": "https://www.fluke.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "OMEGA",
+    "model": "CL1000",
+    "category": "드라이 블록 교정기 (Dry Block Calibrator)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.omega.com/en-us/calibration/dry-block-calibrators/cl1000"
+    ],
+    "spec": {
+      "range": "35~350°C",
+      "accuracy": "±1.5°C",
+      "resolution": "0.1°C",
+      "units": [
+        "°C",
+        "°F"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "0~50°C",
+      "storage_temp": null,
+      "operating_humidity": "0~90% RH",
+      "ip_rating": null,
+      "warmup_time": "15분"
+    },
+    "power": {
+      "type": "AC 100~240V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": "±0.3°C",
+      "drift_spec": null
+    },
+    "maintenance": [
+      {
+        "cycle": "매년",
+        "task": "교정"
+      }
+    ],
+    "cautions": [
+      "인서트 크기 확인, 고온부 접촉 주의"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": false,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": "$800~1,200",
+      "support_url": "https://www.omega.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "KULITE",
+    "model": "XCS-093-5A",
+    "category": "초소형 압력 변환기 (Ultra-Miniature Pressure Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.kulite.com"
+    ],
+    "spec": {
+      "range": "0~5 psia",
+      "accuracy": "±0.1% FS",
+      "resolution": null,
+      "units": [
+        "psia",
+        "kPa"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-55~232°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation 10V",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/V"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "초소형 (직경 2.36mm), 항공/우주 계측용"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.kulite.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "MOOG",
+    "model": "HGC-11-GFS-4",
+    "category": "서보 밸브 (Servo Valve)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.moog.com/products/servo-proportional-valves.html"
+    ],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.moog.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "UNIMEASURE",
+    "model": "PB-5-S10-NOS-10C",
+    "category": "선형 위치 변환기 (Linear Position Transducer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.unimeasure.com/position-sensors/pb-series"
+    ],
+    "spec": {
+      "range": "0~5인치 (127mm)",
+      "accuracy": "±0.25% FS",
+      "resolution": "Infinite (포텐셔미터)",
+      "units": [
+        "inch",
+        "mm"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-40~93°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "Excitation ≤25V DC",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "저항 비례 출력"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "와이어 장력 유지"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [
+        "UNIMEASURE PB-10"
+      ],
+      "approx_price": null,
+      "support_url": "https://www.unimeasure.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "2680M2-200",
+    "category": "가속도계 (MEMS Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com"
+    ],
+    "spec": {
+      "range": "±200g",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "DC excitation",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [
+      "MEMS 타입, DC 응답 가능"
+    ],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ENDEVCO",
+    "model": "2311-100",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://buy.endevco.com"
+    ],
+    "spec": {
+      "range": "±100g",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "IEPE",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://buy.endevco.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "357B21",
+    "category": "가속도계 (Accelerometer)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com"
+    ],
+    "spec": {
+      "range": "±500g pk",
+      "accuracy": null,
+      "resolution": null,
+      "units": [
+        "g",
+        "m/s²"
+      ],
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": "-54~121°C",
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": "ICP",
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": [
+        "10mV/g"
+      ],
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "ROPER WHITNEY",
+    "model": "N-1005",
+    "category": "금속 가공기 (Metal Fabrication Tool)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "PCB",
+    "model": "340A65",
+    "category": "가속도계 교정기 (Accelerometer Calibration Reference)",
+    "source": "web_search",
+    "verified": false,
+    "source_urls": [
+      "https://www.pcb.com"
+    ],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "tolerance": null,
+      "mpe_percent": null
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": "12개월",
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": "미국",
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": "https://www.pcb.com",
+      "manual_url": null
+    },
+    "updated_at": "2026-02-23"
+  },
+  {
+    "manufacturer": "NORBAR",
+    "model": "50611.LOG",
+    "category": null,
+    "source": "manual_input",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "manual_tolerance": null,
+      "tolerance": {
+        "value": 0.5,
+        "unit": "",
+        "note": null
+      },
+      "mpe_percent": 100
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-26"
+  },
+  {
+    "manufacturer": "NORBAR",
+    "model": "50617.LOG",
+    "category": null,
+    "source": "manual_input",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "manual_tolerance": null,
+      "tolerance": null,
+      "mpe_percent": 1
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-24"
+  },
+  {
+    "manufacturer": "NORBAR",
+    "model": "50621.LOG",
+    "category": null,
+    "source": "manual_input",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "manual_tolerance": null,
+      "tolerance": null,
+      "mpe_percent": 0.5
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-24"
+  },
+  {
+    "manufacturer": "NORBAR",
+    "model": "50625.LOG",
+    "category": null,
+    "source": "manual_input",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "manual_tolerance": null,
+      "tolerance": {
+        "value": 0.5,
+        "unit": "%",
+        "note": null
+      },
+      "mpe_percent": 100
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-24"
+  },
+  {
+    "manufacturer": "SNAP-ON",
+    "model": "QD1R200",
+    "category": null,
+    "source": "manual_input",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "manual_tolerance": null,
+      "tolerance": {
+        "value": 4,
+        "unit": "%",
+        "note": null
+      },
+      "mpe_percent": 100
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-02-27"
+  },
+  {
+    "manufacturer": "SNAP-ON",
+    "model": "QTS135",
+    "category": null,
+    "source": "manual_input",
+    "verified": false,
+    "source_urls": [],
+    "spec": {
+      "range": null,
+      "accuracy": null,
+      "resolution": null,
+      "units": null,
+      "overload_limit": null,
+      "manual_tolerance": null,
+      "tolerance": {
+        "value": 5,
+        "unit": "%",
+        "note": null
+      },
+      "mpe_percent": 100
+    },
+    "environment": {
+      "operating_temp": null,
+      "storage_temp": null,
+      "operating_humidity": null,
+      "ip_rating": null,
+      "warmup_time": null
+    },
+    "power": {
+      "type": null,
+      "battery": null,
+      "battery_life": null,
+      "charge_time": null
+    },
+    "interface": {
+      "output": null,
+      "software": null,
+      "wireless": null,
+      "memory": null
+    },
+    "calibration": {
+      "recommended_cycle": null,
+      "self_calibration": null,
+      "standards": null,
+      "stability_spec": null,
+      "drift_spec": null
+    },
+    "maintenance": [],
+    "cautions": [],
+    "meta": {
+      "country": null,
+      "discontinued": null,
+      "successor_model": null,
+      "alternatives": [],
+      "approx_price": null,
+      "support_url": null,
+      "manual_url": null
+    },
+    "updated_at": "2026-03-02"
+  }
+]

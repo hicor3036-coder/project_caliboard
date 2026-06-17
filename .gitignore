@@ -44,3 +44,4 @@ test/
 dev.log
 dev.err.log
 *.log
+~$*
