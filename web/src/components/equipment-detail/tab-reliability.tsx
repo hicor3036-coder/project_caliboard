@@ -26,6 +26,7 @@ import {
   type ReliabilityInterimComparison,
   type ReliabilityFit,
   type TierRung,
+  type StaircaseStep,
 } from '@/lib/reliability-model'
 import { buildDemoTorqueSeries } from '@/lib/cycle-analysis-dummy'
 import { step2_trendDrift, type TrendDriftData } from '@/lib/cycle-analysis'
@@ -98,7 +99,7 @@ export default function TabReliability({ manufacturer, model, ktoolsAffcCyclCd, 
           <h2 className="text-sm font-bold text-slate-800 ml-1">How to set a calibration interval — the RP-1 ladder</h2>
         </div>
         <p className="text-[11px] text-slate-500 leading-relaxed">
-          RP-1 defines <span className="font-semibold text-indigo-700">five tiers</span> of interval-setting methods.
+          RP-1 defines <span className="font-semibold text-indigo-700">methods in tiers</span> of interval-setting.
           The more data you have, the higher you climb — and the more <span className="font-semibold">evidence-based</span> the interval becomes.
           Below, we apply each tier to <span className="font-semibold">this very torque wrench</span> and watch the recommendation sharpen.
         </p>
@@ -133,7 +134,7 @@ function ClimbStrip({ tl }: { tl: ReliabilityAnalysis['tierLadder'] }) {
       <div className="flex items-center gap-1.5 overflow-x-auto">
         {tl.rungs.map((r, i) => {
           const reached = r.rank <= tl.achievedRank
-          const isSummit = r.rank === 5
+          const isSummit = r.rank === 6
           return (
             <div key={r.tier} className="flex items-center gap-1.5 flex-shrink-0">
               <div className={`flex flex-col items-center px-2 py-1 rounded-lg border ${
@@ -164,7 +165,8 @@ const TIER_ACCENT: Record<string, { dot: string; ring: string; text: string }> =
   general:     { dot: '#cbd5e1', ring: 'border-slate-200',  text: 'text-slate-600' },
   borrowed:    { dot: '#94a3b8', ring: 'border-slate-200',  text: 'text-slate-600' },
   engineering: { dot: '#60a5fa', ring: 'border-blue-200',   text: 'text-blue-700' },
-  reactive:    { dot: '#3b82f6', ring: 'border-blue-300',   text: 'text-blue-700' },
+  reactive:    { dot: '#f59e0b', ring: 'border-amber-300',  text: 'text-amber-700' },  // 정석 Reactive = 약점 강조 (앰버)
+  trend:       { dot: '#3b82f6', ring: 'border-blue-300',   text: 'text-blue-700' },
   mle:         { dot: '#4f46e5', ring: 'border-indigo-300', text: 'text-indigo-700' },
 }
 
@@ -187,8 +189,8 @@ function TierCard({
     <section className={`rounded-xl border bg-white overflow-hidden ${reached ? acc.ring : 'border-slate-200'} ${isSummit && reached ? 'ring-1 ring-indigo-200' : ''}`}>
       {/* header row */}
       <div className="flex items-center gap-3 px-4 py-2.5">
-        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: acc.dot }}>
-          {rung.rank}
+        <div className={`flex h-7 flex-shrink-0 items-center justify-center rounded-full font-bold text-white ${rung.displayRank.length > 1 ? 'w-9 text-[9px] px-1' : 'w-7 text-[11px]'}`} style={{ background: acc.dot }}>
+          {rung.displayRank}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -211,7 +213,14 @@ function TierCard({
         <p className="text-[10px] text-slate-500 leading-relaxed pl-10">{rung.basis}</p>
       </div>
 
-      {/* embedded asset: Reactive = 기존 Cycle Analysis 탭의 Drift 섹션 그대로 */}
+      {/* embedded asset: 정석 Reactive = 합격↑/불합격↓ 계단 차트 (초보자용 직관 그림) */}
+      {rung.embed === 'staircase' && reached && rung.staircase && (
+        <div className="px-4 pb-3">
+          <StaircaseChart steps={rung.staircase} />
+        </div>
+      )}
+
+      {/* embedded asset: Trend = 기존 Cycle Analysis 탭의 Drift 섹션 그대로 */}
       {rung.embed === 'drift-chart' && reached && (
         <div className="px-4 pb-3">
           <TrendDriftDetails
@@ -231,6 +240,165 @@ function TierCard({
         </div>
       )}
     </section>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tier-4 embed: 정석 Reactive 계단 차트 (합격↑ / 불합격↓)
+//   초보자도 한눈에: "합격하면 주기를 조금 늘리고, 불합격하면 확 줄인다."
+//   → 들쭉날쭉·예측 없음이라는 약점이 그림으로 드러난다.
+// ═══════════════════════════════════════════════════════════════════
+
+function StaircaseChart({ steps }: { steps: StaircaseStep[] }) {
+  // 차트 영역 — 큼직하게
+  const W = 760, H = 340
+  const padL = 56, padR = 116, padT = 44, padB = 64
+  const plotW = W - padL - padR
+  const plotH = H - padT - padB
+
+  const maxInterval = Math.max(...steps.map(s => s.interval)) * 1.18
+  const n = steps.length
+  const xAt = (i: number) => padL + (plotW * i) / (n - 1)
+  const yAt = (v: number) => padT + plotH * (1 - v / maxInterval)
+
+  const linePts = steps.map((s, i) => ({ x: xAt(i), y: yAt(s.interval), s }))
+
+  // y축 눈금 (0, 1/2, max)
+  const yTicks = [0, maxInterval / 2, maxInterval]
+
+  return (
+    <div className="rounded-xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-white p-4">
+      {/* 헤더 — 규칙을 큼직하게, 보면 바로 알게 */}
+      <div className="mb-3 rounded-lg bg-amber-500 px-4 py-3 text-white shadow-sm">
+        <div className="text-sm font-bold uppercase tracking-wide">The rule: just react to the last result</div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="flex items-center gap-2 rounded-md bg-white/15 px-3 py-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-sm font-bold">✓</span>
+            <span className="text-[13px] font-semibold">Pass → interval <span className="text-base font-extrabold">+10%</span></span>
+          </div>
+          <div className="flex items-center gap-2 rounded-md bg-white/15 px-3 py-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-sm font-bold">✗</span>
+            <span className="text-[13px] font-semibold">Fail → interval <span className="text-base font-extrabold">−45%</span></span>
+          </div>
+        </div>
+        <p className="mt-1.5 text-[10px] text-amber-100">
+          a = 0.10, b ≈ 0.45 — from RP-1 §B.2 formula b = 1−(1−a)<sup>Rt/(1−Rt)</sup> at 85% reliability
+        </p>
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+        {/* y축 눈금선 */}
+        {yTicks.map((t, i) => (
+          <g key={`yt-${i}`}>
+            <line x1={padL} y1={yAt(t)} x2={W - padR} y2={yAt(t)} stroke="#f1f5f9" strokeWidth={1} />
+            <text x={padL - 8} y={yAt(t) + 4} textAnchor="end" className="fill-slate-400" style={{ fontSize: 12 }}>
+              {t.toFixed(0)}
+            </text>
+          </g>
+        ))}
+        <text x={padL - 8} y={padT - 16} textAnchor="end" className="fill-slate-500" style={{ fontSize: 12, fontWeight: 600 }}>months</text>
+
+        {/* 축 */}
+        <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="#cbd5e1" strokeWidth={1.5} />
+        <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke="#cbd5e1" strokeWidth={1.5} />
+
+        {/* 계단 선 — 각 점의 "결과"가 다음 점으로의 변화를 만든다.
+            pass(초록)면 다음 주기 +10% 상승, fail(빨강)이면 −45% 하강.
+            선·라벨 색은 "원인이 된 결과"(이번 점) 기준 → 점 색과 일치해 헷갈리지 않음. */}
+        {linePts.map((cur, i) => {
+          const next = linePts[i + 1]
+          if (!next) return null                              // 마지막 점은 다음 구간 없음
+          const col = cur.s.pass ? '#16a34a' : '#dc2626'      // 이번 결과 기준 색
+          // 수평(cur→next.x, cur.y) 후 수직(next.x, cur.y→next.y)
+          // 변화율 라벨 = 수평 구간 중앙(점에서 멀리). 합격=수평선 위, 불합격=수평선 아래.
+          const labelX = (cur.x + next.x) / 2
+          const labelY = cur.s.pass ? cur.y - 10 : cur.y + 18
+          return (
+            <g key={`step-${i}`}>
+              <polyline
+                points={`${cur.x},${cur.y} ${next.x},${cur.y} ${next.x},${next.y}`}
+                fill="none"
+                stroke={col}
+                strokeWidth={3.5}
+                strokeLinejoin="round"
+                opacity={0.9}
+              />
+              <text
+                x={labelX}
+                y={labelY}
+                textAnchor="middle"
+                style={{ fontSize: 11.5, fontWeight: 800 }}
+                fill={col}
+              >
+                {cur.s.pass ? '+10%' : '−45%'}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* 각 회차 점 + 큰 합격/불합격 마커 + 주기값 + 결과 배지 */}
+        {linePts.map((p, i) => (
+          <g key={`pt-${i}`}>
+            {/* 점 강조 링 */}
+            <circle cx={p.x} cy={p.y} r={9} fill={p.s.pass ? '#16a34a' : '#dc2626'} opacity={0.18} />
+            <circle cx={p.x} cy={p.y} r={6} fill={p.s.pass ? '#16a34a' : '#dc2626'} stroke="white" strokeWidth={2} />
+            {/* 주기 값 (mo) — 수직선은 항상 점 오른쪽에서 일어나므로, 라벨은 모두 점 왼쪽위로
+                통일 + 짧은 리더선으로 연결. 어느 점이든 수직선과 안 겹침. */}
+            {(() => {
+              const lx = p.x - 16, ly = p.y - 14
+              return (
+                <g>
+                  <line x1={p.x - 7} y1={p.y - 6} x2={lx + 3} y2={ly + 2} stroke="#cbd5e1" strokeWidth={1} />
+                  <text x={lx} y={ly} textAnchor="end" style={{ fontSize: 12, fontWeight: 700 }} fill="#475569">
+                    {p.s.interval}
+                  </text>
+                </g>
+              )
+            })()}
+            {/* x축 아래: 회차 + PASS/FAIL 색 배지 (텍스트만이 아니라 색칩으로) */}
+            <rect
+              x={p.x - 17} y={padT + plotH + 10} width={34} height={16} rx={8}
+              fill={p.s.pass ? '#dcfce7' : '#fee2e2'}
+            />
+            <text
+              x={p.x} y={padT + plotH + 21} textAnchor="middle"
+              style={{ fontSize: 9, fontWeight: 700 }}
+              fill={p.s.pass ? '#15803d' : '#b91c1c'}
+            >
+              {p.s.pass ? 'PASS' : 'FAIL'}
+            </text>
+            <text x={p.x} y={padT + plotH + 38} textAnchor="middle" className="fill-slate-400" style={{ fontSize: 11 }}>
+              #{p.s.index}
+            </text>
+          </g>
+        ))}
+
+        {/* 마지막 점 뒤 — "결론 없음(?)" 시각 표시: 점선 + 물음표 */}
+        {(() => {
+          const last = linePts[linePts.length - 1]
+          const qx = last.x + 54
+          return (
+            <g>
+              <line x1={last.x + 10} y1={last.y} x2={qx - 16} y2={last.y} stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" />
+              <circle cx={qx} cy={last.y} r={15} fill="#fef3c7" stroke="#f59e0b" strokeWidth={1.8} />
+              <text x={qx} y={last.y + 6} textAnchor="middle" style={{ fontSize: 18, fontWeight: 800 }} fill="#d97706">?</text>
+              {/* 라벨은 ? 아래로 (마지막 점 주기값과 겹침 방지) — 2줄 */}
+              <text x={qx} y={last.y + 30} textAnchor="middle" style={{ fontSize: 10, fontWeight: 700 }} fill="#b45309">no fixed</text>
+              <text x={qx} y={last.y + 42} textAnchor="middle" style={{ fontSize: 10, fontWeight: 700 }} fill="#b45309">answer</text>
+            </g>
+          )
+        })()}
+      </svg>
+
+      {/* 범례 + 약점 강조 한 줄 */}
+      <div className="mt-2 flex items-center justify-between">
+        <div className="flex items-center gap-4 text-[12px]">
+          <span className="flex items-center gap-1.5 font-medium text-green-700"><span className="inline-block w-3 h-3 rounded-full bg-green-600" /> pass → up</span>
+          <span className="flex items-center gap-1.5 font-medium text-red-700"><span className="inline-block w-3 h-3 rounded-full bg-red-600" /> fail → down</span>
+        </div>
+        <span className="rounded-full bg-amber-100 px-3 py-1 text-[12px] font-bold text-amber-700">⚠ jumps around — no forecast</span>
+      </div>
+    </div>
   )
 }
 

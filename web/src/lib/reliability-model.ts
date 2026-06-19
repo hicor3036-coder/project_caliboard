@@ -709,7 +709,7 @@ export function fitPointReliability(
 //   위로 올라가고, 정점이 MLE. CaliBoard는 모집단으로 정점에 도달한다.
 // ─────────────────────────────────────────────────────────────────
 
-export type Rp1MethodTier = 'general' | 'borrowed' | 'engineering' | 'reactive' | 'mle'
+export type Rp1MethodTier = 'general' | 'borrowed' | 'engineering' | 'reactive' | 'trend' | 'mle'
 
 export interface Rp1LadderStep {
   tier: Rp1MethodTier
@@ -725,8 +725,11 @@ export const RP1_LADDER: Rp1LadderStep[] = [
   { tier: 'general',     rank: 1, name: 'General Interval',    nameKo: '일반 주기',        dataRequirement: 'none',          accuracy: 'lowest',  isMle: false },
   { tier: 'borrowed',    rank: 2, name: 'Borrowed Intervals',  nameKo: '차용 주기',        dataRequirement: 'external',      accuracy: 'low',     isMle: false },
   { tier: 'engineering', rank: 3, name: 'Engineering Analysis',nameKo: '공학적 분석',      dataRequirement: 'design',        accuracy: 'medium',  isMle: false },
-  { tier: 'reactive',    rank: 4, name: 'Reactive (A3)',       nameKo: '반응형 조정',      dataRequirement: 'small',         accuracy: 'high',    isMle: false },
-  { tier: 'mle',         rank: 5, name: 'MLE (S2)',            nameKo: '최대우도추정',     dataRequirement: '20–40+ per model/class', accuracy: 'highest', isMle: true },
+  // Tier 4 = RP-1 정석 Reactive (Method A1/A3): 합격↑/불합격↓로 주기 조정. 예측 안 함 → 약점.
+  { tier: 'reactive',    rank: 4, name: 'Reactive',            nameKo: '반응형 조정',      dataRequirement: 'pass/fail',     accuracy: 'medium',  isMle: false },
+  // Tier 5 = 우리 추세 예측 (단순 선형회귀로 drift 외삽). 정석 Reactive의 "예측 부재" 약점을 보완.
+  { tier: 'trend',       rank: 5, name: 'Trend Forecast',      nameKo: '추세 예측',        dataRequirement: 'this unit\'s history', accuracy: 'high', isMle: false },
+  { tier: 'mle',         rank: 6, name: 'MLE (S2)',            nameKo: '최대우도추정',     dataRequirement: '20–40+ per model/class', accuracy: 'highest', isMle: true },
 ]
 
 export interface LadderPosition {
@@ -760,18 +763,18 @@ export function assessLadderPosition(
     estimates.mle = fit.optimalMonths
     return {
       achievedTier: 'mle',
-      achievedRank: 5,
+      achievedRank: 6,
       reason: `Fleet of ${fleet.unitCount} units · ${fleet.observationCount} calibration observations → MLE reliability model fitted`,
       estimates,
     }
   }
 
-  // 모집단은 있으나 부족 → reactive 수준
+  // 모집단은 있으나 부족 → trend(추세 예측) 수준
   if (fleet.observationCount >= 6) {
     return {
-      achievedTier: 'reactive',
-      achievedRank: 4,
-      reason: `Limited observations (${fleet.observationCount}) — reactive adjustment only; MLE needs 20+`,
+      achievedTier: 'trend',
+      achievedRank: 5,
+      reason: `Limited observations (${fleet.observationCount}) — trend forecast only; MLE needs 20+`,
       estimates,
     }
   }
@@ -797,7 +800,8 @@ export function assessLadderPosition(
 
 export interface TierRung {
   tier: Rp1MethodTier
-  rank: number
+  rank: number              // 내부 정렬/도달판정용 (1~6 연속)
+  displayRank: string       // 화면 표시 번호 ("4", "4+α", "5" — MLE는 5 유지, Trend는 4+α)
   name: string
   nameKo: string
   // 이 방법으로 이 장비를 분석하면?
@@ -806,7 +810,50 @@ export interface TierRung {
   basis: string                     // 한 줄 근거 (영문, 발표)
   dataUsed: string                  // 어떤 데이터를 쓰나
   // 이 티어가 끼워넣는 "우리 자산" (있으면 UI가 특별 렌더)
-  embed: 'drift-chart' | 'reliability-curve' | null
+  embed: 'staircase' | 'drift-chart' | 'reliability-curve' | null
+  // Reactive(tier-4) 정석 = 합격↑/불합격↓ 계단 데이터 (embed='staircase'일 때만)
+  staircase?: StaircaseStep[]
+}
+
+// ── RP-1 정석 Reactive (Method A1) 계단 데이터 ──
+//   합격(in-tolerance)이면 주기 × (1+a), 불합격이면 × (1−b).  RP-1 §B.2.
+//   a는 합격 증가율(예시 0.1), b는 목표 신뢰성 Rt로 결정되는 감소율:
+//     b = 1 − (1−a)^(Rt/(1−Rt))      ← RP-1 §B.2 일반식 [MK09]
+//   우리 목표 Rt=0.85 → a=0.10, b≈0.45 (즉 합격 +10% / 불합격 −45%).
+//   "한 번의 결과에 반응 → 들쭉날쭉, 결론 없음" 약점을 한눈에 보여주는 계단 그림용.
+export interface StaircaseStep {
+  index: number          // 교정 회차 (1, 2, 3, …)
+  interval: number       // 그 회차에 배정된 주기 (개월)
+  pass: boolean          // 그 교정 결과 (합격=true)
+}
+
+// RP-1 §B.2 파라미터 — 발표/화면에서 출처와 함께 노출
+export const REACTIVE_A = 0.10                                   // 합격 증가율 a (RP-1 §B.2 예시)
+export const REACTIVE_B = 1 - Math.pow(1 - REACTIVE_A, RELIABILITY_TARGET / (1 - RELIABILITY_TARGET))  // ≈0.45 @85%
+
+/**
+ * RP-1 정석 Reactive(A1) 계단 시뮬레이션 — 발표용 직관 그림.
+ *   spec 주기에서 시작해, 합격하면 ×(1+a), 불합격하면 ×(1−b)로 주기를 조정.
+ *   합격/불합격 패턴은 시드로 결정적 생성 (발표 중 안정).
+ */
+export function buildReactiveStaircase(
+  meta: { manufacturer?: string; model?: string },
+  startMonths: number,
+  steps = 8,
+): StaircaseStep[] {
+  const a = REACTIVE_A, b = REACTIVE_B
+  const seed = hashSeed(`${meta.manufacturer ?? ''}|${meta.model ?? ''}|reactive-stair`)
+  const rng = makeRng(seed)
+  const out: StaircaseStep[] = []
+  let interval = startMonths
+  for (let i = 1; i <= steps; i++) {
+    // 합격 확률 ~78% (대체로 합격해서 야금야금 오르다 가끔 뚝 떨어지는 패턴)
+    const pass = rng() < 0.78
+    out.push({ index: i, interval: round1(interval), pass })
+    interval = pass ? interval * (1 + a) : interval * (1 - b)
+    interval = clamp(interval, 1, 36)
+  }
+  return out
 }
 
 export interface TierLadderNarrative {
@@ -831,16 +878,21 @@ export function buildTierLadder(
   pointResult: PointReliabilityResult,
   ladder: LadderPosition,
   specMonths: number,
+  meta: { manufacturer?: string; model?: string },
 ): TierLadderNarrative {
-  // Reactive 주기 = 모든 측정점 중 가장 빨리 한계(가드밴드) 닿는 crossing.
-  let reactiveMonths: number | null = null
+  // Trend(추세 예측) 주기 = 모든 측정점 중 가장 빨리 한계(가드밴드) 닿는 crossing.
+  //   (단순 선형회귀로 이 장비 drift를 외삽 — 정석 Reactive의 "예측 부재"를 보완)
+  let trendMonths: number | null = null
   for (const s of series) {
     const f = buildErrorForecast(s, Math.max(specMonths + 12, 24), specMonths)
     const m = f.crossing.bestMonths
-    if (m != null && m > 0 && (reactiveMonths == null || m < reactiveMonths)) {
-      reactiveMonths = m
+    if (m != null && m > 0 && (trendMonths == null || m < trendMonths)) {
+      trendMonths = m
     }
   }
+
+  // RP-1 정석 Reactive(A1) 계단 — 합격↑/불합격↓ (예측 없음). 발표용 직관 그림.
+  const staircase = buildReactiveStaircase(meta, specMonths)
 
   // MLE 주기 = 포인트별 신뢰성 중 가장 빨리 85% 닿는 포인트가 결정 (RP-1 worst-point)
   const mleMonths = pointResult.available ? pointResult.recommendedMonths : null
@@ -848,33 +900,42 @@ export function buildTierLadder(
 
   const rungs: TierRung[] = [
     {
-      tier: 'general', rank: 1, name: 'General Interval', nameKo: '일반 주기',
+      tier: 'general', rank: 1, displayRank: '1', name: 'General Interval', nameKo: '일반 주기',
       intervalMonths: specMonths, applicable: true,
       basis: 'One interval for all instruments — the default before any data.',
       dataUsed: 'none', embed: null,
     },
     {
-      tier: 'borrowed', rank: 2, name: 'Borrowed Interval', nameKo: '차용 주기',
+      tier: 'borrowed', rank: 2, displayRank: '2', name: 'Borrowed Interval', nameKo: '차용 주기',
       intervalMonths: specMonths, applicable: true,
       basis: 'Manufacturer / other-lab recommendation. Safe, but not evidence-based.',
       dataUsed: 'external recommendation', embed: null,
     },
     {
-      tier: 'engineering', rank: 3, name: 'Engineering Analysis', nameKo: '공학적 분석',
+      tier: 'engineering', rank: 3, displayRank: '3', name: 'Engineering Analysis', nameKo: '공학적 분석',
       intervalMonths: specMonths, applicable: true,
       basis: 'Design knowledge / circuit analysis. Refines the borrowed value.',
       dataUsed: 'design specs', embed: null,
     },
     {
-      tier: 'reactive', rank: 4, name: 'Reactive (A3)', nameKo: '반응형 조정',
-      intervalMonths: reactiveMonths, applicable: reactiveMonths != null,
-      basis: reactiveMonths != null
-        ? `This unit's own error trend reaches the guard-band limit at ~${reactiveMonths} mo (|error|+U, ILAC-G8).`
+      // RP-1 정석 Reactive (Method A1) — 합격이면 주기↑, 불합격이면 주기↓. 예측 없음.
+      //   고정된 권장값이 없으므로 intervalMonths=null ("—"). 약점을 보여주는 징검다리.
+      tier: 'reactive', rank: 4, displayRank: '4', name: 'Reactive', nameKo: '반응형 조정',
+      intervalMonths: null, applicable: true,
+      basis: 'The textbook RP-1 method: just react to each result — pass, lengthen the interval; fail, shorten it. Simple, but it never looks ahead, so it drifts and reacts to one-off results. RP-1 itself marks it "not recommended."',
+      dataUsed: 'pass / fail of each calibration', embed: 'staircase', staircase,
+    },
+    {
+      // 우리 추세 예측 — 단순 선형회귀로 이 장비 drift를 외삽해 미래 한계 초과 시점 예측.
+      tier: 'trend', rank: 5, displayRank: '4+α', name: 'Trend Forecast', nameKo: '추세 예측',
+      intervalMonths: trendMonths, applicable: trendMonths != null,
+      basis: trendMonths != null
+        ? `Instead of just reacting, we look ahead: a simple straight-line fit on this unit's error reaches the safe limit at about ${trendMonths} months.`
         : 'Needs this unit\'s calibration history with a clear drift trend.',
       dataUsed: 'this unit\'s calibration history', embed: 'drift-chart',
     },
     {
-      tier: 'mle', rank: 5, name: 'MLE (S2)', nameKo: '최대우도추정',
+      tier: 'mle', rank: 6, displayRank: '5', name: 'MLE (S2)', nameKo: '최대우도추정',
       intervalMonths: mleMonths, applicable: mleMonths != null,
       basis: mleMonths != null
         ? `Per-point reliability curves on the fleet. The ${driver ?? 'worst'} point hits ${(RELIABILITY_TARGET * 100).toFixed(0)}% first — at ${mleMonths} mo — so it drives the interval.`
@@ -1034,7 +1095,7 @@ export function runReliabilityAnalysis(input: ReliabilityAnalysisInput): Reliabi
   const pointFleets = buildPointFleets(input.series, meta, subgroup.label)
   const pointReliability = fitPointReliability(pointFleets, input.specMonths, subgroup.label)
   const ladder = assessLadderPosition(fleet, fit, input.specMonths)
-  const tierLadder = buildTierLadder(input.series, fleet, pointReliability, ladder, input.specMonths)
+  const tierLadder = buildTierLadder(input.series, fleet, pointReliability, ladder, input.specMonths, meta)
 
   return {
     available: fit.available,
