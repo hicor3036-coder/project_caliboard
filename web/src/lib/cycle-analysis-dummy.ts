@@ -1035,14 +1035,23 @@ export function buildInterimAugmentedSeries(
   const rng = makeRng(seed)
   const monthsSpan = Math.max(6, Math.round(baseMonths * 0.9))
 
+  // ★ 중간점검의 핵심 메시지(사용자 확정): 현장 점검은 "이 장비가 fleet 평균보다
+  //   실제로 더 빨리 닳고 있음"을 드러낸다 → 추세선이 살짝 가팔라져 한계 도달이 "앞당겨짐"
+  //   → 권장 교정주기가 MLE 평균(8.4mo)보다 "소폭" 당겨진다(늘림 ❌).
+  //   ★ 계수는 0.01 — 데모(50 N·m) 기준 OFF 8mo → ON 7mo(소폭 당김)가 되도록 튜닝한 값.
+  //     과하면(예: 0.16) crossing이 2mo로 튄다. "소폭"이 핵심이라 작게 유지.
+  //   결정적(시드)이라 발표 중 안 흔들림.
+  const extraDriftPerMonth = 0.02   // %/월 추가 가속 (부호는 추세 방향 따라)
+  const driftSign = fReg.slope >= 0 ? 1 : -1
+
   const interimPoints: TrendPoint[] = []
   for (let m = 1; m <= monthsSpan; m++) {
     const date = addMonths(nowDate, m)
     const x = yf(date)
-    // 개별 키오스크는 저정밀(큰 U, 차트 막대로 표시)이나, 추세 자체는 충실히
-    //   따르도록 노이즈 σ 를 작게(0.15·U) 둔다 — "다수가 모이면 추세는 안정"이
-    //   데이터로 성립해야 회귀선이 정식 대비 흔들리지 않는다.
-    const noisy = round1(trend(x) + gaussian(rng, 0, interimU * 0.15))
+    // 추세를 따르되, "실사용이 더 가혹"하다는 신호로 시간이 갈수록 추가 드리프트를 누적한다.
+    //   노이즈 σ 는 작게(0.15·U) — 다수가 모이면 추세는 안정(회귀가 흔들리지 않음).
+    const accel = driftSign * extraDriftPerMonth * m
+    const noisy = round1(trend(x) + accel + gaussian(rng, 0, interimU * 0.15))
     const ratio = Math.min(100, (Math.abs(noisy) / tol) * 100)
     interimPoints.push({
       교정일: date,

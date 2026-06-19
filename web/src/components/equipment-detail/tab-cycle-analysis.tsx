@@ -659,7 +659,7 @@ function baselineSourceLabel(source: BaselineData['source']): string {
 
 // export: 신뢰성 탭(tab-reliability)의 Reactive(tier-4) 칸에서 이 섹션을 그대로 재사용.
 //   (로직/렌더 변경 없이 export만 추가 — 기존 탭 동작 무영향)
-export function TrendDriftDetails({ data, series, baseMonths, finalMonths, manufacturer, model, showInterimToggle = false }: { data: TrendDriftData; series: TrendSeries[]; baseMonths: number; finalMonths: number; manufacturer: string; model: string; showInterimToggle?: boolean }) {
+export function TrendDriftDetails({ data, series, baseMonths, finalMonths, manufacturer, model, showInterimToggle = false, intervalMode = 'spec' }: { data: TrendDriftData; series: TrendSeries[]; baseMonths: number; finalMonths: number; manufacturer: string; model: string; showInterimToggle?: boolean; intervalMode?: 'spec' | 'mle' }) {
   if (!data.dataQuality.enoughHistory) {
     return (
       <div className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -705,7 +705,7 @@ export function TrendDriftDetails({ data, series, baseMonths, finalMonths, manuf
       )}
 
       {/* Error forecast — the key picture: trend → prediction → limit-crossing → shorten */}
-      <DriftForecastSection data={data} series={series} baseMonths={baseMonths} finalMonths={finalMonths} manufacturer={manufacturer} model={model} showInterimToggle={showInterimToggle} />
+      <DriftForecastSection data={data} series={series} baseMonths={baseMonths} finalMonths={finalMonths} manufacturer={manufacturer} model={model} showInterimToggle={showInterimToggle} intervalMode={intervalMode} />
     </div>
   )
 }
@@ -724,6 +724,7 @@ function DriftForecastSection({
   manufacturer,
   model,
   showInterimToggle = false,
+  intervalMode = 'spec',
 }: {
   data: TrendDriftData
   series: TrendSeries[]
@@ -734,6 +735,8 @@ function DriftForecastSection({
   // true면 "+ Interim kiosk checks" 토글을 노출(5번 Future Work에서 사용).
   //   false면 정식 교정점만 그리는 순수 Step2 차트(중복 없이 같은 컴포넌트 재사용).
   showInterimToggle?: boolean
+  // 기준선 의미 — ErrorForecastChart 로 그대로 전달.
+  intervalMode?: 'spec' | 'mle'
 }) {
   // 중간점검(키오스크) 토글 — ON이면 정식 series에 키오스크점을 박아 재예측.
   const [interimOn, setInterimOn] = useState(false)
@@ -846,7 +849,7 @@ function DriftForecastSection({
         <span className="text-slate-400">· % = latest tolerance usage</span>
       </div>
 
-      <ErrorForecastChart forecast={forecast} baseMonths={baseMonths} finalMonths={finalMonths} priorRecMonths={priorRecMonths} />
+      <ErrorForecastChart forecast={forecast} baseMonths={baseMonths} finalMonths={finalMonths} priorRecMonths={priorRecMonths} intervalMode={intervalMode} />
     </div>
   )
 }
@@ -863,12 +866,17 @@ function ErrorForecastChart({
   baseMonths,
   finalMonths,
   priorRecMonths = null,
+  intervalMode = 'spec',
 }: {
   forecast: ErrorForecast
   baseMonths: number
   finalMonths: number
   // 키오스크 토글 ON일 때, OFF 기준(키오스크 없는) 권장주기 — "7mo → 9mo" 전후 표시용
   priorRecMonths?: number | null
+  // 기준선 의미. 'spec'(기본·Cycle 탭) = "Spec due · {baseMonths}mo".
+  //   'mle'(Reliability 탭 Beyond-summit) = 기준선이 MLE 최적주기(finalMonths)이고,
+  //   권장 교정일은 중간점검으로 그보다 "당겨진" 값으로 제시한다 (늘림 ❌, 당김 ✅).
+  intervalMode?: 'spec' | 'mle'
 }) {
   const { points, tolerance: tol, nowDate, crossing } = forecast
   const measured = points.filter(p => p.measured)
@@ -880,7 +888,8 @@ function ErrorForecastChart({
   const W = 620, H = 286
   // padT 를 키워(라벨 2단까지 들어가게) Recalibrate by / Spec due 가 겹칠 때
   //   Spec due 를 위 단으로 올려도 차트 위로 잘리지 않게 한다.
-  const padL = 44, padR = 26, padT = 64, padB = 34
+  // mle 모드는 우측 라벨("Tier 5 (MLE)" 등)이 길어 오른쪽으로 빼야 하므로 여백을 더 준다.
+  const padL = 44, padR = intervalMode === 'mle' ? 96 : 26, padT = 64, padB = 34
   const plotW = W - padL - padR
   const plotH = H - padT - padB
 
@@ -898,8 +907,9 @@ function ErrorForecastChart({
 
   // Y = error(%). ±tol 한계선이 항상 같은 비율로(대칭) 보이도록 0 중심 대칭 범위.
   //   예측 CI/측정점이 ±tol 을 넘어가면 그만큼 더 키운다(그래도 0 대칭 유지).
+  //   여백 1.1 — 한계선이 위아래 가장자리에 가까워져 빈 공간을 줄임(대칭·한계선 직관은 유지).
   const yReach = Math.max(
-    tol * 1.25,
+    tol * 1.1,
     ...points.map(p => Math.abs(p.error)),
     ...predicted.map(p => Math.abs(p.ciHigh95)), ...predicted.map(p => Math.abs(p.ciLow95)),
     ...measured.map(p => Math.abs(p.error) + (p.u ?? 0)),
@@ -929,7 +939,9 @@ function ErrorForecastChart({
   // 4기준점의 x좌표
   const xLastCal = sx(nowYf)                                   // ① 직전 교정일 (term 시작)
   const xToday = sx(nowYf + 0.5 / 12)                          // ② 오늘 (직전+약 2주, 데모상 거의 같음)
-  const xDueSpec = sx(nowYf + baseMonths / 12)                 // ④ 차기(spec) 교정일 = 직전 + 1년
+  // ④ 기준 세로선. spec 모드 = spec 주기(baseMonths). mle 모드 = MLE 최적주기(finalMonths).
+  const refMonths = intervalMode === 'mle' ? finalMonths : baseMonths
+  const xDueSpec = sx(nowYf + refMonths / 12)
   const xCross = recDate ? sx(yfOf(recDate)) : null            // ③ 권장 교정일 = 초과 시점
   const recWithinSpec = recMonths != null && recMonths < baseMonths
 
@@ -938,32 +950,51 @@ function ErrorForecastChart({
   //   라벨까지 ㄱ자 꺾은선으로 잇는다. 라벨이 X로 겹치면 좌우로 밀어(collision)
   //   배치하므로, 마커가 아무리 붙어도 글자는 안 겹친다.
   const flagDefs = [
-    xCross != null ? { key: 'rec',  anchorX: xCross,  half: 58, label: '✓ Recalibrate by',
-      // 키오스크 전후가 있으면 "7mo → 9mo", 없으면 "(9mo)"
-      sub: `${recDate ? fmtMonthYear(recDate) : ''}${
-        recMonths != null
-          ? (priorRecMonths != null && priorRecMonths !== recMonths
-              ? ` (${priorRecMonths} → ${recMonths}mo)`
-              : ` (${recMonths}mo)`)
-          : ''
-      }`, tone: 'blue' as const } : null,
-    xDueSpec <= W - padR ? { key: 'spec', anchorX: xDueSpec, half: 46, label: `Spec due · ${baseMonths}mo`, sub: fmtMonthYear(addMonthsStr(lastCalDate, baseMonths)), tone: 'slate' as const } : null,
+    // mle 모드: Last cal 도 동적 배치에 포함(당김으로 마커가 왼쪽에 몰려 겹치므로).
+    //   spec 모드는 기존처럼 직상단 고정 ChartFlag 로 그려 Cycle 탭 영향 없음.
+    intervalMode === 'mle' ? { key: 'last', anchorX: xLastCal, half: 40,
+      label: 'Last cal', sub: fmtMonthYear(lastCalDate), tone: 'slate' as const } : null,
+    xCross != null ? { key: 'rec',  anchorX: xCross,  half: 58,
+      // mle 모드: 권장 교정일은 중간점검이 잡아낸 "이 장비" 결과. MLE 최적(finalMonths)보다
+      //   당겨졌으면 "8.4 → 7mo"처럼 당김을 보여준다 (늘림 ❌).
+      label: intervalMode === 'mle' ? '✓ With interim checks' : '✓ Recalibrate by',
+      sub: intervalMode === 'mle'
+        ? (recMonths != null
+            ? (recMonths < finalMonths ? `${finalMonths} → ${recMonths}mo (pulled in)` : `${recMonths}mo`)
+            : '')
+        : `${recDate ? fmtMonthYear(recDate) : ''}${
+            recMonths != null
+              ? (priorRecMonths != null && priorRecMonths !== recMonths
+                  ? ` (${priorRecMonths} → ${recMonths}mo)`
+                  : ` (${recMonths}mo)`)
+              : ''
+          }`, tone: 'blue' as const } : null,
+    xDueSpec <= W - padR ? { key: 'spec', anchorX: xDueSpec, half: intervalMode === 'mle' ? 62 : 46,
+      label: intervalMode === 'mle' ? `Tier 5 (MLE) · ${finalMonths}mo` : `Spec due · ${baseMonths}mo`,
+      sub: intervalMode === 'mle' ? 'fleet average' : fmtMonthYear(addMonthsStr(lastCalDate, baseMonths)),
+      tone: 'slate' as const } : null,
   ].filter((f): f is NonNullable<typeof f> => f != null)
   // 앵커X 순으로 정렬 후, 인접 라벨이 겹치면(중심거리 < 두 half합) 우측을 오른쪽으로 민다.
+  // 라벨을 앵커X 순으로 두되, 겹치면 오른쪽으로 밀어(꺾은선 leader로 연결) 빈 자리를 찾는다.
+  //   오른쪽 끝에서 역으로 한 번 더 정리해, 마지막 라벨이 경계를 넘으면 그 왼쪽 것들을
+  //   연쇄로 당겨서 전체가 화면 안에 들어오게 한다(동적 자동 배치).
   const laneFlags = (() => {
     const sorted = [...flagDefs].sort((a, b) => a.anchorX - b.anchorX)
-    const placed: { key: string; anchorX: number; labelX: number; label: string; sub: string; tone: 'blue' | 'slate' }[] = []
-    for (const f of sorted) {
-      let labelX = f.anchorX
-      const prev = placed[placed.length - 1]
-      if (prev) {
-        const prevHalf = flagDefs.find(d => d.key === prev.key)!.half
-        const minGap = prevHalf + f.half + 6
-        if (labelX - prev.labelX < minGap) labelX = prev.labelX + minGap
+    const halfOf = (key: string) => flagDefs.find(d => d.key === key)!.half
+    const placed = sorted.map(f => ({ key: f.key, anchorX: f.anchorX, labelX: f.anchorX, label: f.label, sub: f.sub, tone: f.tone }))
+    // 1) 왼→오른: 겹치면 오른쪽으로 민다.
+    for (let i = 1; i < placed.length; i++) {
+      const minGap = halfOf(placed[i - 1].key) + halfOf(placed[i].key) + 8
+      if (placed[i].labelX - placed[i - 1].labelX < minGap) placed[i].labelX = placed[i - 1].labelX + minGap
+    }
+    // 2) 오른→왼: 오른쪽 경계를 넘으면 그 왼쪽 것들을 연쇄로 당긴다.
+    for (let i = placed.length - 1; i >= 0; i--) {
+      const rightCap = W - padR - halfOf(placed[i].key)
+      if (placed[i].labelX > rightCap) placed[i].labelX = rightCap
+      if (i < placed.length - 1) {
+        const minGap = halfOf(placed[i].key) + halfOf(placed[i + 1].key) + 8
+        if (placed[i + 1].labelX - placed[i].labelX < minGap) placed[i].labelX = placed[i + 1].labelX - minGap
       }
-      // 오른쪽 경계 넘으면 안쪽으로 당김
-      labelX = Math.min(labelX, W - padR - f.half)
-      placed.push({ key: f.key, anchorX: f.anchorX, labelX, label: f.label, sub: f.sub, tone: f.tone })
     }
     return placed
   })()
@@ -1001,24 +1032,24 @@ function ErrorForecastChart({
   ].join(' ')
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-3">
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <div className="text-xs font-bold text-slate-700">
-          Error trend at <span className="text-blue-700">{forecast.label}</span> — measured &amp; linear-regression forecast
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="text-sm font-bold text-slate-800">
+          Error trend at <span className="text-blue-700">{forecast.label}</span> <span className="text-slate-400 font-medium">— measured &amp; linear-regression forecast</span>
         </div>
-        {/* regression equation summary (y = a·t + b, with R² · n) */}
-        <div className="flex-shrink-0 text-right">
+        {/* regression equation summary (y = a·t + b, with R² · n) — 가벼운 배지로 감싸 한눈에 */}
+        <div className="flex-shrink-0">
           {forecast.fit.significant ? (
-            <div className="text-xs text-slate-500 leading-snug">
-              <span className="font-mono font-semibold text-[#ea580c]">
+            <div className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[13px] leading-none">
+              <span className="font-mono font-bold text-[#ea580c]">
                 y = {forecast.fit.slopePerYear.toFixed(2)}·t {forecast.fit.intercept >= 0 ? '+' : '−'} {Math.abs(forecast.fit.intercept).toFixed(2)}
               </span>
-              <span className="text-slate-400">
-                {'  · '}R² = <span className={`font-bold ${forecast.fit.r2 >= 0.9 ? 'text-emerald-600' : forecast.fit.r2 >= 0.7 ? 'text-amber-600' : 'text-slate-500'}`}>{forecast.fit.r2.toFixed(2)}</span>
-                {' · '}n = {forecast.fit.n}
-              </span>
+              <span className="text-slate-300">·</span>
+              <span className="text-slate-500">R² = <span className={`font-bold ${forecast.fit.r2 >= 0.9 ? 'text-emerald-600' : forecast.fit.r2 >= 0.7 ? 'text-amber-600' : 'text-slate-500'}`}>{forecast.fit.r2.toFixed(2)}</span></span>
+              <span className="text-slate-300">·</span>
+              <span className="text-slate-500">n = {forecast.fit.n}</span>
             </div>
           ) : (
-            <div className="text-xs text-slate-400 leading-snug">
+            <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[13px] text-slate-400 leading-none">
               No significant trend · R² = {forecast.fit.r2.toFixed(2)} · stable
             </div>
           )}
@@ -1081,8 +1112,10 @@ function ErrorForecastChart({
         {xCross != null && (
           <line x1={xCross} y1={padT} x2={xCross} y2={H - padB} stroke="#2563eb" strokeWidth="2" />
         )}
-        {/* ① last cal — 좌측이라 겹침 거의 없음: 기존 직상단 라벨 유지 */}
-        <ChartFlag x={xLastCal} topY={padT} label="Last cal" sub={fmtMonthYear(lastCalDate)} tone="slate" align="start" W={W} padL={padL} padR={padR} />
+        {/* ① last cal — spec 모드는 직상단 고정. mle 모드는 laneFlags 동적 배치에 포함됨(중복 방지). */}
+        {intervalMode !== 'mle' && (
+          <ChartFlag x={xLastCal} topY={padT} label="Last cal" sub={fmtMonthYear(lastCalDate)} tone="slate" align="start" W={W} padL={padL} padR={padR} />
+        )}
         {/* ③④ recommended / spec due — 꺾은선 leader + 동적 충돌 해소 */}
         {laneFlags.map(f => (
           <LeaderFlag key={f.key} anchorX={f.anchorX} labelX={f.labelX} laneY={padT - 30} markerY={padT}
@@ -1143,7 +1176,26 @@ function ErrorForecastChart({
       <div className="mt-2 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
         <span className="text-rose-500 text-base leading-none mt-0.5">⚠</span>
         <div className="flex-1 min-w-0">
-          {recWithinSpec ? (
+          {intervalMode === 'mle' ? (
+            // Beyond-summit(중간점검) 전용 결론. ★연장 ❌ — 중간점검은 이 장비의 빠른
+            //   드리프트를 잡아 MLE 평균주기보다 "당기는" 쪽으로만 작동한다.
+            recMonths != null && recMonths < finalMonths ? (
+              <>
+                <div className="text-xs font-bold text-rose-700">
+                  Interim checks pull the interval in: <span className="tabular-nums">{finalMonths} → {recMonths} mo</span>
+                </div>
+                <div className="text-[11px] mt-1 text-slate-600">
+                  The fleet average (MLE) says {finalMonths} months — but interim checks reveal <span className="font-semibold">this unit drifts faster</span>.
+                  So it is recalibrated <span className="font-bold text-rose-700">earlier</span>, before it leaves spec. The checks don&apos;t set the interval — they catch what the average misses.
+                </div>
+              </>
+            ) : (
+              <div className="text-xs text-slate-600">
+                Interim checks confirm this unit tracks the fleet average — staying within spec across the {finalMonths}-month interval.
+                The checks only verify; the interval itself is set by data (MLE).
+              </div>
+            )
+          ) : recWithinSpec ? (
             <>
               <div className="text-xs font-bold text-rose-700">
                 Recalibrate by <span className="tabular-nums">{recDate ? fmtMonthYear(recDate) : '—'}</span>
@@ -1232,9 +1284,9 @@ function LeaderFlag({
   const path = `M ${anchorX} ${markerY} L ${anchorX} ${elbowY} L ${labelX} ${elbowY} L ${labelX} ${laneY + 2}`
   return (
     <g>
-      {/* leader 선 + 마커머리 점 */}
+      {/* leader 선 + 끝(세로선 머리)을 가리키는 작은 화살촉 ▾ — 포인팅 명확화 */}
       <path d={path} fill="none" stroke={subColor} strokeWidth={shifted ? 1 : 0.9} strokeOpacity={shifted ? 0.85 : 0.5} strokeDasharray={shifted ? 'none' : '2 2'} />
-      <circle cx={anchorX} cy={markerY} r="2" fill={color} />
+      <path d={`M ${anchorX - 3.5} ${markerY - 5} L ${anchorX + 3.5} ${markerY - 5} L ${anchorX} ${markerY + 1} Z`} fill={color} />
       {/* 라벨 2줄 (흰 외곽선으로 가독성) */}
       <text x={labelX} y={laneY - 7} textAnchor="middle" fontSize="12" fontWeight={tone === 'blue' ? 800 : 700}
         fill={color} stroke="#fff" strokeWidth="3.4" strokeLinejoin="round" paintOrder="stroke">{label}</text>

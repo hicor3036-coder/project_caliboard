@@ -20,10 +20,8 @@
 import { useMemo, useState } from 'react'
 import {
   runReliabilityAnalysis,
-  simulateInterimReliability,
   RELIABILITY_TARGET,
   type ReliabilityAnalysis,
-  type ReliabilityInterimComparison,
   type ReliabilityFit,
   type TierRung,
   type StaircaseStep,
@@ -50,8 +48,6 @@ function parseSpecMonths(affcCyclCd: string | null | undefined): number {
 }
 
 export default function TabReliability({ manufacturer, model, ktoolsAffcCyclCd, series }: Props) {
-  const [interimOn, setInterimOn] = useState(false)
-
   const isDemoTarget = DEMO_MODEL != null && model === DEMO_MODEL
   const effectiveSeries = useMemo<TrendSeries[]>(
     () => (isDemoTarget ? buildDemoTorqueSeries() : series),
@@ -70,11 +66,6 @@ export default function TabReliability({ manufacturer, model, ktoolsAffcCyclCd, 
     }),
     [effectiveSeries, specMonths, manufacturer, model, isDemoTarget],
   )
-
-  const interimSim = useMemo<ReliabilityInterimComparison | null>(() => {
-    if (!interimOn) return null
-    return simulateInterimReliability(analysis.fleet, specMonths, { manufacturer, model })
-  }, [interimOn, analysis.fleet, specMonths, manufacturer, model])
 
   // Reactive(tier-4) 칸에서 기존 Drift 섹션을 그리려면 step2 결과가 필요.
   const calDates = useMemo<string[]>(() => {
@@ -109,8 +100,10 @@ export default function TabReliability({ manufacturer, model, ktoolsAffcCyclCd, 
       <ClimbStrip tl={tl} />
 
       {/* ═══ Tier-by-tier narrative ═══ */}
+      {/* trend(4+α) 카드는 숨김 — 그 추세 차트는 "Beyond the summit" 중간점검으로 이동함.
+          lib의 rank/achievedRank 체계는 그대로 두고 화면에서만 건너뛴다. */}
       <div className="space-y-2">
-        {tl.rungs.map((rung) => (
+        {tl.rungs.filter((rung) => rung.tier !== 'trend').map((rung) => (
           <TierCard key={rung.tier} rung={rung} analysis={analysis} driftData={driftData} series={effectiveSeries} specMonths={specMonths} manufacturer={manufacturer} model={model} />
         ))}
       </div>
@@ -119,7 +112,7 @@ export default function TabReliability({ manufacturer, model, ktoolsAffcCyclCd, 
       <VerdictCard analysis={analysis} />
 
       {/* ═══ Beyond the summit: interim check (our proposal) ═══ */}
-      <InterimSection analysis={analysis} interim={interimSim} on={interimOn} setOn={setInterimOn} />
+      <InterimSection analysis={analysis} driftData={driftData} series={effectiveSeries} specMonths={specMonths} manufacturer={manufacturer} model={model} />
     </div>
   )
 }
@@ -495,9 +488,9 @@ function ReliabilityChart({ fit, specMonths }: { fit: ReliabilityFit; specMonths
   for (let m = 0; m <= horizon; m += 6) xTicks.push(m)
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 240 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 300 }}>
       {/* 피팅식 우상단 — Tier-4 회귀식과 페어링 (단, MLE 지수모델 형태) */}
-      <text x={W - padR} y={11} textAnchor="end" fontSize={9.5} fontFamily="monospace" fill="#4f46e5">
+      <text x={W - padR} y={13} textAnchor="end" fontSize={12.5} fontFamily="monospace" fill="#4f46e5">
         R(t) = e^(−λt)
         <tspan fill="#94a3b8"> · </tspan>
         <tspan fill="#b45309" fontWeight={700}>λ = {fit.lambdaPerMonth.toFixed(3)}/mo</tspan>
@@ -507,21 +500,24 @@ function ReliabilityChart({ fit, specMonths }: { fit: ReliabilityFit; specMonths
       {yTicks.map((r) => (
         <g key={r}>
           <line x1={padL} y1={yOf(r)} x2={W - padR} y2={yOf(r)} stroke="#f1f5f9" strokeWidth={1} />
-          <text x={padL - 5} y={yOf(r) + 3} textAnchor="end" fontSize={8} fill="#94a3b8">{(r * 100).toFixed(0)}%</text>
+          <text x={padL - 5} y={yOf(r) + 4} textAnchor="end" fontSize={11} fill="#94a3b8">{(r * 100).toFixed(0)}%</text>
         </g>
       ))}
       {xTicks.map((m) => (
-        <text key={m} x={xOf(m)} y={H - padB + 13} textAnchor="middle" fontSize={8} fill="#94a3b8">{m}mo</text>
+        <text key={m} x={xOf(m)} y={H - padB + 15} textAnchor="middle" fontSize={11} fill="#94a3b8">{m}mo</text>
       ))}
-      <text x={(padL + W - padR) / 2} y={H - 2} textAnchor="middle" fontSize={8} fill="#cbd5e1">months after calibration</text>
+      <text x={(padL + W - padR) / 2} y={H - 1} textAnchor="middle" fontSize={10.5} fill="#cbd5e1">months after calibration</text>
 
       {/* target */}
       <line x1={padL} y1={targetY} x2={W - padR} y2={targetY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" />
-      <text x={W - padR} y={targetY - 3} textAnchor="end" fontSize={8} fontWeight={700} fill="#d97706">{(RELIABILITY_TARGET * 100).toFixed(0)}% target <tspan fontWeight={400} fill="#b45309">(DAFMAN 21-113 §2.6.14.2)</tspan></text>
+      <text x={W - padR} y={targetY - 5} textAnchor="end" fontSize={11.5} fontWeight={700} fill="#d97706" fontFamily="sans-serif">
+        {(RELIABILITY_TARGET * 100).toFixed(0)}% target
+        <tspan fontWeight={500} fontSize={9.3} fill="#b45309"> (DAFMAN 21-113 §2.6.14.2)</tspan>
+      </text>
 
       {/* spec due */}
       <line x1={specX} y1={padT} x2={specX} y2={H - padB} stroke="#cbd5e1" strokeWidth={1} strokeDasharray="2 2" />
-      <text x={specX} y={padT + 8} textAnchor="middle" fontSize={7.5} fill="#94a3b8">spec {specMonths}mo</text>
+      <text x={specX} y={padT + 10} textAnchor="middle" fontSize={10} fill="#94a3b8">spec {specMonths}mo</text>
 
       {/* fleet curve */}
       <path d={curvePath} fill="none" stroke="#4f46e5" strokeWidth={2.2} />
@@ -546,18 +542,18 @@ function ReliabilityChart({ fit, specMonths }: { fit: ReliabilityFit; specMonths
             <circle cx={optX} cy={targetY} r={4} fill="#d97706" stroke="#fff" strokeWidth={1.4} />
             {/* 라벨 흰 배경 (눈금 숫자와 겹쳐도 가독) */}
             <rect
-              x={labelRight ? labelX + 1 : labelX - 111}
-              y={elbowY - 7}
-              width={110}
-              height={14}
+              x={labelRight ? labelX + 1 : labelX - 135}
+              y={elbowY - 9}
+              width={134}
+              height={18}
               fill="#fff"
               fillOpacity={0.85}
             />
             <text
               x={labelX + (labelRight ? 3 : -3)}
-              y={elbowY + 3.5}
+              y={elbowY + 4.5}
               textAnchor={labelRight ? 'start' : 'end'}
-              fontSize={10.5}
+              fontSize={13}
               fontWeight={700}
               fill="#b45309"
             >
@@ -610,13 +606,16 @@ function VerdictCard({ analysis }: { analysis: ReliabilityAnalysis }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function InterimSection({
-  analysis, interim, on, setOn,
+  analysis, driftData, series, specMonths, manufacturer, model,
 }: {
   analysis: ReliabilityAnalysis
-  interim: ReliabilityInterimComparison | null
-  on: boolean
-  setOn: (v: boolean) => void
+  driftData: TrendDriftData
+  series: TrendSeries[]
+  specMonths: number
+  manufacturer: string
+  model: string
 }) {
+  const extendedMonths = analysis.tierLadder.mleMonths ?? specMonths
   return (
     <section>
       <div className="flex items-center justify-between gap-3 mb-2 mt-2">
@@ -626,69 +625,25 @@ function InterimSection({
           </svg>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-slate-800">Beyond the summit — our proposal: an interim-check kiosk as a safeguard</h3>
+              <h3 className="text-sm font-bold text-slate-800">Beyond the summit — an interim-check kiosk keeps the long interval trustworthy</h3>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 uppercase tracking-wide">Future Work</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-0.5">Extending the interval is safe — and a kiosk watches the longer gap, just in case</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Interim checks watch the gap between calibrations and confirm the result stays valid.</p>
           </div>
         </div>
-        <button
-          onClick={() => setOn(!on)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${on ? 'bg-purple-600' : 'bg-slate-300'}`}
-          aria-label="Toggle interim simulation"
-        >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${on ? 'translate-x-6' : 'translate-x-1'}`} />
-        </button>
       </div>
 
-      {on && interim?.available ? (
-        <div className="bg-gradient-to-br from-purple-50/60 via-white to-white border-2 border-purple-200 rounded-2xl p-4 space-y-3">
-          <div className="grid grid-cols-3 gap-2">
-            {/* 안전장치 프레이밍: 곡선 정밀도(데이터원)가 아니라 감시·조기경보·공백리스크 */}
-            <SimMetric label="Gap left unwatched" before={`${analysis.specMonths}→${analysis.tierLadder.mleMonths ?? '—'}mo`} after="0" note="checked every few weeks" good />
-            <SimMetric label="Drift caught" before="at next cal." after="within weeks" note="early warning" good />
-            <SimMetric label="Data for next prediction" before="formal only" after={`+${interim.observationGain.toLocaleString()}`} note="feeds the model" />
-          </div>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
-            A low-cost kiosk checks the wrench <span className="font-semibold text-purple-700">every few weeks</span> across the longer
-            {' '}{analysis.specMonths}→{analysis.tierLadder.mleMonths ?? '—'}-month interval. It is not a precise calibration — its job is
-            {' '}<span className="font-semibold text-purple-700">early warning</span>, so a longer interval can be run with confidence.
-            As a bonus, the checks <span className="font-semibold text-purple-700">feed back into the reliability model</span>, sharpening future predictions.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">ISO/IEC 17025 §6.4.10 (intermediate checks)</span>
-            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">NCSLI RP-1 (SPC)</span>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-purple-50/40 border border-dashed border-purple-200 rounded-xl p-5">
-          <p className="text-xs text-slate-500 leading-relaxed">
-            <span className="text-purple-500 mr-1">🛡️</span>
-            Extending the interval ({analysis.specMonths}→{analysis.tierLadder.mleMonths ?? '—'} months) is safe by the data — but a longer gap can feel risky.
-            A low-cost <span className="font-semibold text-purple-700">interim-check kiosk</span> watches the instrument between calibrations: low precision, but enough to
-            <em> raise an early warning</em> if anything drifts. So the interval is extended <em>safely</em> — and the checks also feed future predictions.
-          </p>
-          <p className="mt-2 text-[10px] text-slate-400">Basis: ISO/IEC 17025 §6.4.10 (intermediate checks) · NCSLI RP-1 (SPC)</p>
-        </div>
-      )}
+      {/* 4+α에서 옮겨온 차트 — 교정 히스토리 + 중간점검 점 + 추세 해석. 내용 변경 없음. */}
+      <TrendDriftDetails
+        data={driftData}
+        series={series}
+        baseMonths={specMonths}
+        finalMonths={extendedMonths}
+        manufacturer={manufacturer}
+        model={model}
+        showInterimToggle
+        intervalMode="mle"
+      />
     </section>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Shared small components
-// ═══════════════════════════════════════════════════════════════════
-
-function SimMetric({ label, before, after, note, good }: { label: string; before: string; after: string; note: string; good?: boolean }) {
-  return (
-    <div className="rounded-lg border border-purple-200 bg-white px-3 py-2">
-      <div className="text-[9px] uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="flex items-baseline gap-1.5 mt-0.5">
-        <span className="text-[11px] text-slate-400 line-through">{before}</span>
-        <span className="text-slate-300">→</span>
-        <span className={`text-sm font-bold ${good ? 'text-emerald-600' : 'text-purple-700'}`}>{after}</span>
-      </div>
-      <div className="text-[9px] text-slate-400">{note}</div>
-    </div>
   )
 }
