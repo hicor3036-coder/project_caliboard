@@ -332,7 +332,7 @@ export default function Home() {
               // main의 p-6/lg:p-8 패딩을 음수 마진으로 상쇄해 화면을 꽉 채움
               <div className="-m-6 lg:-m-8">
                 <iframe
-                  src="/afmetcal-hub.html"
+                  src="/api/docs"
                   title={t.nav.docHub}
                   className="w-full border-0"
                   style={{ height: 'calc(100vh - 0px)' }}

@@ -9,6 +9,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [userId, setUserId] = useState('')
   const [userPwd, setUserPwd] = useState('')
+  const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -21,7 +22,7 @@ export default function LoginPage() {
       const res = await fetch('/api/ktools/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, userPwd }),
+        body: JSON.stringify({ userId, userPwd, remember }),
       })
 
       const json = await res.json()
@@ -64,6 +65,8 @@ export default function LoginPage() {
             <label className="block text-sm font-medium text-slate-600 mb-1">{t.login.userId}</label>
             <input
               type="text"
+              name="username"
+              autoComplete="username"
               value={userId}
               onChange={e => setUserId(e.target.value)}
               placeholder={t.login.userIdPlaceholder}
@@ -71,10 +74,12 @@ export default function LoginPage() {
               className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="mb-6">
+          <div className="mb-3">
             <label className="block text-sm font-medium text-slate-600 mb-1">{t.login.userPwd}</label>
             <input
               type="password"
+              name="password"
+              autoComplete="current-password"
               value={userPwd}
               onChange={e => setUserPwd(e.target.value)}
               placeholder={t.login.userPwdPlaceholder}
@@ -82,6 +87,17 @@ export default function LoginPage() {
               className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+
+          {/* 로그인 유지 — 체크 시 30일, 아니면 24시간 */}
+          <label className="flex items-center gap-2 mb-5 text-sm text-slate-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={e => setRemember(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            로그인 유지 (30일)
+          </label>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

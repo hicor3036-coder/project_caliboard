@@ -1,7 +1,14 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { useT } from '@/lib/i18n'
+
+// 표시용 권한 쿠키(cb_docs=1)가 있을 때만 용어집 메뉴 노출.
+// ─ 실 보안은 /afmetcal-hub 서버 라우트(403)가 책임 — 여기는 UX(메뉴 숨김)만 담당.
+function readCanViewDocs(): boolean {
+  if (typeof document === 'undefined') return false
+  return document.cookie.split('; ').some(c => c === 'cb_docs=1')
+}
 
 export type ViewType = 'home' | 'unprocessed' | 'upcoming' | 'search' | 'profiles' | 'report' | 'reception' | 'data-source' | 'equipment-detail' | 'doc-hub'
 
@@ -25,7 +32,11 @@ export default function Sidebar({
   const { t, lang, setLang } = useT()
   const [collapsed, setCollapsed] = useState(false)
 
-  const menuItems: { id: ViewType; label: string; icon: ReactNode }[] = [
+  // 용어집 권한: 쿠키 기반(클라이언트). SSR 불일치 방지를 위해 마운트 후 읽음.
+  const [showDocs, setShowDocs] = useState(false)
+  useEffect(() => { setShowDocs(readCanViewDocs()) }, [])
+
+  const allMenuItems: { id: ViewType; label: string; icon: ReactNode }[] = [
     {
       id: 'home',
       label: t.nav.home,
@@ -111,6 +122,9 @@ export default function Sidebar({
       ),
     },
   ]
+
+  // 권한 없으면 용어집(doc-hub) 메뉴 제외
+  const menuItems = allMenuItems.filter(m => m.id !== 'doc-hub' || showDocs)
 
   function getBadge(id: ViewType): number | undefined {
     if (id === 'unprocessed' && 미처리건수 && 미처리건수 > 0) return 미처리건수

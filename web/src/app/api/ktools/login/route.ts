@@ -10,7 +10,7 @@ import { setAuthCookie } from '@/lib/auth-session'
 
 export async function POST(request: Request) {
   try {
-    const { userId, userPwd } = await request.json()
+    const { userId, userPwd, remember } = await request.json()
 
     if (!userId || !userPwd) {
       return NextResponse.json({ error: '아이디와 비밀번호를 입력하세요' }, { status: 400 })
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     await ktoolsLogin(userId, userPwd)
 
     const res = NextResponse.json({ success: true })
-    setAuthCookie(res, { userId, userPwd })
+    setAuthCookie(res, { userId, userPwd }, remember === true)
     return res
   } catch (error) {
     console.error('로그인 실패:', error)
