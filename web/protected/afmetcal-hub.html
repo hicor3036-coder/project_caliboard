@@ -418,9 +418,9 @@ const DOCTREE = [
     {c:'MIL-STD-1808C', n:'System/Subsystem Numbering', s:'active'},
     {c:'AFTO Form 22', n:'TM Change Recommendation & Reply', s:'active'},
     {c:'AFTO Form 43', n:'TODO Assignment/Change Request', s:'active'},
-    {c:'AFTO Form 57', n:'PMEL Technical Order Information', s:'active'},
-    {c:'AFTO Form 186', n:'Technical Order Publication Request', s:'active'},
-    {c:'AFTO Form 252', n:'TO Publication Change Request', s:'active'},
+    {c:'AFTO Form 57', n:'PMEL Technical Order Information', s:'active', id:'aftoform22'},
+    {c:'AFTO Form 186', n:'Technical Order Publication Request', s:'active', id:'aftoform22'},
+    {c:'AFTO Form 252', n:'TO Publication Change Request', s:'active', id:'aftoform22'},
   ]},
   { area:'Documentation', ko:'정비문서화', color:'#4a9eff', docs:[
     {c:'TO 00-20-1', n:'정비 점검·문서화·정책·절차', s:'active'},
@@ -549,7 +549,7 @@ const CORE8 = [
     more:[{label:'DAFPD 21-1',id:'dafpd'},{label:'TO 33K-1-100-2',id:null},{label:'MIL-HDBK-1839',id:null},{label:'DI-QCIC-80278C (CMRS)',id:'cmrs'},{label:'DI-SESS-81758A',id:null},{label:'ISO 10012',id:'iso10012'},{label:'ISO 10012:2003',id:'iso10012'},{label:'ISO 10012-1:1992',id:null},{label:'ISO 10012-2:1997',id:null}] },
   { n:'⑧', t:'임무 보증', e:'Mission Assurance', d:'무기체계의 신뢰성·안전성 보장. 폐쇄 루프 피드백(TOIR·MDR·PIWG).', color:'#c9a227',
     docs:[{label:'DAFI 21-101',id:'dafi21101'}],
-    more:[{label:'DAFI 63-101/20-101',id:'dafi20101'},{label:'AFSCMAN 21-102',id:null},{label:'TO 00-5-1',id:null},{label:'TO 00-5-3',id:null},{label:'TO 00-5-15',id:null},{label:'TO 00-5-16',id:null},{label:'TO 00-5-18',id:null},{label:'AFMCMAN 21-1',id:null},{label:'AFTO Form 22',id:null},{label:'AFTO Form 43',id:null},{label:'AFTO Form 57',id:null},{label:'AFTO Form 186',id:null},{label:'AFTO Form 252',id:null}] },
+    more:[{label:'DAFI 63-101/20-101',id:'dafi20101'},{label:'AFSCMAN 21-102',id:null},{label:'TO 00-5-1',id:null},{label:'TO 00-5-3',id:null},{label:'TO 00-5-15',id:null},{label:'TO 00-5-16',id:null},{label:'TO 00-5-18',id:null},{label:'AFMCMAN 21-1',id:null},{label:'AFTO Form 22',id:null},{label:'AFTO Form 43',id:null},{label:'AFTO Form 57',id:'aftoform22'},{label:'AFTO Form 186',id:'aftoform22'},{label:'AFTO Form 252',id:'aftoform22'}] },
 ];
 
 // (표준 현황 매트릭스는 '문서 계층'에 상태 필터 + 개정/발행일로 흡수됨)
@@ -1358,6 +1358,104 @@ const DOCS = {
           "자격기록은 E-6·O-4 이하 전원 + 정비 수행자 전원(계급 무관) 유지 (§3.3)",
           "<b>1-skill level(미숙련)은 단독작업·서명 금지</b>, 항상 자격 트레이너 동반, 가동 엔진·실탄 작업 불가 (§10.7.2)",
           "원리: <b>자격이 곧 권한</b> — 몇 급이냐가 무엇을 책임질 수 있느냐를 결정 (cfetp의 '등급=권한'과 짝)"
+        ]}
+      ]
+    }
+  },
+  afscman21102: {
+    code:"AFSCMAN 21-102", ename:"Depot Maintenance Management (창정비 관리) · 미 공군군수사(AFSC) · 보유본은 OO-ALC(오그던 군수단) 보충판 2023.7.26 · 134쪽",
+    oneliner:"창정비(depot, 가장 깊은 정비 계층)의 관리 표준. <b>우리가 가진 건 한 기지(Hill AFB)의 현장 운영 보충판</b> — 작업지시서(WCD)·도장·공구·FOD 같은 지엽 절차가 대부분이지만, 그 안에 <b>교정장비 구매 시 AFMETCAL·PMEL 의무 개입</b>과 <b>부적합(OOT) 리콜 프로세스</b>가 묻혀 있다.",
+    lineage:"정비 3계층(부대→중간→창)의 <b>맨 깊은 '창(depot)' 단계</b> 관리 표준. <b>dafpd</b>가 선언한 3계층의 최하층. 단 <b>정책·거버넌스는 모문서(AFSCMAN 21-102 본판·AFMCI 21-100)에 있고, 보유한 OO-ALC 보충판엔 없다</b> — 보충판은 한 기지 현장 실무만 다룸. 그래도 ⚙️장비일생의 '수리·복구'와 ⑧임무보증(부적합 리콜)에 닿는 알맹이가 있어 정리해 둠.",
+    analogy:"본사 규정(모문서)이 아니라 <b>'한 공장의 작업 현장 세부 매뉴얼'</b>. \"이 도장은 이렇게 찍고, 공구는 이렇게 세고, 부적합 나면 이렇게 리콜한다\"는 현장 디테일. 큰 정책은 본사 규정에, 현장 손놀림은 이 보충판에.",
+    flow:[
+      "성격: AFSCMAN 21-102(창정비 관리)의 <b>OO-ALC 기지 보충판</b> — 모문서를 그 기지에 맞게 보충",
+      "현장 절차 (대부분): 작업지시서(WCD) 작성·도장(K/M/P/Q) 관리·공구 관리·FOD/ESD 예방·재고 전산코드(D035K·G402A 등)",
+      "★ 교정 연결 (§4.1.6.5.4): 교정 필요 장비 구매 시 <b>교정절차·기술자료 동시 구매 의무</b> + AFMETCAL·PMEL 개입",
+      "★ 부적합 리콜 (§13.11): TMDE가 OOT(허용차 이탈) 나면 OO-ALC Form 209 리스크평가 → 생산품 리콜",
+      "전산: PMEL은 <b>PAMS</b>로 교정·수리 작업 관리, <b>K-stamp</b>로 인증"
+    ],
+    table:[
+      ["문서 범위","모문서=창정비 정책","보유본=한 기지 현장 보충판"],
+      ["정책 근거","모문서·AFMCI 21-100에","이 보충판엔 거의 없음"],
+      ["교정 연결","-","장비 구매 시 AFMETCAL·PMEL 의무(§4.1.6.5.4)"],
+      ["우리 사업","-","위탁운영·부적합 리콜 모델의 군 실무 사례"]
+    ],
+    strange:[
+      "<b>★ 교정장비는 절차·자료까지 같이 사라 (§4.1.6.5.4)</b> — \"못 사면 AFMETCAL 참여·승인 하에 민관협력(Public Private Partnership) 추진\". K-METCAL 위탁운영 모델의 군 표준 선례",
+      "<b>★ TMDE 부적합(OOT) = 리콜 트리거 (§13.11)</b> — 교정장비가 허용차 벗어나면 그걸로 검사한 생산품을 리스크평가(Form 209) 후 리콜. milhdbk1839의 'false accept' 위험이 실무 프로세스로 구현됨",
+      "<b>PAMS·K-stamp (§7.4.2.1)</b> — PMEL이 PAMS로 교정·수리 작업관리, K-stamp로 인증. K-stamp는 정비도장과 별개로 취급",
+      "<b>보유본이 정책 문서가 아님</b> — 134쪽 중 90% 이상이 한 기지(Hill AFB) 작업 현장 절차. KAI 사업 정신을 보려면 모문서·AFMCI 21-100이 필요"
+    ],
+    biz:"우리 사업과 직결되는 알맹이는 <b>두 가지</b>: ① <b>교정장비 구매 시 절차·기술자료까지 묶어 사고, 못 사면 AFMETCAL 참여 민관협력</b>(§4.1.6.5.4) — KAI가 K-AFMETCAL Center를 위탁운영하는 사업 모델의 군 표준 선례. ② <b>부적합(OOT) 교정장비 리콜 프로세스</b>(§13.11) — CaliBoard 부적합·소급 추적이 군 실무에서 어떻게 도는지의 실물.",
+    detail:{
+      src:"AFSCMAN21-102_OO-ALCSUP (2023.7.26, 134쪽) 원문 정독. OPR: OO-ALC/QA. ★보유본은 모문서가 아니라 오그던 군수단(OO-ALC) 보충판 — 한 기지 현장 절차 위주. 정책 본문은 AFSCMAN 21-102 본판·AFMCI 21-100 참조 필요.",
+      groups:[
+        {h:"이 문서가 무엇인가 (중요)", items:[
+          "<b>창정비(depot)</b> = 정비 3계층(부대→중간→창) 중 가장 깊은 정비. 분해·재제작·오버홀 수준",
+          "<b>★ 우리가 가진 건 모문서가 아니라 'OO-ALC(오그던 군수단) 보충판'</b> — 한 기지(Hill AFB)의 현장 실무 절차만 담음",
+          "쉽게: <b>창정비 정책이 아니라 '한 공장 작업 현장 세부 매뉴얼'</b>. 도장·공구·FOD·전산코드가 134쪽 대부분"
+        ]},
+        {h:"★ 교정과 직결되는 조항 (§4.1.6.5.4)", items:[
+          "교정이 필요한 특수장비는 <b>교정절차·기술자료를 장비 구매 시 함께 사야 함</b>",
+          "<b>AFMETCAL과 PMEL/MCF가 이 구매 과정에 반드시 참여</b>해 정비가능성(maintainability) 보장",
+          "절차·자료·지식재산을 못 사면 → <b>AFMETCAL 참여·승인 하에 민관협력(Public Private Partnership)</b> 추진 → KAI 위탁운영 모델의 군 선례"
+        ]},
+        {h:"★ 부적합(OOT) 리콜 프로세스 (§13.11)", items:[
+          "교정장비(TMDE)가 <b>OOT(Out of Tolerance, 허용차 이탈)</b> 판정 나면 PMEL/MCF가 통보",
+          "엔지니어가 <b>OO-ALC Form 209</b>로 리스크 평가(7일 내) → 그 장비로 검사한 생산품에 영향 있으면 <b>리콜</b>",
+          "milhdbk1839의 \"false accept(불량을 합격)\" 위험이 실무 리콜 절차로 구현된 모습 — CaliBoard 부적합·소급 추적과 같은 사고"
+        ]},
+        {h:"PMEL 현장 운영 (소급성 야전 끝단)", items:[
+          "PMEL/MCF는 <b>K-stamp</b>로 TMDE를 교정·인증, <b>PAMS</b>(PMEL Automated Management System)로 작업 관리(§7.4.2.1)",
+          "그 인증된 TMDE로 무기체계를 정비 — 🔗소급성 사슬 'PMEL→TMDE→무기체계'의 실물 끝단",
+          "나머지 방대한 절차(WCD·공구·FOD·재고)는 한 기지 현장 디테일이라 정신 이해엔 비핵심"
+        ]}
+      ]
+    }
+  },
+  aftoform22: {
+    code:"AFTO Form 22", ename:"AFTO Form 22/57/186/252 — 기술교범(TO/TM) 피드백 양식군 · 미 공군 · Form 22는 2024.4.24판 정독",
+    oneliner:"현장 정비사가 \"<b>이 기술교범이 틀렸다/개선하라</b>\"를 제기하는 <b>피드백 양식</b>들. 대표가 <b>AFTO Form 22</b>(교범 변경 권고·회신). 현장에서 발견한 오류·개선이 다단계 결재를 거쳐 교범에 반영된다 — ⑧임무보증 <b>폐쇄루프</b>의 실물 도구.",
+    lineage:"8 Core ⑧임무보증의 <b>'현장→문서' 환류 고리</b>. 위의 모든 문서(절차서·교범)가 만들어진 뒤, 야전에서 \"틀렸다\"가 발견되면 이 양식으로 되먹임돼 교범이 갱신된다. <b>to33k</b>·기술출판물(TO/TM) 체계를 살아있게 유지하는 장치. 운영 근거는 TO 00-5-1(기술교범 체계), 제출은 ETIMS.",
+    analogy:"제품 매뉴얼에 붙은 <b>'오타·오류 신고 카드'</b>. 현장 작업자가 \"이 페이지 그림이 틀렸다\"고 적어 올리면, 검토·승인을 거쳐 다음 판에 반영되는 격. 군에선 이게 안전과 직결돼 양식·결재가 엄격.",
+    flow:[
+      "발의 (Initiator): 정비사가 교범 결함을 Form 22에 기재 — 정정(Correction)인지 개선(Improvement)인지",
+      "우선순위 (§6): <b>Emergency / Urgent / Routine</b> 3단계 — Emergency는 48시간 내 처분",
+      "다단계 결재: 발의자→감독자→PIM→MAJCOM/Lead Command→TO관리기관→평가자→평가감독자",
+      "절감 기록 (§21·22): 연간 절감액(달러)·절감 맨아워 칸 — 현장 개선이 비용절감으로 이어짐",
+      "처분 (§25): 승인/보류/중복/불승인 등. 검증 필요 시 실연(performance) 또는 데스크탑 분석"
+    ],
+    table:[
+      ["무엇","-","기술교범(TO/TM) 오류·개선 피드백 양식"],
+      ["대표","-","AFTO Form 22 (변경 권고·회신)"],
+      ["폐쇄루프","-","현장→문서 환류로 교범을 살아있게 유지"],
+      ["사업 역할","-","⑧임무보증 환류 — 성적서 오류 피드백에도 대응"]
+    ],
+    strange:[
+      "<b>현장 정비사가 교범을 고치는 권한</b> — 위에서 내려온 교범이라도 야전에서 틀리면 되먹임. 정정/개선 2종으로 구분",
+      "<b>Emergency는 48시간 처분 (§완성지침)</b> — 안전·임무 직결이라 긴급 변경은 초고속. 우선순위 3단계가 명문",
+      "<b>절감액을 양식에 적는다 (§21·22)</b> — 현장 개선의 가치를 달러·맨아워로 정량화. 양방향 정직(개선=비용절감)의 군 버전",
+      "<b>Form 57/252는 동적 XFA 양식이라 본문 추출 불가</b> — 명칭만 확인(57=PMEL TO 정보, 252=TO 발행 변경요청). 셋 다 같은 '교범 피드백 양식군'"
+    ],
+    biz:"⑧임무보증의 <b>폐쇄루프 피드백</b> 실물. 측정체계도 결국 \"성적서·절차서가 틀렸다\"는 현장 피드백을 받아 갱신돼야 하는데, 군은 이를 Form 22 같은 양식+다단계 결재로 제도화함. CaliBoard가 성적서·교정이력의 오류를 환류·정정하는 기능을 설계할 때 이 폐쇄루프 사상이 참고가 됨. 절감액 정량화는 \"개선=비용절감\"의 양방향 정직(발표 교훈)과 일치.",
+    detail:{
+      src:"AFTO Form 22(2024.4.24, 3쪽) 원문 정독 — 완성지침 포함. Form 57(PMEL TO 정보)·Form 252(TO 발행 변경요청)는 동적 XFA 양식이라 텍스트 추출 불가, 명칭만 확인. 운영 근거: TO 00-5-1.",
+      groups:[
+        {h:"이 양식군이 무엇인가", items:[
+          "현장에서 <b>기술교범(TO=Technical Order, TM=Technical Manual)의 오류·개선</b>을 제기하는 피드백 양식들",
+          "대표는 <b>AFTO Form 22</b> — \"교범 변경 권고와 회신(TM Change Recommendation and Reply)\"",
+          "쉽게: <b>매뉴얼에 붙은 '오류 신고·개선 제안 카드'</b>의 군 버전 (안전 직결이라 엄격한 결재)"
+        ]},
+        {h:"AFTO Form 22 작동 흐름 (원문 확인)", items:[
+          "<b>발의</b>: 정비사가 결함을 기재 + 정정(Correction)/개선(Improvement) 구분(§7)",
+          "<b>우선순위 3단계 (§6)</b>: Emergency(긴급, 48시간 내 처분) / Urgent / Routine",
+          "<b>다단계 결재</b>: 발의자(8)→감독자(9)→PIM(1)→MAJCOM·Lead Command(2·3)→TO관리기관(4)→평가자(23)→평가감독자(24)",
+          "<b>처분 (§25)</b>: 승인/보류/중복/불승인. 검증은 실연(performance) 또는 데스크탑 분석. 제출은 ETIMS"
+        ]},
+        {h:"우리 사업과의 연결", items:[
+          "<b>⑧임무보증 폐쇄루프</b>: 현장→문서 환류로 교범을 살아있게 유지 — 측정체계의 성적서·절차서 오류 정정에도 같은 사상",
+          "<b>절감액 정량화 (§21·22)</b>: 현장 개선을 달러·맨아워로 기록 → \"개선=비용절감\"의 양방향 정직(발표 교훈)과 일치",
+          "<b>Form 57·252</b>: 명칭만 — 57=PMEL TO 정보, 252=TO 발행 변경요청. 같은 교범 피드백 양식군이라 묶어 이해"
         ]}
       ]
     }
