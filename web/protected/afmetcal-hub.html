@@ -311,7 +311,7 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════════
-// 문서 계층 — KAI 담당자 장표(workflow diagram) 11개 영역 전수
+// 문서 계층 — KAI 워크플로우 다이어그램 11개 영역 전수
 // 각 문서: {c:코드, n:이름, s:상태, id:DOCS연결(있으면 클릭→상세)}
 // 상태 s: active / pending(개정대기) / canceled / withdrawn / superseded
 //   ※ 상태는 확정분만 표시, 미상은 active. 원문 탐독 시 정정.
@@ -447,7 +447,7 @@ const DOCTREE = [
 // ── 전체 흐름 관점 ─────────────────────────────────────────────────
 // 같은 사업을 여러 각도에서. 각 관점은 가로 흐름의 step 배열.
 // step.docs는 {label, id} — id가 DOCS에 있으면 클릭 시 문서 상세로 이동.
-// 근거: 모두 KAI 담당자 자료. 소급성=Multilayer 4p, 일생=8p Equipment Flow, 사업=기획서 R9.
+// 출처: 측정체계 자료. 소급성=Multilayer 4p, 일생=8p Equipment Flow, 사업=기획서 R9.
 const LENSES = {
   traceability: {
     title: '🔗 소급성 — 정확함은 어디서 오는가',
@@ -512,7 +512,7 @@ const LENSES = {
         more:[{label:'MIL-STD-1839D',id:'milstd1839'}] },
       { k:'공군 본부', v:'SAF · AF/A4 · AFLCMC', d:'공군 정책 결정과 자원 배분.', docs:[{label:'DAFPD 21-1',id:'dafpd'}],
         more:[{label:'DAFI 63-101/20-101',id:'dafi20101'}] },
-      { k:'단일 권한', v:'AFMETCAL (Det 1, Heath OH)', d:'측정·교정의 기술 권한이 모이는 단일 POC. <b>8대 직능</b>: 교정책임 결정 · 절차 작성·배포 · 표준 획득·배분 · 주기 설정·조정 · PMEL 평가·인증 · 측정능력 향상 · 외부교정 승인 · JTCG-CMT 대표.', docs:[{label:'DAFMAN 21-113',id:'dafman'}],
+      { k:'단일 권한', v:'AFMETCAL (Det 1, Heath OH)', d:'측정·교정의 기술 권한이 모이는 단일 POC.<br><b>8대 직능</b> — ① 교정책임 결정 ② 절차 작성·배포 ③ 표준 획득·배분 ④ 주기 설정·조정 ⑤ PMEL 평가·인증 ⑥ 측정능력 향상 ⑦ 외부교정 승인 ⑧ JTCG-CMT 대표.', docs:[{label:'DAFMAN 21-113',id:'dafman'}],
         more:[{label:'TO 00-20-14',id:'to'},{label:'TO 33K-1-100-1',id:'to33k'},{label:'CFETP 2P0X1',id:'cfetp'}] },
       { k:'주요사령부', v:'MAJCOM', d:'PMEL 소유·운영 (MFM).', docs:[],
         more:[{label:'AFSCMAN 21-102',id:null}] },
@@ -523,7 +523,7 @@ const LENSES = {
   },
 };
 
-// ── 8 Core Components (구성 — 그리드, 그의 9p PDF 5p 근거) ──────────
+// ── 8 Core Components (구성 — 그리드, 9p 다이어그램 5p 근거) ──────────
 // 8 Core "전체" 모드 = 문서계층 94개를 8개 기능요소에 빠짐없이 분배 (누락 0).
 const CORE8 = [
   { n:'①', t:'문서화', e:'Documentation', d:'교정 절차서·운용정비 지침·기술교범의 작성과 형식 표준.', color:'var(--accent2)',
@@ -602,7 +602,7 @@ const DOCS = {
     }
   },
   dafman: {
-    code:"DAFMAN 21-113", ename:"Department of the Air Force Manual 21-113 — AF Metrology and Calibration Program Management (29쪽) · 담당자가 '정신'이라 지목",
+    code:"DAFMAN 21-113", ename:"Department of the Air Force Manual 21-113 — AF Metrology and Calibration Program Management (29쪽)",
     oneliner:"\"교정은 <b>PMEL</b>(기지 교정실)이 하고, <b>AFMETCAL</b>(공군 교정 총괄조직)이 총괄하며, <b>NIST</b>(미 국가표준)까지 <b>소급·신뢰성 85%</b>를 보장하라. 누가 무엇을 책임지는지 규정\"하는 교정의 <b>헌법</b>.",
     lineage:"위로는 <b>DAFPD 21-1</b>(정책 선언)이 '교정을 관리하라'고 지시한 것을 받아, 이 문서가 <b>'누가·어떻게'를 규정</b>. 아래로는 <b>TO 00-20-14</b>(실무 절차서)가 이걸 현장 손발로 옮김. 즉 정책과 실무 사이의 <b>설계도</b>.",
     analogy:"회사로 치면 <b>'조직 규정 + 직무 분장표'</b>. '품질을 챙겨라'(정책)와 '이 버튼을 눌러라'(매뉴얼) 사이에서, <b>부서·직책·책임 한계</b>를 정하는 문서.",
@@ -1175,7 +1175,7 @@ const DOCS = {
       "<b>본문이 2쪽뿐</b> — 항목 14개 나열이 전부. 짧은 이유는 \"실질 내용은 ISO 17025를 따르라\"고 위임했기 때문",
       "<b>m·n이 무게중심</b> — m(측정불확도 또는 적합성 진술)·n(소급성 증거)이 \"믿을 수 있는 측정\"임을 떠받치는 두 기둥. 나머지는 식별·이력 정보"
     ],
-    biz:"<b>CaliBoard cert 도메인이 만들어내는 결과물(성적서) 그 자체의 군 규격.</b> 14개 항목을 충족하는 성적서를 자동 생성·검증하면 \"군 규격(DI-QCIC-80798C) 호환\"을 그대로 주장 가능. 양식 자유 조항 덕에 우리 레이아웃을 그대로 쓰면서 규격을 만족시킬 수 있음 — 영업·발표에서 가장 자주 꺼낼 한 장.",
+    biz:"<b>교정성적서 그 자체의 군 규격.</b> 14개 항목을 충족하는 성적서를 자동 생성·검증하면 \"군 규격(DI-QCIC-80798C) 호환\"을 주장할 수 있음. 양식 자유 조항 덕에 자체 레이아웃을 유지하면서도 규격을 만족시킬 수 있다는 점이 핵심.",
     detail:{
       src:"DI-QCIC-80798C (2017.1.23 승인, 본문 2쪽) 원문 정독. Preparing Activity 36, supersedes 80798B. 괄호 안 영어는 원문 용어.",
       groups:[
@@ -1221,7 +1221,7 @@ const DOCS = {
     ],
     strange:[
       "<b>★ Category I/II/III 3단 계층</b> — 이 문서의 심장. 🔗소급성 사슬(NIST→…→무기체계)이 \"실제 데이터로 어떻게 기록되는가\"의 실물. 한 줄에 측정요구·장비·표준기가 나란히",
-      "<b>토크렌치 TUR이 명문 (§3.6c)</b> — \"Cat III 토크 교정표준은 TUR 4:1 이상\". 임채욱 선임의 ICMPM 토크렌치 키노트가 이 조항에 직접 근거",
+      "<b>토크렌치 TUR이 명문 (§3.6c)</b> — \"Cat III 토크 교정표준은 TUR 4:1 이상\". 토크렌치 소급성의 핵심 군 규격 근거",
       "<b>Summary Data Table은 Access/Excel 필수</b> — 군 문서인데 데이터부는 전자표 의무. 우리 CaliBoard가 다루는 바로 그 형태",
       "<b>살아있는 문서</b> — 설계·엔지니어링 변경(ECP)마다 갱신 의무. 한 번 만들고 끝이 아니라 계속 관리"
     ],
@@ -1241,7 +1241,7 @@ const DOCS = {
           "Cat IV(선택): 시험소 내 전송표준. <b>한 줄에 I→II→III를 나란히</b> = 소급성 사슬을 데이터로 시각화한 것"
         ]},
         {h:"★ TUR(시험불확도비) 규칙 — 우리 발표 근거 (§3.6)", items:[
-          "<b>§3.6c (토크)</b>: Cat I 토크 교정 시 — Cat II 토크공구 TUR은 <b>1:1 이상</b>이면 되고, <b>Cat III 토크 교정표준은 4:1 이상</b>이어야 함 → 임채욱 선임 토크렌치 키노트의 직접 근거",
+          "<b>§3.6c (토크)</b>: Cat I 토크 교정 시 — Cat II 토크공구 TUR은 <b>1:1 이상</b>이면 되고, <b>Cat III 토크 교정표준은 4:1 이상</b>이어야 함",
           "<b>§3.6d (일반 자극)</b>: Cat II가 자극을 공급할 때 TUR 1:1 이상이면 됨 — 단 pass/fail·결함허용 시험은 예외(더 높여야)",
           "<b>p16 실제 표</b>: Category III에 <b>TUR=4</b>가 열로 박혀 있음 (Fluke 5700A 기준). to(TO 00-20-14)·milstd1839의 'TUR 4:1 원칙'이 여기서 데이터로 실현됨"
         ]},
@@ -1298,7 +1298,7 @@ const DOCS = {
           "<b>원문</b>: TMDE가 \"성능을 특성화하지 않는 입력 자극만 공급\"하면 <b>TUR 1:1 허용</b>",
           "<b>명시된 예시</b>: \"input/supplied <b>torque</b> applications, electrical stimuli, pressure inputs\" — 토크가 직접 거론됨",
           "<b>단, 1:1은 시스템↔SE 사이에만</b> — SE↔교정장비 사이엔 적용 안 됨. pass/fail 판정·성능 특성화 땐 4:1 필요",
-          "CMRS(DI-QCIC-80278C §3.6c)의 \"Cat II 토크 1:1, Cat III 4:1\"과 <b>완전 일치</b> — 임채욱 선임 토크렌치 키노트 근거가 두 문서에서 확인됨"
+          "CMRS(DI-QCIC-80278C §3.6c)의 \"Cat II 토크 1:1, Cat III 4:1\"과 <b>완전 일치</b> — 두 문서가 동일한 TUR 규칙을 규정"
         ]},
         {h:"★ 우리 사업과 직결되는 정의·금지", items:[
           "<b>교정주기 (§3.12)</b>: \"주기 = 목표 측정신뢰성을 유지하며 교정 사이 갈 수 있는 최대 시간. 측정신뢰성 = 주기 내내 허용공차에 머물 확률\" — RP-1 신뢰성 탭(주기말 85%)의 정의 그 자체",
@@ -1334,7 +1334,7 @@ const DOCS = {
       "<b>핵심과업(core task)=CFETP에서 끌어옴 (§3.4)</b> — 등급 상승의 최소 OJT 요구. 자격=권한, 미자격자(1-skill) 단독작업·서명 금지(§10.7)",
       "<b>강제력 등급(Tier T-0~T-3)</b> — 각 요구마다 면제 권한 계층을 숫자로 표시. DAFMAN 21-113의 T-0/T-1 체계와 같은 군 표준 규약"
     ],
-    biz:"사업 <b>④훈련(Training)의 운영 틀</b> — cfetp(교정 인력 커리큘럼) 위에서 \"정비 인력 전체 훈련을 어떻게 굴리나\"의 군 표준. K-METCAL 수출 시 인력 양성을 <b>전산 훈련관리(MIS)+정량 지표(KPI)</b>로 운영하는 설계도가 됨. 특히 훈련의 MIS·overdue·KPI 관리가 CaliBoard의 장비 데이터 관리와 같은 사고라, \"우리는 교정도 훈련도 같은 데이터 철학으로 운영한다\"는 통합 서사를 줌.",
+    biz:"사업 <b>④훈련(Training)의 운영 틀</b> — cfetp(교정 인력 커리큘럼) 위에서 \"정비 인력 전체 훈련을 어떻게 굴리나\"의 군 표준. K-METCAL 수출 시 인력 양성을 <b>전산 훈련관리(MIS)+정량 지표(KPI)</b>로 운영하는 설계도가 됨. 교정 데이터 관리와 훈련 자격 관리가 같은 데이터 철학(전산화·미처리 추적·정량 지표)으로 묶인다는 점이 핵심.",
     detail:{
       src:"AFI 36-2650 (2026.1.21, 59쪽) 원문 정독. OPR: AF/A4LM. AFI 36-2650(2022) 대체. DAFPD 36-26 이행, DAFMAN 36-2689와 병용. 우주군엔 미적용.",
       groups:[
@@ -1386,7 +1386,7 @@ const DOCS = {
       "<b>PAMS·K-stamp (§7.4.2.1)</b> — PMEL이 PAMS로 교정·수리 작업관리, K-stamp로 인증. K-stamp는 정비도장과 별개로 취급",
       "<b>보유본이 정책 문서가 아님</b> — 134쪽 중 90% 이상이 한 기지(Hill AFB) 작업 현장 절차. KAI 사업 정신을 보려면 모문서·AFMCI 21-100이 필요"
     ],
-    biz:"우리 사업과 직결되는 알맹이는 <b>두 가지</b>: ① <b>교정장비 구매 시 절차·기술자료까지 묶어 사고, 못 사면 AFMETCAL 참여 민관협력</b>(§4.1.6.5.4) — KAI가 K-AFMETCAL Center를 위탁운영하는 사업 모델의 군 표준 선례. ② <b>부적합(OOT) 교정장비 리콜 프로세스</b>(§13.11) — CaliBoard 부적합·소급 추적이 군 실무에서 어떻게 도는지의 실물.",
+    biz:"K-METCAL 사업과 직결되는 핵심은 <b>두 가지</b>: ① <b>교정장비 구매 시 절차·기술자료까지 묶어 사고, 못 사면 AFMETCAL 참여 민관협력</b>(§4.1.6.5.4) — K-AFMETCAL Center 위탁운영 모델의 군 표준 선례. ② <b>부적합(OOT) 교정장비 리콜 프로세스</b>(§13.11) — 부적합·소급 추적이 군 실무에서 어떻게 도는지의 실물.",
     detail:{
       src:"AFSCMAN21-102_OO-ALCSUP (2023.7.26, 134쪽) 원문 정독. OPR: OO-ALC/QA. ★보유본은 모문서가 아니라 오그던 군수단(OO-ALC) 보충판 — 한 기지 현장 절차 위주. 정책 본문은 AFSCMAN 21-102 본판·AFMCI 21-100 참조 필요.",
       groups:[
@@ -1437,7 +1437,7 @@ const DOCS = {
       "<b>절감액을 양식에 적는다 (§21·22)</b> — 현장 개선의 가치를 달러·맨아워로 정량화. 양방향 정직(개선=비용절감)의 군 버전",
       "<b>Form 57/252는 동적 XFA 양식이라 본문 추출 불가</b> — 명칭만 확인(57=PMEL TO 정보, 252=TO 발행 변경요청). 셋 다 같은 '교범 피드백 양식군'"
     ],
-    biz:"⑧임무보증의 <b>폐쇄루프 피드백</b> 실물. 측정체계도 결국 \"성적서·절차서가 틀렸다\"는 현장 피드백을 받아 갱신돼야 하는데, 군은 이를 Form 22 같은 양식+다단계 결재로 제도화함. CaliBoard가 성적서·교정이력의 오류를 환류·정정하는 기능을 설계할 때 이 폐쇄루프 사상이 참고가 됨. 절감액 정량화는 \"개선=비용절감\"의 양방향 정직(발표 교훈)과 일치.",
+    biz:"⑧임무보증의 <b>폐쇄루프 피드백</b> 실물. 측정체계도 결국 \"성적서·절차서가 틀렸다\"는 현장 피드백을 받아 갱신돼야 하는데, 군은 이를 Form 22 같은 양식+다단계 결재로 제도화함. 성적서·교정이력의 오류를 환류·정정하는 체계를 설계할 때 이 폐쇄루프 사상이 참고가 됨. 절감액 정량화 항목은 \"개선 효과를 비용으로 환산해 증빙한다\"는 군 실무의 정직한 기록 방식을 보여줌.",
     detail:{
       src:"AFTO Form 22(2024.4.24, 3쪽) 원문 정독 — 완성지침 포함. Form 57(PMEL TO 정보)·Form 252(TO 발행 변경요청)는 동적 XFA 양식이라 텍스트 추출 불가, 명칭만 확인. 운영 근거: TO 00-5-1.",
       groups:[
@@ -1629,6 +1629,18 @@ const TERMS = [
   {a:"Heath, Ohio", f:"미국 오하이오주 Heath시 (지명)", c:"us", d:"<b>미 공군 교정의 본부 도시</b>. AFPSL + AFMETCAL 본부(AFLCMC/WNM)가 여기 집중. 한국의 '대전 KRISS' 같은 상징 지명. 사업 'K-AFMETCAL Center=Heath 한국판'."},
   {a:"BIPM", f:"Bureau International des Poids et Mesures", c:"us", d:"<b>국제도량형국</b> (프랑스 Sèvres). SI 단위 최정점. 모든 국가표준이 여기로 수렴."},
   {a:"ILAC", f:"International Laboratory Accreditation Cooperation", c:"us", d:"<b>국제시험소인정협력체</b>. MRA(상호인정)로 KOLAS·CNAS 등이 서로 인정. 수출 핵심."},
+  {a:"USNO", f:"US Naval Observatory", c:"us", d:"<b>미 해군관측소</b>. NIST와 함께 미국 <b>시간·주파수 1차 표준</b>을 실현하는 국가표준 보유 기관. 거버넌스 체계 최상단(국가)에서 NIST와 병기됨."},
+  {a:"OUSD(R&E)", f:"Office of the Under Secretary of Defense for Research and Engineering", c:"us", d:"<b>국방부 연구공학차관실</b>. 전군 측정정책 수립·표준 통일의 국방부(DoD) 레벨 주체. AFMETCAL 위에 있는 합동 정책 층."},
+  {a:"JTCG-CMT", f:"Joint Technical Coordinating Group for Calibration and Measurement Technology", c:"us", d:"<b>합동 교정·측정기술 조정그룹</b>. 육·해·공이 측정표준을 합동 조율. AFMETCAL 8대 직능 중 하나가 'JTCG-CMT 대표'."},
+  {a:"SAF", f:"Secretary of the Air Force", c:"us", d:"<b>공군부 장관실</b>. 공군 최상위 문민 지휘부. 산하에 획득차관(SAF/AQ) 등. 거버넌스 '공군 본부' 층의 정점."},
+  {a:"SAF/AQ", f:"Assistant Secretary of the Air Force for Acquisition", c:"us", d:"<b>공군 획득차관</b>. ILCM(통합수명주기관리) 정책 발급 주체(DAFI 20-101/63-101). 우주군판은 SAF/SQ."},
+  {a:"AF/A4", f:"Air Force Deputy Chief of Staff for Logistics", c:"us", d:"<b>공군 군수참모부장</b>. 정비·교정 정책의 공군 본부 책임선 최상위. 역할 사슬: AF/A4 → AFMC → AFMETCAL → MAJCOM → PMEL."},
+  {a:"AFLCMC", f:"Air Force Life Cycle Management Center", c:"us", d:"<b>공군 수명주기관리센터</b>. AFMETCAL 본부(AFLCMC/WNM)가 소속된 상위 조직. CFETP 발급은 AFLCMC/ROM."},
+  {a:"AFMC", f:"Air Force Materiel Command", c:"us", d:"<b>공군 군수사령부</b>. AFMETCAL Director가 속한 MAJCOM급 상위 조직. 역할 사슬에서 AF/A4 바로 아래."},
+  {a:"ALC", f:"Air Logistics Complex (OO-ALC · WR-ALC 등)", c:"us", d:"<b>공군 창정비단지</b>. OO-ALC(유타)·WR-ALC(조지아) 등. MCF(창급 교정대)가 소속되는 Depot 레벨."},
+  {a:"AETC", f:"Air Education and Training Command", c:"us", d:"<b>공군 교육사령부</b>. PMEL 기술자(특기 2P0X1) 초기기술훈련을 담당. CFETP 양성 흐름의 시작점."},
+  {a:"OIML", f:"International Organization of Legal Metrology", c:"us", d:"<b>국제법정계량기구</b>. 법정계량 국제기구. <b>OIML D10</b>(교정주기 결정 지침)을 발급 — RP-1과 같은 역할을 더 단순하게 함."},
+  {a:"SAE", f:"SAE International (옛 Society of Automotive Engineers)", c:"us", d:"<b>미국 표준화 단체</b>. GEIA-STD-0007(군수 제품데이터) 등 군이 인용하는 민간 표준 발급. NCSL과 유사한 민간 표준 출처."},
   // 군 개념 (mil)
   {a:"TMDE", f:"Test, Measurement, and Diagnostic Equipment", c:"mil", d:"<b>측정·시험·진단 장비</b> = 교정 대상 모든 계측기(토크렌치·압력계·멀티미터…). 교정의 '환자'."},
   {a:"PMEL", f:"Precision Measurement Equipment Laboratory", c:"mil", d:"<b>정밀측정장비 실험실</b>. 기지마다 있는 교정 실험실. 기지표준 소유권 보유. 교정의 '병원'. Type IIA~IV 등급."},
@@ -1645,6 +1657,17 @@ const TERMS = [
   {a:"CTK", f:"Consolidated Tool Kit", c:"mil", d:"<b>통합 공구키트</b>. PMEL이 수리하니 공구 사용→분실추적·재물조사 필수(DAFI 21-101). PMEL은 보통 비반출(non-dispatchable)."},
   {a:"MSEP", f:"Maintenance Standardization and Evaluation Program", c:"mil", d:"<b>정비 표준화·평가 프로그램</b>. PMEL이 정비기관으로서 정비 품질을 정기 평가받음(DAFI 21-101)."},
   {a:"ILCM", f:"Integrated Life Cycle Management", c:"mil", d:"<b>통합 수명주기 관리</b>(DAFI 20-101/63-101). 장비 개발→획득→운용→폐기 일생 관리. 교정과는 간접(획득 시 교정요구 반영)."},
+  {a:"SERD", f:"Support Equipment Recommendation Data", c:"mil", d:"<b>지원장비 권고 데이터</b>. 무기체계가 어떤 지원·측정장비를 요구하는지 명세. CMRS 컬럼의 하나이며 ktools_items와 거의 겹침."},
+  {a:"CAGE", f:"Commercial and Government Entity (code)", c:"mil", d:"<b>제조·공급자 식별코드</b>. 미 정부 조달에서 업체를 가리키는 표준 코드. CMRS·ktools_items 공통 컬럼."},
+  {a:"NSN", f:"National Stock Number", c:"mil", d:"<b>국가재고번호</b>. 군 보급품 13자리 고유번호. CMRS의 핵심 식별 컬럼이자 ktools_items와 일치."},
+  {a:"TCTO", f:"Time Compliance Technical Order", c:"mil", d:"<b>시한성 기술명령</b>. 정해진 기한 내 의무 수행하는 TO(TO 00-5-15). 안전·결함 시정용 긴급 개조 지시."},
+  {a:"OJT", f:"On-the-Job Training", c:"mil", d:"<b>현장직무훈련</b>. 입대 후 AETC 초기훈련에 이어 기지 PMEL에서 실무로 자격을 올리는 단계(CFETP)."},
+  {a:"NCOIC", f:"Non-Commissioned Officer In Charge", c:"mil", d:"<b>담당 부사관</b>. 군에선 직책이 계급으로 고정 — Flight Chief·Section Chief·NCOIC 등 직책이 곧 품질 책임."},
+  {a:"OPR", f:"Office of Primary Responsibility", c:"mil", d:"<b>주관 부서</b>. 각 규정 문서를 책임지고 관리·개정하는 조직(예: AFI 36-2650의 OPR은 AF/A4LM)."},
+  {a:"POC", f:"Point of Contact", c:"mil", d:"<b>단일 접촉창구</b>. AFMETCAL이 '측정·교정 기술 권한이 모이는 단일 POC'로 기능 — 권위 일원화의 핵심 표현."},
+  {a:"STINFO", f:"Scientific and Technical Information", c:"mil", d:"<b>과학기술정보</b> 관리(DAFI 61-104). 기술자료의 배포·보안 통제 규정. 군 문서 거버넌스의 일부."},
+  {a:"DCC", f:"Digital Calibration Certificate", c:"mil", d:"<b>디지털 교정성적서</b>. 기계판독 가능 전자 성적서. 산업현장 소급성 자동화의 핵심 축."},
+  {a:"AFSC", f:"Air Force Specialty Code", c:"mil", d:"<b>공군 특기코드</b>. 직무를 식별하는 코드. PMEL 기술자는 <b>2P0X1</b>. CFETP가 이 특기의 양성계획."},
   // 계측·통계 (metro)
   {a:"MLE", f:"Maximum Likelihood Estimation", c:"metro", d:"<b>최대우도추정</b>. 관측 데이터를 가장 잘 설명하는 신뢰성 곡선을 역추정. RP-1 최상위 교정주기 방법. <b>데이터 20~40건 필요 → 데이터 가진 자(KTL)만 가능</b>."},
   {a:"Measurement Reliability", f:"측정 신뢰성", c:"metro", d:"그 시점에 장비가 <b>규격 이내(in-tolerance)일 확률</b>. 시간↑→불확도성장→신뢰성↓. 85%선 닿는 시점=교정주기. (측정불확도와 다름!)"},
@@ -1792,9 +1815,16 @@ const TERMMAP = {};
 TERMS.forEach(t=>{ TERMMAP[t.a] = t; });
 // 긴 약어 우선 매칭 (예: 'ISO 10012'가 'ISO'보다 먼저)
 const TERMKEYS = Object.keys(TERMMAP)
-  .filter(k=>/^[A-Za-z0-9][A-Za-z0-9 .\/-]*$/.test(k))   // 영문/숫자 약어만 (한글·기호 제외)
+  .filter(k=>/^[A-Za-z0-9][A-Za-z0-9 .\/()&-]*$/.test(k))   // 영문/숫자 약어 (괄호·&·/ 허용, 한글 제외)
   .sort((a,b)=>b.length-a.length);
-const TERM_RE = new RegExp('\\b(' + TERMKEYS.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')\\b');
+// 각 키마다 끝 문자가 영숫자일 때만 단어경계(\b)를 붙임 — '(', ')', '/' 등으로 끝나는 약어도 매칭되도록
+const _esc = k => k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const _alt = TERMKEYS.map(k=>{
+  const pre  = /^[A-Za-z0-9]/.test(k) ? '\\b' : '';
+  const post = /[A-Za-z0-9]$/.test(k) ? '\\b' : '';
+  return pre + _esc(k) + post;
+}).join('|');
+const TERM_RE = new RegExp('(' + _alt + ')');
 
 function highlightTerms(root){
   if(!TERMKEYS.length) return;
