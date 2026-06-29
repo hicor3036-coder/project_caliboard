@@ -116,13 +116,39 @@
   .detail[open] summary::before{content:"▼ "}
   .detail summary:hover{background:var(--panel2)}
   .detail .body{padding:6px 16px 14px;font-size:13px;border-top:1px solid var(--line)}
-  .detail .grp{margin-top:12px}
-  .detail .grp:first-child{margin-top:6px}
-  .detail .grp .h{color:var(--accent2);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px}
-  .detail .grp ul{margin-left:18px}
-  .detail .grp li{margin:4px 0;line-height:1.55}
-  .detail .src{margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--dim)}
+  .grp{margin-top:12px;font-size:13px}
+  .grp:first-child{margin-top:6px}
+  .grp .h{color:var(--accent2);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px}
+  .grp ul{margin-left:18px}
+  .grp li{margin:4px 0;line-height:1.55}
+  .src{margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--dim)}
   .biz b{color:var(--kolas)}
+  /* 통번역 (원문↓번역 위아래 교차) */
+  .trans{margin-top:18px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .trans summary{cursor:pointer;padding:11px 14px;font-size:13px;font-weight:600;color:var(--accent2);background:var(--panel);list-style:none;user-select:none}
+  .trans summary::-webkit-details-marker{display:none}
+  .trans summary::before{content:"▶ ";font-size:10px;color:var(--dim)}
+  .trans[open] summary::before{content:"▼ "}
+  .trans summary:hover{background:var(--panel2)}
+  .trans .body{padding:8px 16px 16px;border-top:1px solid var(--line)}
+  .tr-h{color:var(--accent);font-weight:700;font-size:14px;margin:18px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+  .tr-h:first-child{margin-top:8px}
+  .tr-clause{margin:12px 0;padding-left:12px;border-left:2px solid var(--line)}
+  .tr-no{color:var(--accent2);font-weight:700;font-size:12px;font-family:"Consolas",monospace;margin-bottom:3px}
+  .tr-en{color:var(--dim);font-size:12px;line-height:1.55;font-style:italic;margin-bottom:5px}
+  .tr-kr{color:var(--txt);font-size:13.5px;line-height:1.7}
+  .tr-depth1{margin-left:0}
+  .tr-depth2{margin-left:18px}
+  .tr-depth3{margin-left:36px;border-left-color:var(--panel2)}
+  .tr-note{background:var(--panel);border-left:3px solid var(--accent);padding:7px 12px;border-radius:0 6px 6px 0;font-size:12px;color:var(--dim);margin:6px 0}
+  .tr-note b{color:var(--accent)}
+  .tr-meta{font-size:11px;color:var(--dim);background:var(--panel);padding:8px 12px;border-radius:6px;margin-bottom:6px;line-height:1.6}
+  .dtabs{display:flex;gap:4px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 8px;margin-top:4px;border-bottom:1px solid var(--line)}
+  .dtab{background:var(--panel);border:1px solid var(--line);color:var(--dim);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;white-space:nowrap}
+  .dtab:hover{background:var(--panel2);color:var(--txt)}
+  .dtab.active{background:var(--accent);border-color:var(--accent);color:#11161c}
+  .dtab-pane{display:none;padding-top:14px}
+  .dtab-pane.active{display:block}
   .todo-note{color:var(--dim);font-style:italic;margin-top:40px;text-align:center}
   /* 탭 */
   .tabs{display:flex;align-items:center;gap:6px;padding:10px 24px;background:var(--panel);border-bottom:1px solid var(--line)}
@@ -651,6 +677,32 @@ const DOCS = {
           "교정 기술병(특기번호 <b>2P0X1</b>)의 <b>공식 직책 이름을 통일</b> — 인력 양성 문서(CFETP)와 짝",
           "교정실도 '정비부대'라서, <b>공구 분실 방지·이물질 관리 같은 정비 현장 규칙(DAFI 21-101)도 같이 지켜야 함</b>"
         ]}
+      ]
+    },
+    translation:{
+      meta:"📌 <b>샘플 통번역</b> — 표지 + 제1장 §1.1~§1.2 (전반부). 원문 27 DEC 2023판(29쪽) 기준. 영문은 원문 직역, 한글은 자연스러운 의역. 군 약어는 원문 형태를 살려 용어집과 연결됨.",
+      items:[
+        {h:"표지 (발행 정보)"},
+        {no:"표제", en:"BY ORDER OF THE SECRETARY OF THE AIR FORCE — DEPARTMENT OF THE AIR FORCE MANUAL 21-113, 27 DECEMBER 2023, Maintenance — AIR FORCE METROLOGY AND CALIBRATION PROGRAM MANAGEMENT", kr:"공군부 장관 명령에 의거 — 공군부 매뉴얼(DAFMAN) 21-113, 2023년 12월 27일, 정비 분야 — <b>공군 측정·교정 프로그램 관리</b>"},
+        {no:"발행정보", en:"COMPLIANCE WITH THIS PUBLICATION IS MANDATORY. OPR: AF/A4LM. Certified by: SAF/AQD. Supersedes: AFMAN 21-113, 29 April 2020. Pages: 29.", kr:"이 간행물의 준수는 <b>의무</b>다. 주관부서(OPR): AF/A4LM. 인증: SAF/AQD. 대체 대상: AFMAN 21-113(2020.4.29). 분량: 29쪽."},
+        {note:"옛 이름 <b>AFMAN</b>(공군 매뉴얼)을 <b>DAFMAN</b>(공군부 매뉴얼)으로 개명 — 2019년 우주군(USSF) 창설로 '공군'이 '공군부(공군+우주군)'로 확장됐기 때문. 같은 문서의 새 판이다."},
+        {no:"적용범위", en:"This publication implements Air Force Policy Directive 21-1, Maintenance of Military Materiel. ... This publication applies to all Department of the Air Force (DAF) civilian employees and uniformed members of the Regular Air Force, the Air Force Reserve, the Air National Guard, the United States Space Force, the Civil Air Patrol ..., and those with a contractual obligation to abide by the terms of DAF publications.", kr:"이 간행물은 공군 정책지침(DAFPD) 21-1 「군용 물자의 정비」를 시행한다. … 적용 대상은 공군부(DAF)의 모든 민간 직원과 현역 공군·공군예비군·주방위공군·<b>우주군(USSF)</b>·민간항공초계대(공식 공군 보조임무 수행 시), 그리고 공군부 간행물 준수의 <b>계약상 의무</b>를 진 자 전부다."},
+        {note:"마지막 줄이 핵심 — \"<b>계약상 의무를 진 자</b>\"에 군 규격을 따르기로 계약한 <b>해외 업체</b>도 포함된다. K-METCAL 같은 FMS 수출 사업이 이 군 표준을 따라야 하는 법적 근거가 여기서 나온다."},
+        {no:"Tier 면제", en:"The authorities to waive wing/unit level requirements in this publication are identified with a tier (\"T-0, T-1, T-2, T-3\") number following the compliance statement.", kr:"이 간행물에서 비행단·부대급 요구사항을 <b>면제할 권한</b>은 준수 문구 뒤에 붙는 <b>등급(T-0, T-1, T-2, T-3)</b> 숫자로 표시한다. (T-0=외부 법령, 가장 엄격 → T-3=현장 지휘관 재량)"},
+        {h:"제1장 §1.1 — 도입 (프로그램 철학)"},
+        {no:"1.1.", en:"Introduction. The Air Force Metrology and Calibration (AFMETCAL) Program is a hierarchical system of Precision Measurement Equipment Laboratories, other calibration operations, personnel, equipment, and procedures to ensure systems and equipment measurements are safe, accurate, uniform, reliable, and traceable to the International System of Units through the National Institute of Standards and Technology (NIST) or AFMETCAL approved sources.", kr:"<b>도입.</b> 공군 측정·교정(AFMETCAL) 프로그램은 정밀측정장비 실험실(PMEL)·기타 교정 운영·인력·장비·절차로 이뤄진 <b>계층적 시스템</b>이며, 시스템과 장비의 측정이 <b>안전·정확·균일·신뢰</b>하고 NIST 또는 AFMETCAL 승인 출처를 통해 <b>국제단위계(SI)까지 소급</b>되도록 보장한다."},
+        {note:"\"<b>safe, accurate, uniform, reliable, traceable</b>\"(안전·정확·균일·신뢰·소급) — 이 다섯 단어가 메모리에 기록된 \"21-113의 정신 5단어\". 측정이 갖춰야 할 모든 가치를 한 문장에 압축했다."},
+        {no:"1.1.1.", en:"Test, measurement, and diagnostic equipment (TMDE) used to make or verify meaningful (quantifiable) measurements will be calibrated [per] Technical Order (TO) 33K-1-100-1 ... and TO 33K-1-100-2-1 ...", kr:"의미 있는(정량적) 측정을 <b>수행하거나 검증</b>하는 데 쓰이는 시험·측정·진단 장비(TMDE)는 기술교범 TO 33K-1-100-1(교정 절차·교정측정요약) 및 TO 33K-1-100-2-1(PMEL 전용 교정 노트·주기·참조 가이드)에 따라 <b>교정한다</b>."},
+        {no:"1.1.2.", en:"The AFMETCAL Program's primary mission is to support calibration activities to maintain, calibrate, and certify TMDE for the AF, other services, federal agencies, and countries supported through Foreign Military Sales.", kr:"AFMETCAL 프로그램의 <b>1차 임무</b>는 공군·타군·연방기관, 그리고 <b>대외군사판매(FMS)로 지원받는 국가</b>를 위해 TMDE를 <b>유지·교정·인증</b>하는 교정 활동을 지원하는 것이다."},
+        {note:"\"countries supported through <b>FMS</b>\" — 미군 자국뿐 아니라 FMS 수출국까지 명시적으로 임무 범위에 든다. K-METCAL 사업의 표적이 바로 이 조항이다."},
+        {h:"제1장 §1.2 — 조직"},
+        {no:"1.2.", en:"Organization. Air Force Materiel Command (AFMC) is designated as the AF lead agent for establishing, planning, programming, budgeting, oversight, processes, and procedures for the AFMETCAL Program.", kr:"<b>조직.</b> 공군 자재사령부(AFMC)가 AFMETCAL 프로그램의 수립·기획·편성·예산·감독·프로세스·절차를 담당하는 <b>공군 주관 기관(lead agent)</b>으로 지정된다."},
+        {no:"1.2.1.", en:"The Air Force Life Cycle Management Center, AFMETCAL Division (AFLCMC/WNM) is organized under the Agile Combat Support Directorate.", kr:"공군 수명주기관리센터(AFLCMC)의 <b>AFMETCAL 부서(AFLCMC/WNM)</b>는 민첩전투지원국 산하에 편성된다."},
+        {no:"1.2.1.1.", en:"AFLCMC/WNM serves as the AF technical authority on metrology issues and is the AF single point of contact for calibration services and traceability of measurements to NIST.", kr:"AFLCMC/WNM은 계측 사안에 대한 <b>공군 기술 권위(technical authority)</b>이자, 교정 서비스와 NIST까지의 측정 소급성에 대한 <b>공군 단일 창구(single POC)</b> 역할을 한다."},
+        {note:"\"<b>single point of contact</b>\"(단일 창구) — 거버넌스 렌즈에서 본 \"권한이 한 곳으로 수렴\"의 원문 근거. 교정의 기술 권위가 AFMETCAL 한 곳에 모인다."},
+        {no:"1.2.2.", en:"AF Primary Standards Laboratory (AFPSL). ... The AFPSL is the sole AF-level laboratory responsible to maintain AF measurement standards. These unique standards are traceable to the International System of Units through NIST or other sources, as approved by AFMETCAL.", kr:"<b>공군 1차표준실험실(AFPSL).</b> … AFPSL은 공군 측정표준을 유지하는 <b>공군 유일의 최상위 실험실</b>이다. 이 표준들은 NIST 또는 AFMETCAL이 승인한 출처를 통해 국제단위계(SI)까지 소급된다."},
+        {no:"1.2.3.", en:"Precision Measurement Equipment Laboratory (PMEL). The PMEL is the base-level AFMETCAL Program focal point. It is the activity authorized to possess and use base measurement standards.", kr:"<b>정밀측정장비 실험실(PMEL).</b> PMEL은 <b>기지급</b> AFMETCAL 프로그램의 중심점이다. 기지 측정표준을 <b>보유·사용할 권한</b>을 가진 조직이다."},
+        {note:"소급성 사슬이 조직으로 구현된 모습 — NIST → AFPSL(공군 유일 1차표준) → PMEL(기지) → TMDE(현장 장비). §1.2가 거버넌스 체계도의 원문이다."}
       ]
     }
   },
@@ -1481,18 +1533,19 @@ function resolveRowId(d){ return d.id || autoDocId(d.c); }
 
 const panel = document.getElementById('panel');
 // 문서 상세 HTML 생성 — 단일 소스(DOCS). 우측 패널·슬라이드 패널이 공유.
-function buildDocHtml(id){
-  const d = DOCS[id];
-  if(!d) return null;
-  let t = `<div class="panel-doc"><h2>${d.code}</h2><div class="ename">${d.ename}</div>`;
-  t += `<div class="oneliner">${d.oneliner}</div>`;
+// ── 문서 패널 4탭: 개요 / 핵심 / 원문 상세 / 통번역 ──
+function tabOverview(d){
+  let t = `<div class="oneliner">${d.oneliner}</div>`;
   if(d.lineage || d.analogy){
     t += `<div class="primer">`;
     if(d.lineage) t += `<div class="row lineage"><span class="ic">🔗</span><div><b>이 문서의 자리</b> — ${d.lineage}</div></div>`;
     if(d.analogy) t += `<div class="row analogy"><span class="ic">💡</span><div><b>쉽게 비유하면</b> — ${d.analogy}</div></div>`;
     t += `</div>`;
   }
-  t += `<div class="sec"><h3>흐름 — 이 문서가 말하는 순서</h3><ol class="flowlist">`;
+  return t;
+}
+function tabCore(d){
+  let t = `<div class="sec"><h3>흐름 — 이 문서가 말하는 순서</h3><ol class="flowlist">`;
   d.flow.forEach(f=> t+=`<li>${f}</li>`);
   t += `</ol></div>`;
   t += `<div class="sec"><h3>KOLAS vs 군 — 대조</h3><table><tr><th>항목</th><th class="col-kolas">KOLAS 세계 (익숙)</th><th class="col-mil">군 세계 (생소)</th></tr>`;
@@ -1502,16 +1555,50 @@ function buildDocHtml(id){
   d.strange.forEach(s=> t+=`<li>${s}</li>`);
   t += `</ol></div>`;
   t += `<div class="biz">💼 <b>사업 관점</b> — ${d.biz}</div>`;
-  if(d.detail){
-    t += `<details class="detail"><summary>📖 원문 상세 — 조항·수치·구조 (원문 근거)</summary><div class="body">`;
-    d.detail.groups.forEach(g=>{
-      t += `<div class="grp"><div class="h">${g.h}</div><ul>`;
-      g.items.forEach(i=> t+=`<li>${i}</li>`);
-      t += `</ul></div>`;
-    });
-    if(d.detail.src) t += `<div class="src">📄 출처: ${d.detail.src}</div>`;
-    t += `</div></details>`;
-  }
+  return t;
+}
+function tabDetail(d){
+  let t = '';
+  d.detail.groups.forEach(g=>{
+    t += `<div class="grp"><div class="h">${g.h}</div><ul>`;
+    g.items.forEach(i=> t+=`<li>${i}</li>`);
+    t += `</ul></div>`;
+  });
+  if(d.detail.src) t += `<div class="src">📄 출처: ${d.detail.src}</div>`;
+  return t;
+}
+function tabTrans(d){
+  const tr = d.translation;
+  let t = '';
+  if(tr.meta) t += `<div class="tr-meta">${tr.meta}</div>`;
+  tr.items.forEach(it=>{
+    if(it.h){ t += `<div class="tr-h">${it.h}</div>`; return; }
+    if(it.note){ t += `<div class="tr-note">💡 ${it.note}</div>`; return; }
+    const depth = it.no ? Math.min((it.no.match(/\./g)||[]).length, 3) : 1;
+    t += `<div class="tr-clause tr-depth${depth}">`;
+    if(it.no) t += `<div class="tr-no">${it.no}</div>`;
+    if(it.en) t += `<div class="tr-en">${it.en}</div>`;
+    if(it.kr) t += `<div class="tr-kr">${it.kr}</div>`;
+    t += `</div>`;
+  });
+  return t;
+}
+function buildDocHtml(id){
+  const d = DOCS[id];
+  if(!d) return null;
+  const TABS = [
+    {k:'overview', label:'📌 개요',      show:true,            html:()=>tabOverview(d)},
+    {k:'core',     label:'🗺️ 핵심',      show:true,            html:()=>tabCore(d)},
+    {k:'detail',   label:'📖 원문 상세',  show:!!d.detail,      html:()=>tabDetail(d)},
+    {k:'trans',    label:'🌐 통번역',     show:!!d.translation, html:()=>tabTrans(d)},
+  ].filter(tb=>tb.show);
+  let t = `<div class="panel-doc"><h2>${d.code}</h2><div class="ename">${d.ename}</div>`;
+  t += `<div class="dtabs">`;
+  TABS.forEach((tb,i)=> t += `<button class="dtab${i===0?' active':''}" data-dtab="${tb.k}">${tb.label}</button>`);
+  t += `</div>`;
+  t += `<div class="dtab-body">`;
+  TABS.forEach((tb,i)=> t += `<div class="dtab-pane${i===0?' active':''}" data-dpane="${tb.k}">${tb.html()}</div>`);
+  t += `</div>`;
   t += `</div>`;
   return t;
 }
@@ -1523,10 +1610,26 @@ function render(id){
   highlightTerms(panel);
   panel.scrollTop = 0;
 }
+// 문서 패널 내부 탭 전환 (개요/핵심/원문상세/통번역) — 이벤트 위임
+function wireDocTabs(container){
+  container.addEventListener('click', e=>{
+    const btn = e.target.closest('.dtab');
+    if(!btn || !container.contains(btn)) return;
+    const root = btn.closest('.panel-doc');
+    if(!root) return;
+    const k = btn.dataset.dtab;
+    root.querySelectorAll('.dtab').forEach(b=>b.classList.toggle('active', b.dataset.dtab===k));
+    root.querySelectorAll('.dtab-pane').forEach(p=>p.classList.toggle('active', p.dataset.dpane===k));
+    container.scrollTop = 0;
+  });
+}
 // 전체 흐름: 우측 슬라이드 패널에 렌더 (단일 소스 buildDocHtml 공유)
 const slidePanel = document.getElementById('slidePanel');
 const slideOverlay = document.getElementById('slideOverlay');
 const slideBody = document.getElementById('slideBody');
+// 두 패널에 문서 탭 전환 핸들러 연결 (한 번만)
+wireDocTabs(panel);
+wireDocTabs(slideBody);
 function openSlide(id){
   const t = buildDocHtml(id);
   if(t===null){
