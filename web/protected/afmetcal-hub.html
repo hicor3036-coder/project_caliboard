@@ -36,6 +36,50 @@
   .legend{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--dim)}
   .legend span{display:inline-block;margin-right:14px}
   .dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  /* 문서 계층 (좌측 신규) */
+  .status-legend{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:11px;color:var(--dim);padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+  .status-legend .sl-title{font-weight:700;color:var(--txt)}
+  .sl-filter{display:inline-flex;align-items:center;gap:4px;background:var(--panel2);border:1px solid var(--line);color:var(--dim);padding:3px 10px;border-radius:12px;cursor:pointer;font-size:11px;font-family:inherit}
+  .sl-filter:hover{color:var(--txt)}
+  .sl-filter.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  .sl-dot{width:9px;height:9px;border-radius:50%}
+  .tree-summary{font-size:11.5px;color:var(--dim);padding:6px 2px;margin-bottom:6px}
+  .tree-summary b{color:var(--accent)}
+  .tree-summary .sum-hint{color:#caa45a}
+  .area{margin-bottom:14px;border-left:3px solid var(--ac);border-radius:0 8px 8px 0;background:rgba(255,255,255,.012);padding:6px 0 6px 0}
+  .area-head{display:flex;align-items:baseline;gap:8px;padding:4px 12px 8px}
+  .area-en{font-size:13px;font-weight:700;color:var(--ac)}
+  .area-ko{font-size:11px;color:var(--dim)}
+  .area-cnt{margin-left:auto;font-size:11px;color:var(--dim);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1px 8px}
+  .area-rows{display:flex;flex-direction:column}
+  .doc-row{display:flex;align-items:center;gap:8px;padding:6px 12px;border-top:1px solid rgba(255,255,255,.04);font-size:12px}
+  .doc-row .dr-status{width:8px;height:8px;border-radius:50%;background:var(--st);flex-shrink:0}
+  .doc-row .dr-code{font-weight:700;color:var(--txt);flex-shrink:0;min-width:128px}
+  .doc-row .dr-name{color:var(--dim);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .doc-row .dr-meta{font-size:10px;color:var(--dim);opacity:.7;flex-shrink:0;white-space:nowrap}
+  .doc-row .dr-badge{font-size:9.5px;padding:1px 7px;border-radius:9px;flex-shrink:0;white-space:nowrap}
+  .doc-row .dr-go{font-size:10px;color:var(--accent2);flex-shrink:0}
+  .doc-row.link{cursor:pointer}
+  .doc-row.link:hover{background:var(--panel2)}
+  .doc-row.active{background:var(--panel2);box-shadow:inset 2px 0 0 var(--accent)}
+  /* 우측 슬라이드 패널 (전체 흐름 문서 상세) */
+  #slideOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;visibility:hidden;transition:.25s;z-index:90}
+  #slideOverlay.show{opacity:1;visibility:visible}
+  #slidePanel{position:fixed;top:0;right:0;height:100vh;width:min(560px,92vw);background:var(--bg);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:100;display:flex;flex-direction:column}
+  #slidePanel.open{transform:translateX(0)}
+  #slideClose{position:absolute;top:12px;right:14px;z-index:2;background:var(--panel2);border:1px solid var(--line);color:var(--dim);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:14px}
+  #slideClose:hover{color:var(--txt);border-color:var(--accent)}
+  #slideBody{overflow-y:auto;padding:28px 30px;height:100%}
+  .slide-todo{color:var(--dim);text-align:center;margin-top:60px}
+  .slide-todo h2{color:var(--accent);font-size:20px;margin-bottom:10px}
+  /* 용어 호버 힌트 */
+  .gloss-term{border-bottom:1px dotted var(--accent2);cursor:help}
+  #glossTip{position:fixed;z-index:200;max-width:320px;background:var(--panel2);border:1px solid var(--accent2);border-radius:8px;padding:10px 13px;box-shadow:0 6px 20px rgba(0,0,0,.5);opacity:0;visibility:hidden;transition:opacity .12s;pointer-events:none;font-size:12.5px}
+  #glossTip.show{opacity:1;visibility:visible}
+  #glossTip .gt-abbr{font-weight:700;color:var(--accent2);font-size:14px}
+  #glossTip .gt-full{color:var(--dim);font-size:10.5px;font-style:italic;margin:1px 0 6px}
+  #glossTip .gt-desc{color:var(--txt);line-height:1.55}
+  #glossTip .gt-desc b{color:var(--accent)}
   /* 우측 패널 */
   .placeholder{color:var(--dim);text-align:center;margin-top:80px}
   .placeholder .big{font-size:48px;margin-bottom:12px}
@@ -87,7 +131,7 @@
   .tab.active{background:var(--accent);color:#1a1a1a;border-color:var(--accent);font-weight:700}
   .tabhint{margin-left:auto;color:var(--dim);font-size:12px}
   /* 용어집 */
-  .gloss-wrap{max-width:1100px;margin:0 auto;padding:24px 32px;height:calc(100vh - 53px);overflow-y:auto}
+  .gloss-wrap{max-width:1100px;padding:24px 32px}
   .gloss-head h1{font-size:20px;color:var(--accent);margin-bottom:4px}
   #search{width:100%;margin:16px 0 12px;padding:11px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--txt);font-size:14px;font-family:inherit}
   #search:focus{outline:none;border-color:var(--accent)}
@@ -108,118 +152,101 @@
   .term .desc b{color:var(--accent)}
   .nohit{grid-column:1/-1;text-align:center;color:var(--dim);padding:40px}
   @media(max-width:900px){.glosslist{grid-template-columns:1fr}}
+  /* 신뢰의 사슬 */
+  .chain-wrap{max-width:1000px;padding:24px 32px}
+  .chain-head h1{font-size:21px;color:var(--accent);margin-bottom:10px}
+  .chain-head .chain-q{font-size:16px;margin-bottom:6px}
+  .chain-head .chain-a{color:var(--dim);font-size:13px;line-height:1.7;margin-bottom:12px}
+  .chain-head .chain-a b{color:var(--txt)}
+  .chain-head .chain-note{background:#2a2418;border:1px solid #5a4a1a;color:#e8d9a0;font-size:12px;padding:9px 13px;border-radius:8px;margin-bottom:20px}
+  .chain-legend{margin-top:14px;padding:11px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--dim);text-align:center}
+  .chain-legend b{color:var(--txt)}
+  .ring{display:flex;gap:14px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--rc);border-radius:10px;padding:14px 16px}
+  .ring-no{flex-shrink:0;font-size:24px;font-weight:700;color:var(--rc);width:34px;text-align:center;line-height:1.2}
+  .ring-body{flex:1;min-width:0}
+  .ring-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .ring-q{font-size:16px;font-weight:700;color:var(--txt)}
+  .ring-topic{flex-shrink:0;font-size:11px;color:var(--rc);border:1px solid var(--rc);border-radius:10px;padding:2px 9px;opacity:.85}
+  .ring-a{font-size:13.5px;color:var(--dim);line-height:1.6;margin-bottom:9px}
+  .ring-a b{color:var(--txt)}
+  .ring-docs{display:flex;flex-wrap:wrap;gap:6px}
+  .ring-doc{font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 9px;color:var(--txt)}
+  .ring-link{text-align:center;margin:-2px 0}
+  .ring-arrow{color:var(--dim);font-size:20px}
+  .chain-root{margin-top:18px;padding:14px 16px;background:#1a2a1f;border:1px solid var(--kolas);border-radius:10px;font-size:13.5px;color:#cfe9d6;text-align:center}
+  .chain-root b{color:var(--kolas)}
+  /* 과업 지도 (stage/task) */
+  .map-root{padding:11px 16px;background:#1a2a1f;border:1px solid var(--kolas);border-radius:10px;font-size:13.5px;color:#cfe9d6;text-align:center;margin-bottom:14px}
+  .map-root b{color:var(--kolas)}
+  .stage{border:1px solid var(--line);border-left:4px solid var(--sc);border-radius:10px;padding:12px 14px;background:rgba(255,255,255,.015)}
+  .stage-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+  .stage-name{font-size:16px;font-weight:700;color:var(--sc)}
+  .stage-sub{font-size:11px;color:var(--dim);border:1px solid var(--sc);border-radius:10px;padding:2px 9px;opacity:.8}
+  .stage-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+  .task{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--tc);border-radius:8px;padding:11px 13px}
+  .task-no{font-size:18px;font-weight:700;color:var(--tc);margin-bottom:3px}
+  .task-title{font-size:14.5px;font-weight:700;color:var(--txt);margin-bottom:6px}
+  .task-desc{font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:9px}
+  .task-desc b{color:var(--txt)}
+  .task-docs{display:flex;flex-wrap:wrap;gap:5px}
+  .task-doc{font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px;color:var(--dim);white-space:nowrap}
+  .task-doc.link{cursor:pointer;color:var(--accent2);border-color:rgba(74,158,255,.4)}
+  .task-doc.link:hover{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  .stage-arrow{text-align:center;color:var(--dim);font-size:16px;margin:2px 0}
+  /* 전체 흐름 3관점 */
+  .lens-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+  .lens{background:var(--panel);border:1px solid var(--line);color:var(--dim);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit}
+  .lens:hover{color:var(--txt);border-color:var(--accent)}
+  .lens.active{background:var(--accent);color:#1a1a1a;border-color:var(--accent);font-weight:700}
+  /* 세로 타임라인 */
+  .timeline{margin-top:8px}
+  .tstep{display:flex;gap:16px;align-items:stretch}
+  .tstep-rail{position:relative;flex-shrink:0;width:34px;display:flex;justify-content:center}
+  .tstep-rail::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--fc);opacity:.35;transform:translateX(-50%)}
+  .tstep.last .tstep-rail::before{bottom:auto;height:17px}
+  .tstep-no{position:relative;z-index:1;width:30px;height:30px;border-radius:50%;background:var(--fc);color:#11161c;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin-top:2px;box-shadow:0 0 0 4px var(--bg)}
+  .tstep-card{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--fc);border-radius:10px;padding:13px 16px;margin-bottom:14px}
+  .tstep-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .tstep-k{font-size:11px;color:var(--fc);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+  .tstep-v{font-size:16px;font-weight:700;color:var(--txt)}
+  .tstep-d{font-size:13px;color:var(--dim);line-height:1.6;margin-bottom:10px}
+  .tstep-d b{color:var(--txt)}
+  .tstep-docs{display:flex;flex-wrap:wrap;gap:6px}
+  .detail-toggle{display:flex;align-items:center;gap:6px;margin:6px 0 14px}
+  .detail-toggle .dt-label{font-size:11px;color:var(--dim);margin-right:2px}
+  .dt{background:var(--panel);border:1px solid var(--line);color:var(--dim);padding:4px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit}
+  .dt:hover{color:var(--txt)}
+  .dt.active{background:var(--accent2);color:#fff;border-color:var(--accent2);font-weight:700}
+  .flownote{margin-top:6px;padding:12px 15px;background:var(--panel);border:1px solid var(--line);border-left:3px solid;border-radius:8px;font-size:13px;color:var(--dim);line-height:1.6}
+  /* 8 핵심 구성요소 그리드 */
+  .core-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:8px}
+  .core-card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--cc);border-radius:8px;padding:12px 13px}
+  .core-top{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-bottom:6px}
+  .core-no{font-size:18px;font-weight:700;color:var(--cc)}
+  .core-t{font-size:15px;font-weight:700;color:var(--txt)}
+  .core-e{font-size:11px;color:var(--dim)}
+  .core-d{font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:8px}
 </style>
 </head>
 <body>
 <!-- 상단 탭 -->
 <div class="tabs">
-  <button class="tab active" data-view="docs">📑 문서 계층</button>
+  <button class="tab active" data-view="chain">🗺️ 전체 흐름</button>
+  <button class="tab" data-view="docs">📑 문서 계층</button>
   <button class="tab" data-view="glossary">📖 용어집</button>
   <span class="tabhint">교정체계 구조 학습</span>
 </div>
 
 <!-- 뷰 1: 문서 계층 -->
-<div class="view" id="view-docs">
+<div class="view" id="view-docs" style="display:none">
 <div class="wrap">
-  <!-- 좌측: 계층도 -->
+  <!-- 좌측: 계층도 (그의 장표 11개 영역 · 데이터 렌더) -->
   <div class="left">
     <h1>AFMETCAL 학습 허브</h1>
-    <div class="sub">교정체계 구조 익히기 · 2026-06-16</div>
+    <div class="sub">Workflow Diagram for US AF Weapon Systems — 전체 문서 계층</div>
 
-    <div class="flow" style="margin:0 0 12px;color:var(--kolas)">▲ 위로 갈수록 넓은 층위(국제·전군) · ▼ 아래로 갈수록 좁은 층위(공군 전용)</div>
-
-    <div class="tierlabel" style="color:var(--kolas)">① 국제표준 (가장 넓음 · 군 체계가 결국 여기로 수렴 · KOLAS 익숙 영역)</div>
-    <div class="doc tier-intl" data-id="iso17025">
-      <div class="code">ISO/IEC 17025</div>
-      <div class="name">교정·시험소 적격성 (KOLAS 근거)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-    <div class="doc tier-intl" data-id="iso10012">
-      <div class="code">ISO 10012</div>
-      <div class="name">측정관리시스템</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-    <div class="doc tier-intl" data-id="z540">
-      <div class="code">ANSI/NCSL Z540.3</div>
-      <div class="name">측정·시험장비 교정 요구 (미민간)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-    <div class="doc tier-intl" data-id="rp1">
-      <div class="code">NCSL RP-1</div>
-      <div class="name">교정주기 설정·조정 방법론</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-    <div class="doc tier-intl" data-id="rp18">
-      <div class="code">NCSL RP-18</div>
-      <div class="name">측정 결정 리스크 (FAR/FRR)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-
-    <div class="tierlabel">② 미 국방부 전군 규격 (공군보다 위 · 군 계약 인용 · 수출 정합성)</div>
-    <div class="doc" data-id="milstd1839" style="border-left:3px solid var(--gov)">
-      <div class="code">MIL-STD-1839D</div>
-      <div class="name">교정·측정 요구사항 CMR (전군 · TUR 4:1 근거)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-
-    <div class="tierlabel">③ 미 공군 거버넌스 3계층 (정책→관리→운영 · 위에서 아래로 구현)</div>
-    <div class="doc tier-policy" data-id="dafpd">
-      <div class="code">DAFPD 21-1</div>
-      <div class="name">Tier 1 · 정책 — Maintenance of Military Materiel (군 장비 정비)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-
-    <div class="arrow">↓</div>
-    <div class="flow">implements (구현한다)</div>
-
-    <div class="doc tier-mgmt" data-id="dafman">
-      <div class="code">DAFMAN 21-113</div>
-      <div class="name">Tier 2 · 관리 — AF Metrology & Calibration Program Mgmt (교정 관리)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-
-    <div class="arrow">↓</div>
-    <div class="flow">implements (구현한다)</div>
-
-    <div class="doc tier-ops" data-id="to">
-      <div class="code">TO 00-20-14</div>
-      <div class="name">Tier 3 · 운영 — AFMETCAL Program (실제 운영 매뉴얼)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-    <div class="doc tier-ops" data-id="to33k">
-      <div class="code">TO 33K-1-100-1</div>
-      <div class="name">Tier 3 · 데이터 — 교정 절차·MDC 코드·CMS (데이터 본체)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-
-    <div class="tierlabel">④ 노란색 형제 시행규칙 (DAFI · 21-1 아래 같은 정책)</div>
-    <div class="doc tier-mgmt" data-id="dafi21101" style="border-left-color:#c9a227">
-      <div class="code">DAFI 21-101</div>
-      <div class="name">항공기·장비 정비 관리 (PMEL 운영규칙)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-    <div class="doc tier-mgmt" data-id="dafi20101" style="border-left-color:#c9a227">
-      <div class="code">DAFI 20-101 / 63-101</div>
-      <div class="name">통합 수명주기 관리 (획득~폐기)</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-
-    <div class="tierlabel">⑤ 인력 축 (사람 · 빨간 테두리=중요 표시 문서)</div>
-    <div class="doc" data-id="cfetp" style="border-left:3px solid var(--mil)">
-      <div class="code">CFETP 2P0X1</div>
-      <div class="name">PMEL 인력 교육훈련 계획</div>
-      <span class="tag tag-done">정리완료</span>
-    </div>
-
-    <div class="legend">
-      <span><i class="dot" style="background:var(--gov)"></i>정책</span>
-      <span><i class="dot" style="background:var(--accent)"></i>관리</span>
-      <span><i class="dot" style="background:var(--accent2)"></i>운영</span>
-      <span><i class="dot" style="background:var(--kolas)"></i>국제표준</span>
-      <br><br>
-      <span><i class="dot" style="background:var(--kolas)"></i>KOLAS 세계 (익숙)</span>
-      <span><i class="dot" style="background:var(--mil)"></i>군 세계 (생소)</span>
-    </div>
+    <div class="status-legend" id="statusLegend"></div>
+    <div id="docTree"></div>
   </div>
 
   <!-- 우측: 상세 패널 -->
@@ -253,7 +280,281 @@
   </div>
 </div>
 
+<!-- 뷰 3: 전체 흐름 (3관점 토글 — 검토용) -->
+<div class="view" id="view-chain">
+  <div class="chain-wrap">
+    <div class="chain-head">
+      <h1 id="lensTitle">측정 신뢰성 체계 — 전체 흐름</h1>
+      <p class="chain-a" id="lensDesc"></p>
+      <div class="lens-tabs">
+        <button class="lens active" data-lens="traceability">🔗 소급성</button>
+        <button class="lens" data-lens="lifecycle">⚙️ 장비의 일생</button>
+        <button class="lens" data-lens="business">💼 사업 가치</button>
+        <button class="lens" data-lens="governance">🏛️ 거버넌스</button>
+        <button class="lens" data-lens="core8">🧩 8 핵심 구성요소</button>
+      </div>
+      <p class="chain-note">검토용 초안. 세 관점은 모두 KAI 담당자 자료(소급성 사슬·장비 흐름·사업기획)에 근거합니다. 흐름·표현이 적절한지 보고 알려주세요.</p>
+    </div>
+
+    <div class="chain-flow"></div>
+  </div>
+</div>
+
+<!-- 우측 슬라이드 패널 (문서 상세) -->
+<div id="slideOverlay"></div>
+<aside id="slidePanel">
+  <button id="slideClose" title="닫기">✕</button>
+  <div id="slideBody"></div>
+</aside>
+
+<!-- 용어 호버 툴팁 -->
+<div id="glossTip"></div>
+
 <script>
+// ════════════════════════════════════════════════════════════════════
+// 문서 계층 — KAI 담당자 장표(workflow diagram) 11개 영역 전수
+// 각 문서: {c:코드, n:이름, s:상태, id:DOCS연결(있으면 클릭→상세)}
+// 상태 s: active / pending(개정대기) / canceled / withdrawn / superseded
+//   ※ 상태는 확정분만 표시, 미상은 active. 원문 탐독 시 정정.
+// ════════════════════════════════════════════════════════════════════
+const STATUS = {
+  active:    {ko:'현행',     col:'#1f6f3f', fg:'#d3f5e0'},
+  pending:   {ko:'개정대기', col:'#5a4a1a', fg:'#e8d9a0'},
+  canceled:  {ko:'취소',     col:'#5a2a2a', fg:'#f0c0c0'},
+  withdrawn: {ko:'폐지',     col:'#6f2222', fg:'#ffd3d3'},
+  superseded:{ko:'대체',     col:'#3a2a5a', fg:'#d8c8ff'},
+  adopted:   {ko:'채택',     col:'#1e3a5f', fg:'#cfe2ff'},
+  new:       {ko:'신규',     col:'#7a5a12', fg:'#ffe9a8'},
+};
+const DOCTREE = [
+  { area:'Publishing', ko:'기술출판물', color:'#d98f2a', docs:[
+    {c:'MIL-DTL-7700K', n:'Flight Manual Program Publications', s:'active'},
+    {c:'MIL-DTL-87929F', n:'O&M Instructions (Work Package, USAF)', s:'active', rev:'F', date:'2020-11'},
+    {c:'MIL-PRF-32216B', n:'COTS 매뉴얼 평가·보충', s:'active'},
+    {c:'MIL-PRF-38807', n:'Illustrated Parts Breakdown', s:'active'},
+    {c:'MIL-DTL-38807D', n:'Illustrated Parts Breakdown', s:'active'},
+    {c:'MIL-PRF-38314', n:'Operation & Checklist (Space Systems)', s:'active'},
+    {c:'MIL-DTL-87268D', n:'ETM 내용·형식·UI 요구', s:'active'},
+    {c:'MIL-PRF-87268A', n:'IETM 내용·형식·UI 요구', s:'active'},
+    {c:'MIL-DTL-87269D', n:'Revisable DB — IETM 지원', s:'active'},
+    {c:'MIL-PRF-87269A', n:'Revisable DB — IETM 지원', s:'active'},
+    {c:'MIL-STD-3048C', n:'AF Business Rules for S1000D', s:'active', rev:'C', date:'2023-05'},
+    {c:'MIL-STD-40051-1D', n:'Digital Tech Info — IETM', s:'active'},
+    {c:'MIL-STD-40051-2D', n:'Digital Tech Info — Page-Based TM', s:'active'},
+    {c:'MIL-STD-40051E', n:'Digital Tech Info — TM', s:'active'},
+    {c:'SAE GEIA-STD-0007C', n:'Logistics Product Data', s:'active'},
+    {c:'MIL-PRF-38793C', n:'교정 절차서 작성', s:'active', rev:'C', date:'현행'},
+    {c:'MIL-STD-38784B', n:'TM 일반 스타일·형식', s:'active'},
+    {c:'MIL-DTL-83495D', n:'On-Equipment Maintenance Manual Set', s:'active'},
+    {c:'S1000D Issue 4.1', n:'Tech Publications 국제규격 (USAF 채택)', s:'adopted', rev:'Issue 4.1', date:'2012'},
+    {c:'S1000D Issue 5.0', n:'Tech Publications 국제규격', s:'active'},
+    {c:'S1000D Issue 6', n:'Tech Publications 국제규격', s:'active'},
+    {c:'33K Series TOs', n:'Technical Manual — Calibration Procedures', s:'active'},
+    {c:'33D Series TOs', n:'Technical Manual — O&M Instructions', s:'active'},
+    {c:'ETIMS', n:'Electronic Tech Information Mgmt System', s:'active'},
+    {c:'DIDs', n:'Data Item Description', s:'active'},
+    {c:'AFCAV', n:'Air Force Calibration Authority Viewer', s:'active'},
+  ]},
+  { area:'Facilities & Environmental', ko:'시설·환경', color:'#9a6fd0', docs:[
+    {c:'FC 4-218-01F', n:'PMEL 설계·시공 기준', s:'active'},
+    {c:'FC 2-000-05N', n:'Navy/Marine 시설 계획', s:'active'},
+    {c:'TO 00-25-203', n:'Contamination Control of Aerospace Facilities', s:'active'},
+    {c:'TO 00-25-234', n:'Electrostatic Discharge Control', s:'active'},
+    {c:'UFC 1-200-01', n:'DoD Building Code', s:'active'},
+    {c:'UFC 1-200-02', n:'High Performance & Sustainable Building', s:'active'},
+    {c:'UFC 1-201-01', n:'Non-Permanent DoD Facilities', s:'active'},
+    {c:'UFS 1-201-02', n:'Assessment of Existing Facilities', s:'active'},
+    {c:'UFC 4-229-01N', n:'General Maintenance Facilities', s:'active'},
+    {c:'UFC 4-211-02', n:'Aircraft Corrosion Control & Paint Facilities', s:'active'},
+    {c:'DAFMAN 32-1084', n:'Standard Facility Requirements', s:'active'},
+    {c:'AFI 32-1024', n:'Standard Facility Requirements', s:'active'},
+    {c:'AFMAN 32-1084', n:'Facility Requirements', s:'active'},
+    {c:'DAFMAN 91-203', n:'Occupational Safety, Fire & Health', s:'active'},
+    {c:'AFRCH 32-1001', n:'Standard Facility Requirements', s:'active'},
+    {c:'ANGH 32-1084', n:'Facility Space Standards', s:'active'},
+  ]},
+  { area:'US & International Standards', ko:'국제표준 (소급성 뿌리)', color:'#3fb950', docs:[
+    {c:'MIL-STD-45662A', n:'Calibration Systems Requirements', s:'active'},
+    {c:'ANSI/NCSL Z540.3-2006 (R2013)', n:'측정·시험장비 교정 요구 (2020-10 폐지 — 일부 군계약 잔존)', s:'withdrawn', id:'z540', rev:'2006(R2013)', date:'2006'},
+    {c:'ANSI/NCSL Z540.1-1994 (R2002)', n:'교정시험소 일반 요구 (2007-07 폐지 — 일부 군계약 잔존)', s:'withdrawn', rev:'1994(R2002)', date:'1994'},
+    {c:'MIL-I-45208A', n:'Inspection System Requirements', s:'active'},
+    {c:'ISO/IEC 17025:2017', n:'시험·교정시험소 적격성', s:'active', id:'iso17025', rev:':2017', date:'2017'},
+    {c:'ISO/IEC 17025:2005', n:'시험·교정시험소 적격성 (구판)', s:'superseded'},
+    {c:'ISO 9001', n:'품질경영시스템', s:'active'},
+    {c:'ISO 10012:2026 Ed.2', n:'측정관리시스템 (ISO 10012:2003 대체)', s:'new', id:'iso10012', rev:':2026 Ed.2', date:'2026-02'},
+    {c:'ISO 10012:2003', n:'측정관리시스템', s:'superseded', id:'iso10012'},
+    {c:'ISO 10012-1:1992', n:'측정장비 품질보증 Part 1', s:'superseded'},
+    {c:'ISO 10012-2:1997', n:'측정장비 품질보증 Part 2', s:'superseded'},
+    {c:'AS9100D', n:'항공·우주·방위 품질경영', s:'active'},
+  ]},
+  { area:'Information', ko:'정보·보안', color:'#3fb950', docs:[
+    {c:'DAFI 61-104', n:'STINFO 관리', s:'active'},
+    {c:'DoDI 5230.24', n:'DoD 기술정보 배포 표시', s:'active'},
+    {c:'DoDM 5200.01', n:'정보보안 — 표시', s:'active'},
+  ]},
+  { area:'Logistics / CMR / CMRS', ko:'교정요구·데이터', color:'#4a9eff', docs:[
+    {c:'MIL-STD-1839D', n:'Calibration & Measurement Requirements (CMR)', s:'active', id:'milstd1839', rev:'현행', date:'2010-05'},
+    {c:'MIL-HDBK-1839', n:'CMR 핸드북', s:'active'},
+    {c:'AFMCMAN 20-106', n:'Provisioning', s:'active'},
+    {c:'DI-QCIC-80278C', n:'CMRS (CMR Summary)', s:'active'},
+    {c:'DI-SESS-81758A', n:'Logistics Product Data (LPD)_SERD', s:'active'},
+    {c:'DI-QCIC-81110', n:'Inspection and Test Plan', s:'active'},
+    {c:'DI-QCIC-80798C', n:'Calibration Certificate/Report (교정성적서)', s:'active'},
+  ]},
+  { area:'AF METCAL Policy', ko:'측정의 정신 ★', color:'#f0a500', docs:[
+    {c:'DAFMAN 21-113', n:'AF Metrology & Calibration Program Mgmt (구 AFMAN 21-113)', s:'active', id:'dafman', rev:'현행', date:'2020-04'},
+    {c:'TO 00-20-14', n:'AF METCAL Program', s:'active', id:'to', rev:'현행', date:'상시'},
+    {c:'TO 33K-1-100-1', n:'교정절차 — MDC 코드·CMS', s:'active', id:'to33k', rev:'Rev 33.0', date:'2022-11'},
+    {c:'TO 33K-1-100-2', n:'교정주기·TO·WUC 참조 가이드', s:'active'},
+    {c:'DAFPD 21-1', n:'Maintenance of Military Materiel (정책)', s:'active', id:'dafpd'},
+    {c:'CFETP 2P0X1', n:'PMEL 인력 교육훈련 계획', s:'active', id:'cfetp'},
+  ]},
+  { area:'Technical Order System', ko:'기술교범 체계', color:'#4a9eff', docs:[
+    {c:'TO 00-5-1', n:'AF Technical Order System', s:'active'},
+    {c:'TO 00-5-3', n:'AF TO Life Cycle Management', s:'active'},
+    {c:'TO 00-5-15', n:'Time Compliance TO Process (TCTO)', s:'active'},
+    {c:'TO 00-5-16', n:'CPIN Management', s:'active'},
+    {c:'TO 00-5-18', n:'USAF TO Numbering System', s:'active'},
+    {c:'AFMCMAN 21-1', n:'AF Materiel Command Manual', s:'active'},
+    {c:'MIL-STD-1808C', n:'System/Subsystem Numbering', s:'active'},
+    {c:'AFTO Form 22', n:'TM Change Recommendation & Reply', s:'active'},
+    {c:'AFTO Form 43', n:'TODO Assignment/Change Request', s:'active'},
+    {c:'AFTO Form 57', n:'PMEL Technical Order Information', s:'active'},
+    {c:'AFTO Form 186', n:'Technical Order Publication Request', s:'active'},
+    {c:'AFTO Form 252', n:'TO Publication Change Request', s:'active'},
+  ]},
+  { area:'Documentation', ko:'정비문서화', color:'#4a9eff', docs:[
+    {c:'TO 00-20-1', n:'정비 점검·문서화·정책·절차', s:'active'},
+    {c:'TO 00-20-2', n:'Maintenance Data Documentation', s:'active'},
+    {c:'TO 00-25-107', n:'Maintenance Assistance', s:'active'},
+    {c:'MIL-STD-31000C', n:'Technical Data Packages', s:'active'},
+  ]},
+  { area:'Equipment', ko:'장비', color:'#4a9eff', docs:[
+    {c:'MIL-PRF-28800G', n:'전기·전자 시험장비', s:'active'},
+  ]},
+  { area:'Maintenance Activity', ko:'정비관리', color:'#4a9eff', docs:[
+    {c:'DAFI 21-101', n:'Aircraft & Equipment Maintenance Mgmt (PMEL 운영)', s:'active', id:'dafi21101'},
+    {c:'AFSCMAN 21-102', n:'Depot Maintenance Management', s:'active'},
+    {c:'DAFI 63-101/20-101', n:'Integrated Life Cycle Management', s:'active', id:'dafi20101'},
+  ]},
+  { area:'Training', ko:'훈련', color:'#4a9eff', docs:[
+    {c:'AFI 36-2650', n:'Maintenance Training', s:'active'},
+    {c:'AFMAN 21-202', n:'Missile Maintenance Management', s:'active'},
+    {c:'AFMAN 21-204', n:'Nuclear Weapons Maintenance', s:'active'},
+    {c:'AFMAN 21-206', n:'Aircraft Armament Systems Mgmt', s:'active'},
+  ]},
+];
+
+// ── 전체 흐름 3관점 (검토용 초안) ──────────────────────────────────
+// 같은 사업을 세 각도에서. 각 관점은 가로 흐름의 step 배열.
+// step.docs는 {label, id} — id가 DOCS에 있으면 클릭 시 문서 상세로 이동.
+// 근거: 모두 KAI 담당자 자료. 소급성=Multilayer 4p, 일생=8p Equipment Flow, 사업=기획서 R9.
+const LENSES = {
+  traceability: {
+    title: '🔗 소급성 — 정확함은 어디서 오는가',
+    desc: '한 계측값의 정확함은 국가표준에서 출발해 단절 없이 현장까지 전달된다. 이 사슬이 끊기면 측정은 신뢰를 잃는다 — 군 측정체계의 척추.',
+    color: 'var(--kolas)',
+    steps: [
+      { k:'국가표준', v:'NIST · KRISS', d:'SI 단위를 실현하는 1차 표준. 모든 정확함의 출발점.', docs:[],
+        more:[{label:'VIM (JCGM 200:2012)',id:null}] },
+      { k:'1차 표준실', v:'AFPSL (한국판 KAI-PSL)', d:'군 최상위 표준실. 국가표준을 받아 군 전체에 전달하는 교량.', docs:[{label:'DAFMAN 21-113',id:'dafman'}],
+        more:[{label:'MIL-STD-45662A',id:null}] },
+      { k:'기지 교정실', v:'PMEL', d:'전 세계 60여 곳. 야전 장비를 직접 교정·수리.', docs:[{label:'ISO/IEC 17025',id:'iso17025'}],
+        more:[{label:'ANSI/NCSL Z540.1',id:null},{label:'MIL-I-45208A',id:null},{label:'ISO 9001',id:null},{label:'AS9100D',id:null},{label:'ISO 10012',id:'iso10012'}] },
+      { k:'야전 장비', v:'TMDE', d:'정비 현장에서 무기체계를 측정하는 시험·진단 장비.', docs:[{label:'ANSI/NCSL Z540.3',id:'z540'}],
+        more:[{label:'MIL-PRF-28800G',id:null},{label:'ISO 10012-1:1992',id:null},{label:'ISO 10012-2:1997',id:null}] },
+      { k:'무기체계', v:'항공기 · 미사일 · 우주', d:'측정의 신뢰성·안전성이 최종 보장되는 대상.', docs:[], more:[] },
+    ],
+    note: '내려갈수록 측정 불확도가 누적된다 (위 단계일수록 더 정확). 각 단계는 다음 단계보다 충분히 정확해야 한다 — TUR 4:1 원칙(T.O. 00-20-14).',
+  },
+  lifecycle: {
+    title: '⚙️ 장비의 일생 — 계측기는 어떻게 관리되는가',
+    desc: '계측기 한 대가 도입되어 폐기될 때까지의 흐름. 각 단계마다 표준이 무엇을·어떻게 할지를 규정한다.',
+    color: 'var(--accent2)',
+    steps: [
+      { k:'요구 정의', v:'무엇을 잴 것인가', d:'무기체계마다 필요한 측정 항목·정확도를 도입 단계에 확정 (CMR/CMRS).', docs:[{label:'MIL-STD-1839D',id:'milstd1839'}],
+        more:[{label:'MIL-HDBK-1839',id:null},{label:'CMRS (DI-QCIC-80278C)',id:null},{label:'DI-SESS-81758A',id:null},{label:'AFMCMAN 20-106',id:null}] },
+      { k:'도입·등록', v:'자산 등재', d:'장비를 받아 관리 시스템(PAMS)에 등록.', docs:[],
+        more:[{label:'MIL-PRF-28800G',id:null},{label:'MIL-STD-1808C',id:null}] },
+      { k:'최초 교정', v:'Initial Cal', d:'야전 투입 전 최초 교정. 도입 직후 1회.', docs:[{label:'TO 33K-1-100-1',id:'to33k'}],
+        more:[{label:'MIL-PRF-38793C',id:null},{label:'DI-QCIC-81110',id:null}] },
+      { k:'주기 교정', v:'Periodic Cal', d:'규정된 군 절차서에 따라 주기적으로 교정·성적서 발급.', docs:[{label:'TO 33K-1-100-2',id:null}],
+        more:[{label:'교정성적서 (DI-QCIC-80798C)',id:null},{label:'TO 00-20-14',id:'to'}] },
+      { k:'주기 관리', v:'얼마나 자주', d:'신뢰성 목표(주기말 85%)에 맞춰 교정주기를 설정·조정.', docs:[{label:'NCSL RP-1',id:'rp1'}],
+        more:[{label:'NCSL RP-18',id:'rp18'}] },
+      { k:'수리·복구', v:'부적합 시', d:'군 교정실은 반송이 아니라 직접 진단·수리·복구한다.', docs:[{label:'DAFI 21-101',id:'dafi21101'}],
+        more:[{label:'AFSCMAN 21-102',id:null},{label:'TO 00-25-107',id:null}] },
+      { k:'폐기', v:'수명 종료', d:'수명이 끝난 장비를 규정 절차로 처분.', docs:[],
+        more:[{label:'DAFI 63-101/20-101',id:'dafi20101'}] },
+    ],
+    note: '교정만 하는 민수와 달리, 군 교정실(PMEL)은 진단·조정·수리까지 수행한다 — "교정은 정비의 일부". 최초교정(Initial)과 주기교정(Periodic)을 구분한다.',
+  },
+  business: {
+    title: '💼 사업 가치 — 왜 이것이 사업인가',
+    desc: '항공기를 수출하면 그것을 평생 정확하게 유지할 측정 체계가 반드시 따라간다. KAI는 그 체계를 통째로 함께 공급한다.',
+    color: 'var(--accent)',
+    steps: [
+      { k:'항공기 수출', v:'FA-50 · KF-21', d:'무기체계 수출이 출발점.', docs:[], more:[] },
+      { k:'측정 체계 동반', v:'METCAL 패키지', d:'장비·시험소·문서·훈련·SW·교정서비스를 묶어 함께 공급.', docs:[{label:'DAFMAN 21-113',id:'dafman'}],
+        more:[{label:'MIL-STD-1839D',id:'milstd1839'},{label:'ISO/IEC 17025',id:'iso17025'},{label:'CFETP 2P0X1',id:'cfetp'},{label:'FC 4-218-01F',id:null}] },
+      { k:'후속 군수', v:'MRO 매출', d:'운용 기간 내내 발생하는 교정·정비 수요 — 반복 매출.', docs:[],
+        more:[{label:'TO 33K-1-100-1',id:'to33k'},{label:'NCSL RP-1',id:'rp1'}] },
+      { k:'신뢰성 보증', v:'국가 측정 신뢰', d:'"항공기 회사"에서 "측정 신뢰성 수출 회사"로의 진화.', docs:[], more:[] },
+    ],
+    note: '항공기 1대당 측정 체계 5~15억. 2027년 200억 → 2030년 3,000억 → 2035년 2조 목표.',
+  },
+  governance: {
+    title: '🏛️ 거버넌스 — 누가 권한을 갖는가',
+    desc: '소급성이 "정확함의 물리적 사슬"이라면, 거버넌스는 "권한의 사슬"이다. 모든 측정·교정의 기술 권한이 단 하나의 조직(AFMETCAL)으로 수렴한다.',
+    color: 'var(--gov)',
+    steps: [
+      { k:'국가', v:'NIST · USNO', d:'1차 측정표준 보유. SI 단위 실현.', docs:[], more:[] },
+      { k:'국방부', v:'OUSD(R&E) · JTCG-CMT', d:'합동 측정정책 수립, 전군 표준 통일.', docs:[],
+        more:[{label:'MIL-STD-1839D',id:'milstd1839'}] },
+      { k:'공군 본부', v:'SAF · AF/A4 · AFLCMC', d:'공군 정책 결정과 자원 배분.', docs:[{label:'DAFPD 21-1',id:'dafpd'}],
+        more:[{label:'DAFI 63-101/20-101',id:'dafi20101'}] },
+      { k:'단일 권한', v:'AFMETCAL (Det 1, Heath OH)', d:'측정·교정의 기술 권한이 모이는 단일 POC. <b>8대 직능</b>: 교정책임 결정 · 절차 작성·배포 · 표준 획득·배분 · 주기 설정·조정 · PMEL 평가·인증 · 측정능력 향상 · 외부교정 승인 · JTCG-CMT 대표.', docs:[{label:'DAFMAN 21-113',id:'dafman'}],
+        more:[{label:'TO 00-20-14',id:'to'},{label:'TO 33K-1-100-1',id:'to33k'},{label:'CFETP 2P0X1',id:'cfetp'}] },
+      { k:'주요사령부', v:'MAJCOM', d:'PMEL 소유·운영 (MFM).', docs:[],
+        more:[{label:'AFSCMAN 21-102',id:null}] },
+      { k:'기지·현장', v:'PMEL → 정비대대', d:'실제 교정 수행과 무기체계 측정.', docs:[{label:'DAFI 21-101',id:'dafi21101'}],
+        more:[{label:'AFI 36-2650',id:null},{label:'AFMAN 21-202',id:null},{label:'AFMAN 21-204',id:null},{label:'AFMAN 21-206',id:null}] },
+    ],
+    note: '한국판의 핵심 질문 — 이 "단일 권한(AFMETCAL)"의 역할을 누가 맡는가. 사업기획서는 KAI가 위탁운영하는 K-AFMETCAL Center를 제시한다.',
+  },
+};
+
+// ── 8 Core Components (구성 — 그리드, 그의 9p PDF 5p 근거) ──────────
+// 8 Core "전체" 모드 = 문서계층 94개를 8개 기능요소에 빠짐없이 분배 (누락 0).
+const CORE8 = [
+  { n:'①', t:'문서화', e:'Documentation', d:'교정 절차서·운용정비 지침·기술교범의 작성과 형식 표준.', color:'var(--accent2)',
+    docs:[{label:'MIL-PRF-38793C',id:null},{label:'TO 33K-1-100-1',id:'to33k'}],
+    more:[{label:'MIL-DTL-7700K',id:null},{label:'MIL-DTL-87929F',id:null},{label:'MIL-PRF-32216B',id:null},{label:'MIL-PRF-38807',id:null},{label:'MIL-DTL-38807D',id:null},{label:'MIL-PRF-38314',id:null},{label:'MIL-STD-38784B',id:null},{label:'MIL-DTL-83495D',id:null},{label:'33D Series TOs',id:null},{label:'TO 00-20-1',id:null},{label:'TO 00-20-2',id:null},{label:'MIL-STD-31000C',id:null}] },
+  { n:'②', t:'훈련', e:'Training', d:'교정 인력(AFSC 2P0X1)의 자격·양성 체계.', color:'#4aa3df',
+    docs:[{label:'CFETP 2P0X1',id:'cfetp'}],
+    more:[{label:'AFI 36-2650',id:null},{label:'AFMAN 21-202',id:null},{label:'AFMAN 21-204',id:null},{label:'AFMAN 21-206',id:null}] },
+  { n:'③', t:'장비', e:'Equipment (TMDE)', d:'시험·측정·진단 장비와 표준기의 확보·배분.', color:'var(--accent)',
+    docs:[{label:'MIL-PRF-28800G',id:null}],
+    more:[{label:'MIL-STD-1808C',id:null},{label:'AFMCMAN 20-106',id:null}] },
+  { n:'④', t:'기술정보·IETM', e:'TIM / IETM', d:'기술정보 관리와 대화형 전자 기술교범(S1000D).', color:'var(--kolas)',
+    docs:[{label:'MIL-STD-3048C',id:null}],
+    more:[{label:'MIL-DTL-87268D',id:null},{label:'MIL-PRF-87268A',id:null},{label:'MIL-DTL-87269D',id:null},{label:'MIL-PRF-87269A',id:null},{label:'MIL-STD-40051-1D',id:null},{label:'MIL-STD-40051-2D',id:null},{label:'MIL-STD-40051E',id:null},{label:'SAE GEIA-STD-0007C',id:null},{label:'S1000D 4.1',id:null},{label:'S1000D 5.0',id:null},{label:'S1000D 6',id:null},{label:'ETIMS',id:null},{label:'DIDs',id:null},{label:'AFCAV',id:null},{label:'DAFI 61-104',id:null},{label:'DoDI 5230.24',id:null},{label:'DoDM 5200.01',id:null}] },
+  { n:'⑤', t:'교정·서비스', e:'Calibration & CS', d:'교정 수행의 신뢰성·가용성·품질 보증.', color:'#e06c2a',
+    docs:[{label:'ISO/IEC 17025',id:'iso17025'},{label:'TO 00-20-14',id:'to'}],
+    more:[{label:'ANSI/NCSL Z540.3',id:'z540'},{label:'ANSI/NCSL Z540.1',id:null},{label:'MIL-STD-45662A',id:null},{label:'MIL-I-45208A',id:null},{label:'TO 00-25-107',id:null},{label:'DI-QCIC-80798C (성적서)',id:null},{label:'DI-QCIC-81110',id:null}] },
+  { n:'⑥', t:'시험소', e:'Laboratory', d:'교정 정확도를 보장하는 시설·환경 조건.', color:'var(--mil)',
+    docs:[{label:'ISO/IEC 17025',id:'iso17025'},{label:'FC 4-218-01F',id:null}],
+    more:[{label:'ISO 9001',id:null},{label:'AS9100D',id:null},{label:'FC 2-000-05N',id:null},{label:'TO 00-25-203',id:null},{label:'TO 00-25-234',id:null},{label:'UFC 1-200-01',id:null},{label:'UFC 1-200-02',id:null},{label:'UFC 1-201-01',id:null},{label:'UFS 1-201-02',id:null},{label:'UFC 4-229-01N',id:null},{label:'UFC 4-211-02',id:null},{label:'DAFMAN 32-1084',id:null},{label:'AFI 32-1024',id:null},{label:'AFMAN 32-1084',id:null},{label:'DAFMAN 91-203',id:null},{label:'AFRCH 32-1001',id:null},{label:'ANGH 32-1084',id:null}] },
+  { n:'⑦', t:'METCAL 프로그램', e:'METCAL Program', d:'전체를 통할하는 거버넌스와 프로그램 관리. ★ 정신.', color:'var(--gov)',
+    docs:[{label:'DAFMAN 21-113',id:'dafman'},{label:'MIL-STD-1839D',id:'milstd1839'}],
+    more:[{label:'DAFPD 21-1',id:'dafpd'},{label:'TO 33K-1-100-2',id:null},{label:'MIL-HDBK-1839',id:null},{label:'DI-QCIC-80278C (CMRS)',id:null},{label:'DI-SESS-81758A',id:null},{label:'ISO 10012',id:'iso10012'},{label:'ISO 10012:2003',id:'iso10012'},{label:'ISO 10012-1:1992',id:null},{label:'ISO 10012-2:1997',id:null}] },
+  { n:'⑧', t:'임무 보증', e:'Mission Assurance', d:'무기체계의 신뢰성·안전성 보장. 폐쇄 루프 피드백(TOIR·MDR·PIWG).', color:'#c9a227',
+    docs:[{label:'DAFI 21-101',id:'dafi21101'}],
+    more:[{label:'DAFI 63-101/20-101',id:'dafi20101'},{label:'AFSCMAN 21-102',id:null},{label:'TO 00-5-1',id:null},{label:'TO 00-5-3',id:null},{label:'TO 00-5-15',id:null},{label:'TO 00-5-16',id:null},{label:'TO 00-5-18',id:null},{label:'AFMCMAN 21-1',id:null},{label:'AFTO Form 22',id:null},{label:'AFTO Form 43',id:null},{label:'AFTO Form 57',id:null},{label:'AFTO Form 186',id:null},{label:'AFTO Form 252',id:null}] },
+];
+
+// (표준 현황 매트릭스는 '문서 계층'에 상태 필터 + 개정/발행일로 흡수됨)
+
 const DOCS = {
   dafpd: {
     code:"DAFPD 21-1", ename:"Department of the Air Force Policy Directive 21-1 — Maintenance of Military Materiel (8쪽)",
@@ -856,9 +1157,10 @@ const DOCS = {
 };
 
 const panel = document.getElementById('panel');
-function render(id){
+// 문서 상세 HTML 생성 — 단일 소스(DOCS). 우측 패널·슬라이드 패널이 공유.
+function buildDocHtml(id){
   const d = DOCS[id];
-  if(!d) return;
+  if(!d) return null;
   let t = `<div class="panel-doc"><h2>${d.code}</h2><div class="ename">${d.ename}</div>`;
   t += `<div class="oneliner">${d.oneliner}</div>`;
   if(d.lineage || d.analogy){
@@ -888,16 +1190,100 @@ function render(id){
     t += `</div></details>`;
   }
   t += `</div>`;
+  return t;
+}
+// 문서계층 탭: 우측 고정 패널에 렌더
+function render(id){
+  const t = buildDocHtml(id);
+  if(t===null) return;
   panel.innerHTML = t;
+  highlightTerms(panel);
   panel.scrollTop = 0;
 }
-document.querySelectorAll('.doc').forEach(el=>{
-  el.addEventListener('click', ()=>{
-    document.querySelectorAll('.doc').forEach(d=>d.classList.remove('active'));
-    el.classList.add('active');
-    render(el.dataset.id);
+// 전체 흐름: 우측 슬라이드 패널에 렌더 (단일 소스 buildDocHtml 공유)
+const slidePanel = document.getElementById('slidePanel');
+const slideOverlay = document.getElementById('slideOverlay');
+const slideBody = document.getElementById('slideBody');
+function openSlide(id){
+  const t = buildDocHtml(id);
+  if(t===null){
+    slideBody.innerHTML = `<div class="slide-todo"><h2>${id}</h2><p>이 문서의 상세 정리는 아직 준비 중입니다.<br>원문 탐독 후 추가될 예정입니다.</p></div>`;
+  } else {
+    slideBody.innerHTML = t;
+    highlightTerms(slideBody);
+  }
+  slideBody.scrollTop = 0;
+  slidePanel.classList.add('open');
+  slideOverlay.classList.add('show');
+}
+function closeSlide(){
+  slidePanel.classList.remove('open');
+  slideOverlay.classList.remove('show');
+}
+document.getElementById('slideClose').addEventListener('click', closeSlide);
+slideOverlay.addEventListener('click', closeSlide);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSlide(); });
+// ── 문서 계층(좌측) 렌더 ───────────────────────────────────────────
+let docStatusFilter = 'all';   // 상태 필터 (표준현황 흡수)
+function renderDocTree(){
+  // 상태 범례 = 상태 필터 버튼 겸용
+  document.getElementById('statusLegend').innerHTML =
+    '<span class="sl-title">상태 필터:</span>' +
+    `<button class="sl-filter ${docStatusFilter==='all'?'on':''}" data-st="all">전체</button>` +
+    Object.entries(STATUS).map(([k,v])=>
+      `<button class="sl-filter ${docStatusFilter===k?'on':''}" data-st="${k}"><i class="sl-dot" style="background:${v.col}"></i>${v.ko}</button>`).join('');
+
+  // 영역별 트리
+  const tree = document.getElementById('docTree');
+  let total = 0, done = 0, shown = 0;
+  tree.innerHTML = DOCTREE.map(area=>{
+    let areaShown = 0;
+    const rows = area.docs.map(d=>{
+      total++; if(d.id) done++;
+      if(docStatusFilter!=='all' && d.s!==docStatusFilter) return '';
+      areaShown++; shown++;
+      const st = STATUS[d.s] || STATUS.active;
+      const clickable = d.id ? 'doc-row link' : 'doc-row';
+      const meta = (d.rev||d.date) ? `<span class="dr-meta">${[d.rev,d.date].filter(Boolean).join(' · ')}</span>` : '';
+      return `<div class="${clickable}" ${d.id?`data-id="${d.id}"`:''} style="--st:${st.col}">
+        <span class="dr-status" title="${st.ko}"></span>
+        <span class="dr-code">${d.c}</span>
+        <span class="dr-name">${d.n}</span>
+        ${meta}
+        <span class="dr-badge" style="background:${st.col};color:${st.fg}">${st.ko}</span>
+        ${d.id?'<span class="dr-go">상세 ↗</span>':''}
+      </div>`;
+    }).join('');
+    if(areaShown===0) return '';
+    return `<div class="area" style="--ac:${area.color}">
+      <div class="area-head"><span class="area-en">${area.area}</span><span class="area-ko">${area.ko}</span>
+        <span class="area-cnt">${areaShown}</span></div>
+      <div class="area-rows">${rows}</div>
+    </div>`;
+  }).join('');
+
+  // 요약 (기존 것 갱신 또는 생성)
+  let summary = document.getElementById('treeSummary');
+  if(!summary){ summary=document.createElement('div'); summary.id='treeSummary'; summary.className='tree-summary'; tree.parentNode.insertBefore(summary, tree); }
+  const filterNote = docStatusFilter==='all' ? '' : ` · ${STATUS[docStatusFilter].ko}만 ${shown}건`;
+  summary.innerHTML = `총 <b>${total}</b>개 문서 · ${DOCTREE.length}개 영역 · 상세정리 <b>${done}</b>건${filterNote} <span class="sum-hint">· 폐지 ≠ 미사용(레거시 군계약 잔존)</span>`;
+
+  // 상태 필터 버튼
+  document.getElementById('statusLegend').querySelectorAll('.sl-filter').forEach(b=>
+    b.addEventListener('click', ()=>{ docStatusFilter=b.dataset.st; renderDocTree(); }));
+
+  // 이벤트 위임 — 클릭 가능한 문서만 상세로 (중복 방지 위해 1회만)
+  if(tree.dataset.bound) return;
+  tree.dataset.bound = '1';
+  tree.addEventListener('click', e=>{
+    const row = e.target.closest('.doc-row.link');
+    if(!row) return;
+    tree.querySelectorAll('.doc-row').forEach(d=>d.classList.remove('active'));
+    row.classList.add('active');
+    render(row.dataset.id);
   });
-});
+}
+renderDocTree();
 
 /* ===== 용어집 ===== */
 const TERMS = [
@@ -984,8 +1370,161 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click', ()=>{
   const v = t.dataset.view;
   document.getElementById('view-docs').style.display = (v==='docs')?'block':'none';
   document.getElementById('view-glossary').style.display = (v==='glossary')?'block':'none';
+  document.getElementById('view-chain').style.display = (v==='chain')?'block':'none';
   if(v==='glossary') renderGloss();
+  if(v==='chain') renderChain();
 }));
+
+// 전체 흐름에서 문서 칩 클릭 → 우측 슬라이드 패널 (탭 이동 없음, 맥락 유지)
+function gotoDoc(id){
+  openSlide(id);
+}
+
+// ── 전체 흐름 관점 렌더 ────────────────────────────────────────────
+let curLens = 'traceability';
+let detailMode = 'all';   // 핵심/전체 토글 (기본=전체)
+function renderChain(){ drawLens(curLens); }
+const docChip = d => d.id
+  ? `<span class="task-doc link" data-goto="${d.id}">${d.label} ↗</span>`
+  : `<span class="task-doc">${d.label}</span>`;
+
+function drawLens(key){
+  document.querySelectorAll('.lens').forEach(b=>b.classList.toggle('active', b.dataset.lens===key));
+  const wrap = document.querySelector('.chain-flow');
+
+  if(key==='core8'){            // 구성 — 카드 그리드
+    document.getElementById('lensTitle').textContent = '🧩 8 핵심 구성요소 — 체계는 무엇으로 이루어지는가';
+    document.getElementById('lensDesc').innerHTML = '흐름이 아니라 <b>구성</b>의 관점. 측정·교정 체계를 8개 기능요소로 분해한 것이며, 사업의 매출 영역(장비·SW·서비스)과 그대로 대응한다. <b>전체</b> 모드는 문서계층 전체 표준을 8요소에 빠짐없이 분배한 것.';
+    let html = `<div class="detail-toggle">
+      <span class="dt-label">표준 표시:</span>
+      <button class="dt ${detailMode==='core'?'active':''}" data-mode="core">핵심</button>
+      <button class="dt ${detailMode==='all'?'active':''}" data-mode="all">전체</button>
+    </div>`;
+    html += `<div class="core-grid">${CORE8.map(c=>{
+      const docs = (detailMode==='all' && c.more) ? c.docs.concat(c.more) : c.docs;
+      return `<div class="core-card" style="--cc:${c.color}">
+        <div class="core-top"><span class="core-no">${c.n}</span>
+          <span class="core-t">${c.t}</span><span class="core-e">${c.e}</span></div>
+        <div class="core-d">${c.d}</div>
+        ${docs.length?`<div class="task-docs">${docs.map(docChip).join('')}</div>`:''}
+      </div>`;}).join('')}</div>`;
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.dt').forEach(b=>b.addEventListener('click', ()=>{
+      detailMode = b.dataset.mode; drawLens(key);
+    }));
+  }
+  else {                        // 흐름형 (소급성/일생/사업/거버넌스)
+    const L = LENSES[key];
+    document.getElementById('lensTitle').textContent = L.title;
+    document.getElementById('lensDesc').innerHTML = L.desc;
+    // 핵심/전체 토글 — more 가진 단계가 하나라도 있을 때만 노출
+    const hasMore = L.steps.some(s=>s.more && s.more.length);
+    let html = '';
+    if(hasMore){
+      html += `<div class="detail-toggle">
+        <span class="dt-label">표준 표시:</span>
+        <button class="dt ${detailMode==='core'?'active':''}" data-mode="core">핵심</button>
+        <button class="dt ${detailMode==='all'?'active':''}" data-mode="all">전체</button>
+      </div>`;
+    }
+    html += '<div class="timeline" style="--fc:'+L.color+'">';
+    L.steps.forEach((s, i)=>{
+      const docs = (detailMode==='all' && s.more) ? s.docs.concat(s.more) : s.docs;
+      const last = i===L.steps.length-1 ? ' last' : '';
+      html += `<div class="tstep${last}">
+        <div class="tstep-rail"><span class="tstep-no">${i+1}</span></div>
+        <div class="tstep-card">
+          <div class="tstep-head"><span class="tstep-k">${s.k}</span><span class="tstep-v">${s.v}</span></div>
+          <div class="tstep-d">${s.d}</div>
+          ${docs.length?`<div class="tstep-docs">${docs.map(docChip).join('')}</div>`:''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    html += `<div class="flownote" style="border-color:${L.color}">💡 ${L.note}</div>`;
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('.dt').forEach(b=>b.addEventListener('click', ()=>{
+      detailMode = b.dataset.mode; drawLens(key);
+    }));
+  }
+
+  wrap.querySelectorAll('.task-doc.link').forEach(el=>{
+    el.addEventListener('click', ()=> gotoDoc(el.dataset.goto));
+  });
+  highlightTerms(wrap);
+}
+document.querySelectorAll('.lens').forEach(b=>b.addEventListener('click', ()=>{
+  curLens = b.dataset.lens; drawLens(curLens);
+}));
+
+// ── 용어 호버 툴팁 ─────────────────────────────────────────────────
+// 본문에서 TERMS 약어를 자동 감지 → 점선 밑줄 + 호버 시 뜻 팝업.
+// 단일 소스(TERMS) 재사용. 한 컨테이너 안에서 같은 약어는 "첫 등장만" 표시(지저분함 방지).
+const TERMMAP = {};
+TERMS.forEach(t=>{ TERMMAP[t.a] = t; });
+// 긴 약어 우선 매칭 (예: 'ISO 10012'가 'ISO'보다 먼저)
+const TERMKEYS = Object.keys(TERMMAP)
+  .filter(k=>/^[A-Za-z0-9][A-Za-z0-9 .\/-]*$/.test(k))   // 영문/숫자 약어만 (한글·기호 제외)
+  .sort((a,b)=>b.length-a.length);
+const TERM_RE = new RegExp('\\b(' + TERMKEYS.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')\\b');
+
+function highlightTerms(root){
+  if(!TERMKEYS.length) return;
+  const seen = new Set();
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n){
+      if(!n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      const p = n.parentElement;
+      if(!p) return NodeFilter.FILTER_REJECT;
+      // 칩·코드·이미 처리된 곳·제목은 제외
+      if(p.closest('.task-doc,.gloss-term,.dr-code,h1,h2,h3,summary,.abbr')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const targets = [];
+  let node; while(node = walker.nextNode()) targets.push(node);
+  targets.forEach(textNode=>{
+    let txt = textNode.nodeValue;
+    const frag = document.createDocumentFragment();
+    let last = 0, m, re = new RegExp(TERM_RE.source, 'g');
+    while((m = re.exec(txt))){
+      const term = m[1];
+      if(seen.has(term)) continue;       // 첫 등장만
+      seen.add(term);
+      if(m.index > last) frag.appendChild(document.createTextNode(txt.slice(last, m.index)));
+      const span = document.createElement('span');
+      span.className = 'gloss-term';
+      span.dataset.term = term;
+      span.textContent = term;
+      frag.appendChild(span);
+      last = m.index + term.length;
+    }
+    if(last > 0){
+      if(last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+      textNode.parentNode.replaceChild(frag, textNode);
+    }
+  });
+}
+
+const glossTip = document.getElementById('glossTip');
+document.addEventListener('mouseover', e=>{
+  const el = e.target.closest('.gloss-term');
+  if(!el) return;
+  const t = TERMMAP[el.dataset.term];
+  if(!t) return;
+  glossTip.innerHTML = `<div class="gt-abbr">${t.a}</div><div class="gt-full">${t.f}</div><div class="gt-desc">${t.d}</div>`;
+  glossTip.classList.add('show');
+  const r = el.getBoundingClientRect();
+  glossTip.style.left = Math.min(r.left, window.innerWidth - 320) + 'px';
+  glossTip.style.top = (r.bottom + 6) + 'px';
+});
+document.addEventListener('mouseout', e=>{
+  if(e.target.closest('.gloss-term')) glossTip.classList.remove('show');
+});
+
+// 초기 진입 = 전체 흐름이 메인
+renderChain();
 </script>
 </body>
 </html>
