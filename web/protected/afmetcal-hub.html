@@ -193,7 +193,7 @@
   .task-doc.link{cursor:pointer;color:var(--accent2);border-color:rgba(74,158,255,.4)}
   .task-doc.link:hover{background:var(--accent2);color:#fff;border-color:var(--accent2)}
   .stage-arrow{text-align:center;color:var(--dim);font-size:16px;margin:2px 0}
-  /* 전체 흐름 3관점 */
+  /* 전체 흐름 관점 */
   .lens-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
   .lens{background:var(--panel);border:1px solid var(--line);color:var(--dim);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit}
   .lens:hover{color:var(--txt);border-color:var(--accent)}
@@ -280,7 +280,7 @@
   </div>
 </div>
 
-<!-- 뷰 3: 전체 흐름 (3관점 토글 — 검토용) -->
+<!-- 뷰 3: 전체 흐름 (관점 토글) -->
 <div class="view" id="view-chain">
   <div class="chain-wrap">
     <div class="chain-head">
@@ -293,7 +293,6 @@
         <button class="lens" data-lens="governance">🏛️ 거버넌스</button>
         <button class="lens" data-lens="core8">🧩 8 핵심 구성요소</button>
       </div>
-      <p class="chain-note">검토용 초안. 세 관점은 모두 KAI 담당자 자료(소급성 사슬·장비 흐름·사업기획)에 근거합니다. 흐름·표현이 적절한지 보고 알려주세요.</p>
     </div>
 
     <div class="chain-flow"></div>
@@ -396,10 +395,10 @@ const DOCTREE = [
     {c:'MIL-STD-1839D', n:'Calibration & Measurement Requirements (CMR)', s:'active', id:'milstd1839', rev:'현행', date:'2010-05'},
     {c:'MIL-HDBK-1839', n:'CMR 핸드북', s:'active'},
     {c:'AFMCMAN 20-106', n:'Provisioning', s:'active'},
-    {c:'DI-QCIC-80278C', n:'CMRS (CMR Summary)', s:'active'},
+    {c:'DI-QCIC-80278C', n:'CMRS (CMR Summary)', s:'active', id:'cmrs', rev:'C', date:'2017-01'},
     {c:'DI-SESS-81758A', n:'Logistics Product Data (LPD)_SERD', s:'active'},
     {c:'DI-QCIC-81110', n:'Inspection and Test Plan', s:'active'},
-    {c:'DI-QCIC-80798C', n:'Calibration Certificate/Report (교정성적서)', s:'active'},
+    {c:'DI-QCIC-80798C', n:'Calibration Certificate/Report (교정성적서)', s:'active', id:'cert80798', rev:'C', date:'2017-01'},
   ]},
   { area:'AF METCAL Policy', ko:'측정의 정신 ★', color:'#f0a500', docs:[
     {c:'DAFMAN 21-113', n:'AF Metrology & Calibration Program Mgmt (구 AFMAN 21-113)', s:'active', id:'dafman', rev:'현행', date:'2020-04'},
@@ -445,8 +444,8 @@ const DOCTREE = [
   ]},
 ];
 
-// ── 전체 흐름 3관점 (검토용 초안) ──────────────────────────────────
-// 같은 사업을 세 각도에서. 각 관점은 가로 흐름의 step 배열.
+// ── 전체 흐름 관점 ─────────────────────────────────────────────────
+// 같은 사업을 여러 각도에서. 각 관점은 가로 흐름의 step 배열.
 // step.docs는 {label, id} — id가 DOCS에 있으면 클릭 시 문서 상세로 이동.
 // 근거: 모두 KAI 담당자 자료. 소급성=Multilayer 4p, 일생=8p Equipment Flow, 사업=기획서 R9.
 const LENSES = {
@@ -473,13 +472,13 @@ const LENSES = {
     color: 'var(--accent2)',
     steps: [
       { k:'요구 정의', v:'무엇을 잴 것인가', d:'무기체계마다 필요한 측정 항목·정확도를 도입 단계에 확정 (CMR/CMRS).', docs:[{label:'MIL-STD-1839D',id:'milstd1839'}],
-        more:[{label:'MIL-HDBK-1839',id:null},{label:'CMRS (DI-QCIC-80278C)',id:null},{label:'DI-SESS-81758A',id:null},{label:'AFMCMAN 20-106',id:null}] },
+        more:[{label:'MIL-HDBK-1839',id:null},{label:'CMRS (DI-QCIC-80278C)',id:'cmrs'},{label:'DI-SESS-81758A',id:null},{label:'AFMCMAN 20-106',id:null}] },
       { k:'도입·등록', v:'자산 등재', d:'장비를 받아 관리 시스템(PAMS)에 등록.', docs:[],
         more:[{label:'MIL-PRF-28800G',id:null},{label:'MIL-STD-1808C',id:null}] },
       { k:'최초 교정', v:'Initial Cal', d:'야전 투입 전 최초 교정. 도입 직후 1회.', docs:[{label:'TO 33K-1-100-1',id:'to33k'}],
         more:[{label:'MIL-PRF-38793C',id:null},{label:'DI-QCIC-81110',id:null}] },
       { k:'주기 교정', v:'Periodic Cal', d:'규정된 군 절차서에 따라 주기적으로 교정·성적서 발급.', docs:[{label:'TO 33K-1-100-2',id:null}],
-        more:[{label:'교정성적서 (DI-QCIC-80798C)',id:null},{label:'TO 00-20-14',id:'to'}] },
+        more:[{label:'교정성적서 (DI-QCIC-80798C)',id:'cert80798'},{label:'TO 00-20-14',id:'to'}] },
       { k:'주기 관리', v:'얼마나 자주', d:'신뢰성 목표(주기말 85%)에 맞춰 교정주기를 설정·조정.', docs:[{label:'NCSL RP-1',id:'rp1'}],
         more:[{label:'NCSL RP-18',id:'rp18'}] },
       { k:'수리·복구', v:'부적합 시', d:'군 교정실은 반송이 아니라 직접 진단·수리·복구한다.', docs:[{label:'DAFI 21-101',id:'dafi21101'}],
@@ -541,13 +540,13 @@ const CORE8 = [
     more:[{label:'MIL-DTL-87268D',id:null},{label:'MIL-PRF-87268A',id:null},{label:'MIL-DTL-87269D',id:null},{label:'MIL-PRF-87269A',id:null},{label:'MIL-STD-40051-1D',id:null},{label:'MIL-STD-40051-2D',id:null},{label:'MIL-STD-40051E',id:null},{label:'SAE GEIA-STD-0007C',id:null},{label:'S1000D 4.1',id:null},{label:'S1000D 5.0',id:null},{label:'S1000D 6',id:null},{label:'ETIMS',id:null},{label:'DIDs',id:null},{label:'AFCAV',id:null},{label:'DAFI 61-104',id:null},{label:'DoDI 5230.24',id:null},{label:'DoDM 5200.01',id:null}] },
   { n:'⑤', t:'교정·서비스', e:'Calibration & CS', d:'교정 수행의 신뢰성·가용성·품질 보증.', color:'#e06c2a',
     docs:[{label:'ISO/IEC 17025',id:'iso17025'},{label:'TO 00-20-14',id:'to'}],
-    more:[{label:'ANSI/NCSL Z540.3',id:'z540'},{label:'ANSI/NCSL Z540.1',id:null},{label:'MIL-STD-45662A',id:null},{label:'MIL-I-45208A',id:null},{label:'TO 00-25-107',id:null},{label:'DI-QCIC-80798C (성적서)',id:null},{label:'DI-QCIC-81110',id:null}] },
+    more:[{label:'ANSI/NCSL Z540.3',id:'z540'},{label:'ANSI/NCSL Z540.1',id:null},{label:'MIL-STD-45662A',id:null},{label:'MIL-I-45208A',id:null},{label:'TO 00-25-107',id:null},{label:'DI-QCIC-80798C (성적서)',id:'cert80798'},{label:'DI-QCIC-81110',id:null}] },
   { n:'⑥', t:'시험소', e:'Laboratory', d:'교정 정확도를 보장하는 시설·환경 조건.', color:'var(--mil)',
     docs:[{label:'ISO/IEC 17025',id:'iso17025'},{label:'FC 4-218-01F',id:null}],
     more:[{label:'ISO 9001',id:null},{label:'AS9100D',id:null},{label:'FC 2-000-05N',id:null},{label:'TO 00-25-203',id:null},{label:'TO 00-25-234',id:null},{label:'UFC 1-200-01',id:null},{label:'UFC 1-200-02',id:null},{label:'UFC 1-201-01',id:null},{label:'UFS 1-201-02',id:null},{label:'UFC 4-229-01N',id:null},{label:'UFC 4-211-02',id:null},{label:'DAFMAN 32-1084',id:null},{label:'AFI 32-1024',id:null},{label:'AFMAN 32-1084',id:null},{label:'DAFMAN 91-203',id:null},{label:'AFRCH 32-1001',id:null},{label:'ANGH 32-1084',id:null}] },
   { n:'⑦', t:'METCAL 프로그램', e:'METCAL Program', d:'전체를 통할하는 거버넌스와 프로그램 관리. ★ 정신.', color:'var(--gov)',
     docs:[{label:'DAFMAN 21-113',id:'dafman'},{label:'MIL-STD-1839D',id:'milstd1839'}],
-    more:[{label:'DAFPD 21-1',id:'dafpd'},{label:'TO 33K-1-100-2',id:null},{label:'MIL-HDBK-1839',id:null},{label:'DI-QCIC-80278C (CMRS)',id:null},{label:'DI-SESS-81758A',id:null},{label:'ISO 10012',id:'iso10012'},{label:'ISO 10012:2003',id:'iso10012'},{label:'ISO 10012-1:1992',id:null},{label:'ISO 10012-2:1997',id:null}] },
+    more:[{label:'DAFPD 21-1',id:'dafpd'},{label:'TO 33K-1-100-2',id:null},{label:'MIL-HDBK-1839',id:null},{label:'DI-QCIC-80278C (CMRS)',id:'cmrs'},{label:'DI-SESS-81758A',id:null},{label:'ISO 10012',id:'iso10012'},{label:'ISO 10012:2003',id:'iso10012'},{label:'ISO 10012-1:1992',id:null},{label:'ISO 10012-2:1997',id:null}] },
   { n:'⑧', t:'임무 보증', e:'Mission Assurance', d:'무기체계의 신뢰성·안전성 보장. 폐쇄 루프 피드백(TOIR·MDR·PIWG).', color:'#c9a227',
     docs:[{label:'DAFI 21-101',id:'dafi21101'}],
     more:[{label:'DAFI 63-101/20-101',id:'dafi20101'},{label:'AFSCMAN 21-102',id:null},{label:'TO 00-5-1',id:null},{label:'TO 00-5-3',id:null},{label:'TO 00-5-15',id:null},{label:'TO 00-5-16',id:null},{label:'TO 00-5-18',id:null},{label:'AFMCMAN 21-1',id:null},{label:'AFTO Form 22',id:null},{label:'AFTO Form 43',id:null},{label:'AFTO Form 57',id:null},{label:'AFTO Form 186',id:null},{label:'AFTO Form 252',id:null}] },
@@ -1153,8 +1152,234 @@ const DOCS = {
         ]}
       ]
     }
+  },
+  cert80798: {
+    code:"DI-QCIC-80798C", ename:"Data Item Description — Calibration Certificate/Report (교정성적서) · 미 국방부 · 2017.1.23 승인 · 본문 2쪽",
+    oneliner:"국방부 장비를 교정한 뒤 발급하는 <b>교정성적서에 무엇이 들어가야 하는가</b>를 규정한 데이터 명세(DID). 단 <b>14개 항목(a~n)</b>이 전부이며, <b>양식(레이아웃)은 자유</b> — \"내용만 맞으면 디자인은 마음대로\".",
+    lineage:"교정 계보의 <b>최종 산출물(맨 끝)</b>. 위의 모든 정책·절차·장비·인력이 결국 이 <b>한 장의 성적서</b>로 수렴한다. 본문이 \"<b>ISO/IEC 17025와 일치한다</b>\"고 명시 — 즉 우리가 아는 17025의 성적서 요구(§7.8)를 군이 그대로 받아 자기 DID로 만든 것. 따라서 <b>iso17025</b>의 군(軍) 짝 문서.",
+    analogy:"<b>'영수증에 반드시 적어야 할 항목 목록'</b>에 가깝다. 영수증 종이 디자인은 가게마다 달라도, 금액·날짜·상호·품목은 반드시 있어야 하듯 — 성적서도 양식은 자유지만 14개 필수 내용은 빠지면 안 된다.",
+    flow:[
+      "용도 (Use): 납품 <b>전(prior to delivery)</b> 교정이 필요한 계약에 적용 — 장비를 보내며 \"교정됐음\"을 증명",
+      "양식 (§2): <b>Contractor format is acceptable</b> — 군이 정한 고정 서식 없음, 계약자 양식 허용",
+      "내용 (§3): 성적서에 들어가야 할 <b>14개 항목 a~n</b> 나열 (ISO 17025와 동일)",
+      "근거 (b): \"This DID is consistent with ISO/IEC 17025\" — 17025 성적서 요구와 일치 명시"
+    ],
+    table:[
+      ["무엇을 규정","성적서 양식(폼)","성적서에 들어갈 <b>내용 14개</b> (양식은 자유)"],
+      ["ISO 17025와","우리가 지키는 그 §7.8","그걸 군이 그대로 받아 적은 DID — 거의 동일"],
+      ["언제 쓰나","주기교정마다","주로 <b>납품 전(prior to delivery)</b> 계약 교정"],
+      ["사업 역할","-","CaliBoard cert 산출물의 <b>군 규격 기준</b> — 14개만 충족하면 합격"]
+    ],
+    strange:[
+      "<b>양식이 자유</b> — 군 문서인데 고정 서식이 없다. \"내용 14개만 있으면 레이아웃은 계약자 마음대로\". 우리 성적서 디자인의 자유도가 여기서 보장됨",
+      "<b>본문이 2쪽뿐</b> — 항목 14개 나열이 전부. 짧은 이유는 \"실질 내용은 ISO 17025를 따르라\"고 위임했기 때문",
+      "<b>m·n이 무게중심</b> — m(측정불확도 또는 적합성 진술)·n(소급성 증거)이 \"믿을 수 있는 측정\"임을 떠받치는 두 기둥. 나머지는 식별·이력 정보"
+    ],
+    biz:"<b>CaliBoard cert 도메인이 만들어내는 결과물(성적서) 그 자체의 군 규격.</b> 14개 항목을 충족하는 성적서를 자동 생성·검증하면 \"군 규격(DI-QCIC-80798C) 호환\"을 그대로 주장 가능. 양식 자유 조항 덕에 우리 레이아웃을 그대로 쓰면서 규격을 만족시킬 수 있음 — 영업·발표에서 가장 자주 꺼낼 한 장.",
+    detail:{
+      src:"DI-QCIC-80798C (2017.1.23 승인, 본문 2쪽) 원문 정독. Preparing Activity 36, supersedes 80798B. 괄호 안 영어는 원문 용어.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "국방부 <b>TMDE(시험·측정·진단 장비)를 교정한 뒤 주는 성적서에 뭐가 들어가야 하나</b>의 명세서",
+          "<b>DID(Data Item Description)</b> = 계약 산출물(데이터)의 형식·내용을 규정하는 군 문서 양식. 이 DID는 \"성적서\"라는 산출물을 다룸",
+          "쉽게: <b>\"교정 영수증에 반드시 적어야 할 14가지\"의 목록 한 장</b>"
+        ]},
+        {h:"★ 두 가지 핵심 원칙", items:[
+          "<b>양식은 자유 (§2)</b>: \"Contractor format is acceptable\" — 군이 정한 고정 폼이 없다. <b>내용만 맞으면 디자인·레이아웃은 계약자 마음대로</b>",
+          "<b>내용은 17025를 따름 (b항)</b>: \"This DID is consistent with ISO/IEC 17025\" — 14개 항목이 17025 성적서 요구(§7.8)와 사실상 동일. 그래서 본문이 짧음"
+        ]},
+        {h:"성적서 필수 14개 항목 (a~n) — 세 덩어리로", items:[
+          "<b>① 식별 (누가·무엇을)</b>: a제목 / b시험소명·주소·교정장소 / c성적서 고유번호+페이지마다 식별+끝 표시 / d고객명·주소 / f대상 장비의 식별·상태",
+          "<b>② 방법·조건 (어떻게)</b>: e사용한 교정방법 / g접수일·수행일 / h샘플링 계획(해당 시) / l측정에 영향 준 환경조건",
+          "<b>③ 결과·신뢰 (핵심)</b>: i측정결과+단위 / <b>m측정불확도 또는 적합성(합격/불합격) 진술</b> / <b>n소급성 증거</b> / j승인자 서명 / k결과 한정 진술(\"이 장비에만 적용\")"
+        ]},
+        {h:"우리 사업과 직결되는 지점", items:[
+          "<b>m (불확도/적합성)</b>: 가드밴드·U/T·합격판정 리스크와 직결 — 우리 RP-1·교정주기 작업이 떠받치는 항목",
+          "<b>n (소급성)</b>: 🔗소급성 사슬(NIST→…→야전)을 \"증거로\" 성적서에 담으라는 요구 — DCC 소급성 자동화 아이디어의 근거",
+          "<b>c (고유번호·끝 표시)</b>: 위·변조 방지를 위한 무결성 요구 — 디지털 성적서(DCC)에서 자동 보장 가능"
+        ]}
+      ]
+    }
+  },
+  cmrs: {
+    code:"DI-QCIC-80278C", ename:"Data Item Description — Calibration and Measurements Requirements Summary (CMRS, 교정·측정 요구사항 요약서) · 미 국방부 · 2017.1.23 승인 · 18쪽",
+    oneliner:"무기체계마다 \"<b>무엇을 얼마나 정확히 잴지(Cat I) → 그걸 잴 장비(Cat II) → 그 장비를 교정할 표준기(Cat III)</b>\"를 <b>한 표의 3단 계층</b>으로 정리해 <b>NIST까지 소급성</b>을 증명하는 데이터. <b>MIL-STD-1839 작업의 산출물(deliverable)</b>.",
+    lineage:"<b>milstd1839</b>(CMR)의 <b>짝</b> — 1839가 \"이렇게 하라(작업 명령)\"라면 이 CMRS는 그 작업의 <b>결과물(데이터 양식)</b>. 본문에 \"MIL-STD-1839의 work task에서 나오는 deliverable\"이라 명시. 1839 PDF는 재확인 고시 1장뿐이라 본문이 비어 있는데, <b>이 CMRS 18쪽이 그 빈 곳을 실물 예시로 채워준다</b>. 위로는 AFI 21-113(=DAFMAN 21-113)·5000-series 조달지침을 만족.",
+    analogy:"<b>'시스템 한 대의 측정 요구 명세서 + 그걸 떠받칠 장비·표준기 목록을 한 장에 엮은 표'</b>. 건축으로 치면 \"이 건물은 이 하중을 견뎌야 한다(Cat I) → 그래서 이 자재를 쓴다(Cat II) → 그 자재는 이 기준으로 검사한다(Cat III)\"를 한 시트에 나란히 적은 시방서.",
+    flow:[
+      "용도 (Use): 무기체계의 측정 요구 + TMDE + 교정표준을 정리해 <b>NIST까지 소급성</b> 보증. TMDE 적정성도 검증",
+      "양식 (§2): 계약자 양식 허용. 단 <b>Summary Data Table은 Access/Excel 전자포맷 필수</b>",
+      "내용 (§3): 13개 구성(표지·개정현황·약어·Cat II/III/IV 표·CAGE·요약데이터…) + <b>설계변경(ECP) 시 주기적 갱신 의무</b>",
+      "★ 3단 계층 (§3.5.11): <b>Category I(운용 측정요구) → II(잴 TMDE) → III(교정할 표준기)</b>를 한 줄씩 나란히",
+      "★ TUR 규칙 (§3.6c·d): 토크는 Cat II 1:1↑ + Cat III <b>4:1↑</b> / 일반 자극은 Cat II 1:1↑ (pass·fail 시험 제외)"
+    ],
+    table:[
+      ["무엇을 규정","milstd1839=작업 명령","그 작업의 <b>산출 데이터</b> (1839의 결과물)"],
+      ["핵심 구조","-","<b>Cat I→II→III</b> 3단 = 소급성 사슬을 한 표로"],
+      ["TUR 4:1","1839가 원칙 선언","<b>실제 데이터 표에 4 열로 박힘</b> (p16)"],
+      ["우리 컬럼","-","모델·CAGE·NSN·<b>교정주기(개월)</b>·절차·SERD = ktools_items와 거의 일치"]
+    ],
+    strange:[
+      "<b>★ Category I/II/III 3단 계층</b> — 이 문서의 심장. 🔗소급성 사슬(NIST→…→무기체계)이 \"실제 데이터로 어떻게 기록되는가\"의 실물. 한 줄에 측정요구·장비·표준기가 나란히",
+      "<b>토크렌치 TUR이 명문 (§3.6c)</b> — \"Cat III 토크 교정표준은 TUR 4:1 이상\". 임채욱 선임의 ICMPM 토크렌치 키노트가 이 조항에 직접 근거",
+      "<b>Summary Data Table은 Access/Excel 필수</b> — 군 문서인데 데이터부는 전자표 의무. 우리 CaliBoard가 다루는 바로 그 형태",
+      "<b>살아있는 문서</b> — 설계·엔지니어링 변경(ECP)마다 갱신 의무. 한 번 만들고 끝이 아니라 계속 관리"
+    ],
+    biz:"<b>CaliBoard 데이터 모델의 군 규격 원형.</b> Cat I/II/III 3단 계층 = 우리가 다루는 '장비-측정-소급성' 구조 그 자체이고, 컬럼(모델·CAGE·NSN·교정주기·절차·SERD)은 ktools_items와 거의 겹침. <b>TUR 4:1·토크렌치 조항</b>은 ICMPM 발표(토크렌치 소급성)의 1차 근거. \"Access/Excel 전자표 의무\"는 우리 파이프라인(Excel→파싱)의 정당성.",
+    detail:{
+      src:"DI-QCIC-80278C (2017.1.23 승인, 18쪽 전체) 원문 정독 — 본문 5쪽 + 샘플 템플릿 13쪽. Preparing Activity 36, supersedes 80278B. 괄호 안 영어는 원문 용어.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "무기체계 한 대의 <b>측정 요구 + 그걸 떠받칠 장비·표준기</b>를 한 표에 정리해 NIST까지 소급성을 증명하는 데이터 명세(DID)",
+          "<b>MIL-STD-1839(CMR)의 산출물</b> — 1839가 \"하라\"는 작업의 결과로 만들어지는 deliverable. 그래서 둘은 한 쌍",
+          "쉽게: <b>\"이 시스템은 뭘 얼마나 정확히 재야 하고, 그러려면 어떤 장비·표준기가 필요한가\"를 한 장에 엮은 표</b>"
+        ]},
+        {h:"★ 핵심 — Category I / II / III 3단 계층 (§3.5.11)", items:[
+          "<b>Category I (운용 장비)</b>: 무기체계가 측정해야 할 파라미터·범위·허용차·교정주기 (예: 레이더 출력 1kW ±25%, 펄스폭 1µS ±0.1µS)",
+          "<b>Category II (TMDE)</b>: Cat I을 잴 시험·측정·진단 장비 (예: Power Meter, Oscilloscope, Agilent 3458A)",
+          "<b>Category III (교정장비·표준기)</b>: Cat II를 교정할 표준기 (예: Fluke 5700A Calibrator)",
+          "Cat IV(선택): 시험소 내 전송표준. <b>한 줄에 I→II→III를 나란히</b> = 소급성 사슬을 데이터로 시각화한 것"
+        ]},
+        {h:"★ TUR(시험불확도비) 규칙 — 우리 발표 근거 (§3.6)", items:[
+          "<b>§3.6c (토크)</b>: Cat I 토크 교정 시 — Cat II 토크공구 TUR은 <b>1:1 이상</b>이면 되고, <b>Cat III 토크 교정표준은 4:1 이상</b>이어야 함 → 임채욱 선임 토크렌치 키노트의 직접 근거",
+          "<b>§3.6d (일반 자극)</b>: Cat II가 자극을 공급할 때 TUR 1:1 이상이면 됨 — 단 pass/fail·결함허용 시험은 예외(더 높여야)",
+          "<b>p16 실제 표</b>: Category III에 <b>TUR=4</b>가 열로 박혀 있음 (Fluke 5700A 기준). to(TO 00-20-14)·milstd1839의 'TUR 4:1 원칙'이 여기서 데이터로 실현됨"
+        ]},
+        {h:"양식·운영의 특징", items:[
+          "<b>전자포맷 의무</b>: 계약자 양식은 자유지만 <b>Summary Data Table만은 Access나 Excel</b> 전자표여야 함 (§2)",
+          "<b>주기적 갱신</b>: 설계변경·엔지니어링변경·ECP가 측정요구나 TMDE에 영향 주면 CMRS를 갱신 (3.절) — 살아있는 문서",
+          "<b>기밀 분리</b>: 기밀 정보는 CMRS 본문에 넣지 않고 별도 기밀 부록으로 관리 (§3.4)",
+          "<b>8개 컬럼(표)</b>: 모델/명칭/CAGE/NSN/<b>교정주기(개월)</b>/교정절차/SERD/정비문서 — ktools_items 컬럼과 거의 일치"
+        ]}
+      ]
+    }
+  },
+  milhdbk1839: {
+    code:"MIL-HDBK-1839", ename:"MIL-HDBK-1839A · Calibration and Measurement Requirements (CMR) 핸드북 · 미 국방부 · 2000.11.27 (MIL-HDBK-1839 대체) · 본문 12쪽 + 부록 27쪽",
+    oneliner:"<b>MIL-STD-1839(CMR)의 공식 해설서</b>. 표준의 각 요구조항을 그대로 인용(\" \")한 뒤 \"이게 무슨 뜻이고 어떻게 적용하나\"의 <b>해석 지침</b>을 붙임. 부록엔 <b>완성된 CMRS 실물 예시</b>(BAT 자동시험기) 수록. 단 \"지침일 뿐 — 계약 요구로 인용 불가\".",
+    lineage:"<b>milstd1839</b>(작업 명령)와 <b>cmrs</b>(산출 양식) 사이의 <b>해설 다리</b>. 1839 PDF가 재확인 고시 1장뿐이라 본문이 비어 있었는데, 이 핸드북이 1839 본문 조항을 직접 인용+해설해 <b>그 빈 곳을 메운다</b>. TUR·소급성·교정주기의 권위 있는 정의가 여기 있음. 발급처는 AFMETCAL(Heath, OH) — 전군 공통(육·해·공 Custodians).",
+    analogy:"법조문(MIL-STD-1839) 옆에 붙는 <b>'주석 달린 해설집'</b>. 조문을 그대로 옮겨 적고 그 아래 \"이 조항은 실무에서 이렇게 읽는다\"를 달아 둔 격. 부록은 \"이렇게 작성한 완성본\" 견본.",
+    flow:[
+      "성격 (Foreword): <b>지침(guidance only)</b> — 계약에 \"요구\"로 인용하면 계약자는 따를 의무 없음. 이해를 돕는 문서",
+      "정의 (§3): 교정·SE·TMDE·소급성·<b>TUR</b>·LSA·CMRS·BIT·BITE·<b>교정주기</b> — 각 용어를 표준 인용+해설",
+      "일반 요구 (§4): 측정 파라미터 식별·문서화 / 소급성 사슬을 끊김없이 기록",
+      "상세 요구 (§5): 파라미터 평가 → TMDE 선정 → <b>TUR 4:1</b> → ATE 교정(자가교정 불인정)",
+      "부록 (A·B): A=FAQ(검토기관·승인절차) / B=<b>완성 CMRS 실물 예시</b>(BAT, Cat I/II/III 3단 데이터)"
+    ],
+    table:[
+      ["문서 성격","milstd1839=강제 표준","이건 <b>해설서(지침)</b> — 강제 아님"],
+      ["TUR 4:1","원칙 선언","<b>정의·계산법·데시벨 함정</b>까지 해설(§3.5)"],
+      ["토크","CMRS가 1:1 명시","\"torque\" 1:1 예시 <b>교차검증</b>(§5.4.3b)"],
+      ["교정주기","-","<b>주기=목표 신뢰성 유지 최대시간</b> 정의(§3.12)"]
+    ],
+    strange:[
+      "<b>\"지침일 뿐, 계약에 인용 불가\"</b> — 군 문서인데 스스로 강제력을 부인. \"인용하면 계약자는 안 따라도 된다\"고 명시. 강제는 MIL-STD-1839가, 해설은 이 핸드북이 맡는 분업",
+      "<b>★ 교정주기 = 신뢰성 (§3.12)</b> — \"주기란 목표 측정신뢰성을 유지하며 교정 사이 갈 수 있는 최대 시간\". 우리 RP-1 신뢰성 탭(주기말 85%)의 정의 그 자체",
+      "<b>★ 데시벨 함정 (§3.5)</b> — \"4dB:1dB는 비율 4:1로 보이나 선형 환산하면 2:1\". TUR 설명 시 흔한 오해 — 발표 정확성의 근거",
+      "<b>자가교정 불인정 (§5.4.4.3d)</b> — \"DoD는 self-calibration을 인정 안 함\"(소급성 불가). 우리 키오스크 점검이 '자가교정'이 아니라 '소급성 있는 점검'이어야 하는 이유",
+      "<b>BIT/BITE도 교정 대상 (§5.2)</b> — 빌트인 측정장치도 판정에 쓰이면 교정·소급성 필요. 미교정 시 false reject/accept 위험"
+    ],
+    biz:"<b>1839·CMRS 짝의 내용을 실제로 읽을 수 있는 단 하나의 문서.</b> TUR 4:1 정의·데시벨 함정·교정주기=신뢰성 정의가 ICMPM 발표(토크렌치 소급성·RP-1 신뢰성)의 1차 근거. 부록 B의 완성 CMRS는 우리가 만들 산출물의 '정답지'이고, 그 컬럼(모델·CAGE·NSN·Cal Int·절차·SERD)은 ktools_items와 일치. 토크 1:1·자가교정 불인정은 키오스크 사업 논리의 군 표준 뒷받침.",
+    detail:{
+      src:"MIL-HDBK-1839A (2000.11.27, 본문 12쪽+부록 27쪽) 원문 정독. 발급: AFMETCAL(WR-ALC). MIL-HDBK-1839(1996) 대체. 인용부호(\" \")는 MIL-STD-1839 원문 직접 인용.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "<b>MIL-STD-1839(CMR)의 해설서</b> — 표준 조항을 그대로 인용한 뒤 \"이렇게 해석·적용하라\"는 지침을 붙인 문서",
+          "<b>\"지침일 뿐(guidance only)\"</b> — 계약에 강제 요구로 인용 불가. 강제는 1839, 해설은 이 핸드북이 맡는 분업 구조",
+          "쉽게: <b>법조문(1839) 옆의 주석 해설집 + 완성 견본(부록 B)</b>"
+        ]},
+        {h:"★ TUR(시험불확도비) — 가장 권위 있는 정의 (§3.5, §5.4.3)", items:[
+          "<b>정의</b>: \"피측정/피교정 대상의 총 불확도 ÷ 측정·생성 장비의 총 불확도\". 예: 8% ÷ 2% = <b>4:1</b>",
+          "<b>희망값 4:1</b>: \"a minimum TUR of 4 to 1 is desired\". 달성 불가 시 분석+문서화된 정당화 필요(§5.4.3a)",
+          "<b>★ 데시벨 함정</b>: \"4dB:1dB는 비율 4:1로 보이나, 선형 환산하면 2:1\"(전력은 3dB가 2배) — TUR 설명 시 반드시 선형 단위로 환산",
+          "<b>과잉 사양 경계</b>: 더 정확한 장비를 써도 좋지만, 적용 시 4:1로 derate — 불필요하게 비싼 지원요구를 만들지 말 것"
+        ]},
+        {h:"★ 토크 1:1 — CMRS와 교차검증되는 조항 (§5.4.3b)", items:[
+          "<b>원문</b>: TMDE가 \"성능을 특성화하지 않는 입력 자극만 공급\"하면 <b>TUR 1:1 허용</b>",
+          "<b>명시된 예시</b>: \"input/supplied <b>torque</b> applications, electrical stimuli, pressure inputs\" — 토크가 직접 거론됨",
+          "<b>단, 1:1은 시스템↔SE 사이에만</b> — SE↔교정장비 사이엔 적용 안 됨. pass/fail 판정·성능 특성화 땐 4:1 필요",
+          "CMRS(DI-QCIC-80278C §3.6c)의 \"Cat II 토크 1:1, Cat III 4:1\"과 <b>완전 일치</b> — 임채욱 선임 토크렌치 키노트 근거가 두 문서에서 확인됨"
+        ]},
+        {h:"★ 우리 사업과 직결되는 정의·금지", items:[
+          "<b>교정주기 (§3.12)</b>: \"주기 = 목표 측정신뢰성을 유지하며 교정 사이 갈 수 있는 최대 시간. 측정신뢰성 = 주기 내내 허용공차에 머물 확률\" — RP-1 신뢰성 탭(주기말 85%)의 정의 그 자체",
+          "<b>자가교정 불인정 (§5.4.4.3d)</b>: \"DoD does not recognize self-calibrating\"(소급성 제공 불가) — 키오스크 점검은 '자가교정'이 아니라 '소급성 있는 점검'이어야 함",
+          "<b>BIT/BITE 교정 (§5.2)</b>: 빌트인 측정장치도 판정에 쓰이면 교정·소급성 대상. 미교정 시 false reject(멀쩡한 걸 불합격)/false accept(불량을 합격) 위험",
+          "<b>부록 B 완성 CMRS</b>: BAT 자동시험기로 Cat I/II/III 3단을 실제 수치(DC전압·주파수·동기/리졸버 등)로 채운 견본 — 우리 산출물의 정답지. 컬럼은 ktools_items와 일치"
+        ]}
+      ]
+    }
+  },
+  afi362650: {
+    code:"AFI 36-2650", ename:"Maintenance Training (정비훈련) · 미 공군 · 2026.1.21 · 59쪽 · DAFPD 36-26 이행, DAFMAN 36-2689와 병용",
+    oneliner:"공군 <b>항공기·탄약·미사일 정비 인력</b>을 어떻게 훈련·자격관리·기록하는지의 절차서. <b>훈련을 MIS(전산)로 관리</b>하고, 자격·미처리(overdue)·KPI를 <b>정량 지표</b>로 분기 브리핑(TAB)한다.",
+    lineage:"<b>cfetp</b>(교정 특기 2P0X1의 평생 커리큘럼=무엇을 배우나)의 운영판 짝 — 단 범위가 더 넓어 <b>정비 인력 전체(2AXXX)+훈련관리자(3F2X1)</b>의 훈련을 '어떻게 굴리나'(조직·일정·기록·평가)를 다룸. 위로는 <b>DAFMAN 36-2689</b>(Training Program)가 상위이고 이 AFI는 그 정비 분야 구현. 사업 ④훈련 영역에서 cfetp=교정 인력, 이 문서=정비 인력 전체 훈련 운영 틀.",
+    analogy:"한 직무의 자격증 커리큘럼(cfetp)이 \"무엇을 배우나\"라면, 이건 회사 전체의 <b>'사내 교육 운영 규정'</b> — 누가 가르치고(훈련반), 언제 잡고(일정), 어디 기록하고(전산), 어떻게 점검하나(지표·감사)를 정한 운영 매뉴얼.",
+    flow:[
+      "목적·적용 (1장): 초기·향상·숙련·자격·재훈련·인증 훈련을 정비 특기(AFSC)에 제공. 계약자(performance-based)도 계약대로 편성",
+      "역할·책임 (2장): 정비전대장(MXG/CC)~분대장~훈련관리자(UTM)~작업반장 책임 분배. 정량 지표 분기 보고",
+      "훈련 문서·기록 (3장): <b>핵심과업(core task)=CFETP의 최소 OJT 요구</b> / 자격은 전산 훈련기록으로 (E-6·O-4 이하 필수)",
+      "MIS·전자기록 (4장): <b>훈련 관리도 전산 시스템(IMDS·FMxC2·MyTraining) 의무</b>. 마스터 코스코드 통제",
+      "훈련 운영 (5~10장): 정비훈련반(MTS) 조직·일정·교관·자격프로그램(3단계)·AFR/ANG 특례"
+    ],
+    table:[
+      ["무엇을 다루나","cfetp=교정 특기 커리큘럼","정비 인력 <b>전체 훈련 운영</b>(더 넓음)"],
+      ["관리 수단","-","<b>MIS 전산 의무</b> — ktools와 같은 사고"],
+      ["미처리(overdue)","-","재인증 월말 넘기면 overdue 추적(§1.15)"],
+      ["사업 역할","④훈련(교정 인력)","④훈련(정비 인력 전체 운영 틀)"]
+    ],
+    strange:[
+      "<b>★ 훈련도 전산(MIS)으로 관리 (§4)</b> — \"MIS use is mandatory when available\". 교정 데이터(ktools)처럼 훈련 자격·이력도 IMDS·FMxC2가 단일 진실 출처. 우리 CaliBoard와 동일 철학",
+      "<b>★ 미처리(overdue)=우리 개념 그대로 (§1.15)</b> — \"재인증 월 마지막날 지나면 overdue\". CaliBoard '교정 임박/미처리' 카운트와 같은 추적 메커니즘",
+      "<b>KPI를 퍼센트로 분기 브리핑 (§1.18.6)</b> — 수요응답률·이용률·일정효과율(예: 100 중 15 이탈=85%)을 지표로. 우리 대시보드 정량 관리와 같은 사고방식",
+      "<b>핵심과업(core task)=CFETP에서 끌어옴 (§3.4)</b> — 등급 상승의 최소 OJT 요구. 자격=권한, 미자격자(1-skill) 단독작업·서명 금지(§10.7)",
+      "<b>강제력 등급(Tier T-0~T-3)</b> — 각 요구마다 면제 권한 계층을 숫자로 표시. DAFMAN 21-113의 T-0/T-1 체계와 같은 군 표준 규약"
+    ],
+    biz:"사업 <b>④훈련(Training)의 운영 틀</b> — cfetp(교정 인력 커리큘럼) 위에서 \"정비 인력 전체 훈련을 어떻게 굴리나\"의 군 표준. K-METCAL 수출 시 인력 양성을 <b>전산 훈련관리(MIS)+정량 지표(KPI)</b>로 운영하는 설계도가 됨. 특히 훈련의 MIS·overdue·KPI 관리가 CaliBoard의 장비 데이터 관리와 같은 사고라, \"우리는 교정도 훈련도 같은 데이터 철학으로 운영한다\"는 통합 서사를 줌.",
+    detail:{
+      src:"AFI 36-2650 (2026.1.21, 59쪽) 원문 정독. OPR: AF/A4LM. AFI 36-2650(2022) 대체. DAFPD 36-26 이행, DAFMAN 36-2689와 병용. 우주군엔 미적용.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "공군 <b>항공기·탄약·미사일 정비 인력</b>의 훈련을 어떻게 운영·자격관리·기록하나의 절차서",
+          "주역은 교정병(2P0X1)이 아니라 <b>정비병(2AXXX) 전체 + 훈련관리자(UTM, 3F2X1)</b> — cfetp보다 범위가 넓음",
+          "쉽게: <b>정비 조직 전체의 '사내 교육 운영 규정'</b> (누가·언제·어디기록·어떻게점검)"
+        ]},
+        {h:"cfetp·상위문서와의 관계", items:[
+          "<b>CFETP</b>=특기별 \"무엇을 배우나\"(핵심과업·등급) / <b>이 AFI</b>=\"그 훈련을 어떻게 운영하나\"(조직·일정·기록)",
+          "<b>핵심과업(core task, §3.4)</b>은 CFETP의 특기훈련표준에서 끌어온 등급상승 최소 OJT 요구 — 두 문서가 맞물림",
+          "위에 <b>DAFMAN 36-2689</b>(Training Program)가 상위. 이 AFI는 그것의 정비 분야 구현"
+        ]},
+        {h:"★ CaliBoard와 같은 사고방식 (우리 사업 직결)", items:[
+          "<b>훈련의 전산 관리 (§4)</b>: \"MIS 사용은 가용 시 의무\". IMDS·FMxC2·MyTraining이 훈련 자격·이력의 단일 진실 출처 — 우리 ktools가 교정 데이터를 다루는 것과 동일",
+          "<b>미처리(overdue) 추적 (§1.15·2.8.3.12)</b>: 재인증 월말 넘기면 overdue. CaliBoard '교정 임박/미처리' 카운트와 같은 메커니즘 (TDY·휴가 중에도 overdue로 계수)",
+          "<b>정량 KPI 분기 브리핑 (§1.18.6)</b>: 수요응답률·이용률·일정효과율을 퍼센트로. 우리 대시보드 정량 관리와 같은 사고",
+          "<b>품질보증 폐쇄루프 (§1.19)</b>: QA↔훈련반 피드백으로 훈련 결함 추적 — ⑧임무보증의 환류 사상"
+        ]},
+        {h:"자격=권한 원리 (§3.3, §10.7~10.8)", items:[
+          "자격기록은 E-6·O-4 이하 전원 + 정비 수행자 전원(계급 무관) 유지 (§3.3)",
+          "<b>1-skill level(미숙련)은 단독작업·서명 금지</b>, 항상 자격 트레이너 동반, 가동 엔진·실탄 작업 불가 (§10.7.2)",
+          "원리: <b>자격이 곧 권한</b> — 몇 급이냐가 무엇을 책임질 수 있느냐를 결정 (cfetp의 '등급=권한'과 짝)"
+        ]}
+      ]
+    }
   }
 };
+
+// ── 자동 연결 (id 하드코딩 불필요) ─────────────────────────────────
+// DOCS에 항목을 추가하면, 그 문서를 가리키는 칩·행이 자동으로 활성화된다.
+// 매칭 원칙: DOCS[id].code 문자열이 칩 label / DOCTREE 코드 안에 포함되면 그 id로 연결.
+// 코드가 긴 것부터 검사(예: 'TO 00-20-14'가 'TO 00-20-1'보다 먼저)해 오매칭 방지.
+const CODE_ENTRIES = Object.keys(DOCS)
+  .map(id => ({ id, code: DOCS[id].code }))
+  .sort((a,b) => b.code.length - a.code.length);
+// 명시적 id가 없을 때 텍스트로 DOCS 항목을 자동 탐색. 못 찾으면 null.
+function autoDocId(text){
+  if(!text) return null;
+  for(const e of CODE_ENTRIES){ if(text.includes(e.code)) return e.id; }
+  return null;
+}
+// 칩/행이 실제로 연결할 id: 명시 id 우선, 없으면 자동 매칭.
+function resolveChipId(d){ return d.id || autoDocId(d.label); }
+function resolveRowId(d){ return d.id || autoDocId(d.c); }
 
 const panel = document.getElementById('panel');
 // 문서 상세 HTML 생성 — 단일 소스(DOCS). 우측 패널·슬라이드 패널이 공유.
@@ -1239,19 +1464,20 @@ function renderDocTree(){
   tree.innerHTML = DOCTREE.map(area=>{
     let areaShown = 0;
     const rows = area.docs.map(d=>{
-      total++; if(d.id) done++;
+      const gid = resolveRowId(d);   // 명시 id 우선, 없으면 DOCS.code 자동 매칭
+      total++; if(gid) done++;
       if(docStatusFilter!=='all' && d.s!==docStatusFilter) return '';
       areaShown++; shown++;
       const st = STATUS[d.s] || STATUS.active;
-      const clickable = d.id ? 'doc-row link' : 'doc-row';
+      const clickable = gid ? 'doc-row link' : 'doc-row';
       const meta = (d.rev||d.date) ? `<span class="dr-meta">${[d.rev,d.date].filter(Boolean).join(' · ')}</span>` : '';
-      return `<div class="${clickable}" ${d.id?`data-id="${d.id}"`:''} style="--st:${st.col}">
+      return `<div class="${clickable}" ${gid?`data-id="${gid}"`:''} style="--st:${st.col}">
         <span class="dr-status" title="${st.ko}"></span>
         <span class="dr-code">${d.c}</span>
         <span class="dr-name">${d.n}</span>
         ${meta}
         <span class="dr-badge" style="background:${st.col};color:${st.fg}">${st.ko}</span>
-        ${d.id?'<span class="dr-go">상세 ↗</span>':''}
+        ${gid?'<span class="dr-go">상세 ↗</span>':''}
       </div>`;
     }).join('');
     if(areaShown===0) return '';
@@ -1384,9 +1610,12 @@ function gotoDoc(id){
 let curLens = 'traceability';
 let detailMode = 'all';   // 핵심/전체 토글 (기본=전체)
 function renderChain(){ drawLens(curLens); }
-const docChip = d => d.id
-  ? `<span class="task-doc link" data-goto="${d.id}">${d.label} ↗</span>`
-  : `<span class="task-doc">${d.label}</span>`;
+const docChip = d => {
+  const gid = resolveChipId(d);   // 명시 id 우선, 없으면 DOCS.code 자동 매칭
+  return gid
+    ? `<span class="task-doc link" data-goto="${gid}">${d.label} ↗</span>`
+    : `<span class="task-doc">${d.label}</span>`;
+};
 
 function drawLens(key){
   document.querySelectorAll('.lens').forEach(b=>b.classList.toggle('active', b.dataset.lens===key));
