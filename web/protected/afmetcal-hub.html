@@ -262,6 +262,7 @@
   .core-no{font-size:18px;font-weight:700;color:var(--cc)}
   .core-t{font-size:15px;font-weight:700;color:var(--txt)}
   .core-e{font-size:11px;color:var(--dim)}
+  .core-prio{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--cc);border:1px solid var(--cc);border-radius:10px;padding:1px 8px;white-space:nowrap;opacity:.9}
   .core-d{font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:8px}
 </style>
 </head>
@@ -491,7 +492,7 @@ const LENSES = {
     desc: '한 계측값의 정확함은 국가표준에서 출발해 단절 없이 현장까지 전달된다. 이 사슬이 끊기면 측정은 신뢰를 잃는다 — 군 측정체계의 척추.',
     color: 'var(--kolas)',
     steps: [
-      { k:'국가표준', v:'NIST · KRISS', d:'SI 단위를 실현하는 1차 표준. 모든 정확함의 출발점.', docs:[],
+      { k:'국가표준', v:'NIST · USNO · KRISS', d:'SI 단위를 실현하는 1차 표준. 모든 정확함의 출발점. 시간·주파수는 USNO(미 해군천문대)가 담당.', docs:[],
         more:[{label:'VIM (JCGM 200:2012)',id:null}] },
       { k:'1차 표준실', v:'AFPSL (한국판 KAI-PSL)', d:'군 최상위 표준실. 국가표준을 받아 군 전체에 전달하는 교량.', docs:[{label:'DAFMAN 21-113',id:'dafman'}],
         more:[{label:'MIL-STD-45662A',id:null}] },
@@ -563,25 +564,25 @@ const LENSES = {
 // ── 8 Core Components (구성 — 그리드, 9p 다이어그램 5p 근거) ──────────
 // 8 Core "전체" 모드 = 문서계층 94개를 8개 기능요소에 빠짐없이 분배 (누락 0).
 const CORE8 = [
-  { n:'①', t:'문서화', e:'Documentation', d:'교정 절차서·운용정비 지침·기술교범의 작성과 형식 표준.', color:'var(--accent2)',
+  { n:'①', t:'문서화', e:'Documentation', prio:3, d:'교정 절차서·운용정비 지침·기술교범의 작성과 형식 표준.', color:'var(--accent2)',
     docs:[{label:'MIL-PRF-38793C',id:null},{label:'TO 33K-1-100-1',id:'to33k'}],
     more:[{label:'MIL-DTL-7700K',id:null},{label:'MIL-DTL-87929F',id:null},{label:'MIL-PRF-32216B',id:null},{label:'MIL-PRF-38807',id:null},{label:'MIL-DTL-38807D',id:null},{label:'MIL-PRF-38314',id:null},{label:'MIL-STD-38784B',id:null},{label:'MIL-DTL-83495D',id:null},{label:'33D Series TOs',id:null},{label:'TO 00-20-1',id:null},{label:'TO 00-20-2',id:null},{label:'MIL-STD-31000C',id:null}] },
-  { n:'②', t:'훈련', e:'Training', d:'교정 인력(AFSC 2P0X1)의 자격·양성 체계.', color:'#4aa3df',
+  { n:'②', t:'훈련', e:'Training', prio:4, d:'교정 인력(AFSC 2P0X1)의 자격·양성 체계.', color:'#4aa3df',
     docs:[{label:'CFETP 2P0X1',id:'cfetp'}],
     more:[{label:'AFI 36-2650',id:null},{label:'AFMAN 21-202',id:null},{label:'AFMAN 21-204',id:null},{label:'AFMAN 21-206',id:null}] },
-  { n:'③', t:'장비', e:'Equipment (TMDE)', d:'시험·측정·진단 장비와 표준기의 확보·배분.', color:'var(--accent)',
+  { n:'③', t:'장비', e:'Equipment (TMDE)', prio:1, d:'시험·측정·진단 장비와 표준기의 확보·배분.', color:'var(--accent)',
     docs:[{label:'MIL-PRF-28800G',id:null}],
     more:[{label:'MIL-STD-1808C',id:null},{label:'AFMCMAN 20-106',id:null}] },
-  { n:'④', t:'기술정보·IETM', e:'TIM / IETM', d:'기술정보 관리와 대화형 전자 기술교범(S1000D).', color:'var(--kolas)',
+  { n:'④', t:'기술정보·IETM', e:'TIM / IETM', prio:5, d:'기술정보 관리와 대화형 전자 기술교범(S1000D).', color:'var(--kolas)',
     docs:[{label:'MIL-STD-3048C',id:null}],
     more:[{label:'MIL-DTL-87268D',id:null},{label:'MIL-PRF-87268A',id:null},{label:'MIL-DTL-87269D',id:null},{label:'MIL-PRF-87269A',id:null},{label:'MIL-STD-40051-1D',id:null},{label:'MIL-STD-40051-2D',id:null},{label:'MIL-STD-40051E',id:null},{label:'SAE GEIA-STD-0007C',id:null},{label:'S1000D 4.1',id:null},{label:'S1000D 5.0',id:null},{label:'S1000D 6',id:null},{label:'ETIMS',id:null},{label:'DIDs',id:null},{label:'AFCAV',id:null},{label:'DAFI 61-104',id:null},{label:'DoDI 5230.24',id:null},{label:'DoDM 5200.01',id:null}] },
-  { n:'⑤', t:'교정·서비스', e:'Calibration & CS', d:'교정 수행의 신뢰성·가용성·품질 보증.', color:'#e06c2a',
+  { n:'⑤', t:'교정·서비스', e:'Calibration & CS', prio:7, d:'교정 수행의 신뢰성·가용성·품질 보증.', color:'#e06c2a',
     docs:[{label:'ISO/IEC 17025',id:'iso17025'},{label:'TO 00-20-14',id:'to'}],
     more:[{label:'ANSI/NCSL Z540.3',id:'z540'},{label:'ANSI/NCSL Z540.1',id:null},{label:'MIL-STD-45662A',id:null},{label:'MIL-I-45208A',id:null},{label:'TO 00-25-107',id:null},{label:'DI-QCIC-80798C (성적서)',id:'cert80798'},{label:'DI-QCIC-81110',id:null}] },
-  { n:'⑥', t:'시험소', e:'Laboratory', d:'교정 정확도를 보장하는 시설·환경 조건.', color:'var(--mil)',
+  { n:'⑥', t:'시험소', e:'Laboratory', prio:2, d:'교정 정확도를 보장하는 시설·환경 조건.', color:'var(--mil)',
     docs:[{label:'ISO/IEC 17025',id:'iso17025'},{label:'FC 4-218-01F',id:null}],
     more:[{label:'ISO 9001',id:null},{label:'AS9100D',id:null},{label:'FC 2-000-05N',id:null},{label:'TO 00-25-203',id:null},{label:'TO 00-25-234',id:null},{label:'UFC 1-200-01',id:null},{label:'UFC 1-200-02',id:null},{label:'UFC 1-201-01',id:null},{label:'UFS 1-201-02',id:null},{label:'UFC 4-229-01N',id:null},{label:'UFC 4-211-02',id:null},{label:'DAFMAN 32-1084',id:null},{label:'AFI 32-1024',id:null},{label:'AFMAN 32-1084',id:null},{label:'DAFMAN 91-203',id:null},{label:'AFRCH 32-1001',id:null},{label:'ANGH 32-1084',id:null}] },
-  { n:'⑦', t:'METCAL 프로그램', e:'METCAL Program', d:'전체를 통할하는 거버넌스와 프로그램 관리. ★ 정신.', color:'var(--gov)',
+  { n:'⑦', t:'METCAL 프로그램', e:'METCAL Program', prio:6, d:'전체를 통할하는 거버넌스와 프로그램 관리. ★ 정신.', color:'var(--gov)',
     docs:[{label:'DAFMAN 21-113',id:'dafman'},{label:'MIL-STD-1839D',id:'milstd1839'}],
     more:[{label:'DAFPD 21-1',id:'dafpd'},{label:'TO 33K-1-100-2',id:null},{label:'MIL-HDBK-1839',id:null},{label:'DI-QCIC-80278C (CMRS)',id:'cmrs'},{label:'DI-SESS-81758A',id:null},{label:'ISO 10012',id:'iso10012'},{label:'ISO 10012:2003',id:'iso10012'},{label:'ISO 10012-1:1992',id:null},{label:'ISO 10012-2:1997',id:null}] },
   { n:'⑧', t:'임무 보증', e:'Mission Assurance', d:'무기체계의 신뢰성·안전성 보장. 폐쇄 루프 피드백(TOIR·MDR·PIWG).', color:'#c9a227',
@@ -2087,7 +2088,7 @@ function drawLens(key){
 
   if(key==='core8'){            // 구성 — 카드 그리드
     document.getElementById('lensTitle').textContent = '🧩 8 핵심 구성요소 — 체계는 무엇으로 이루어지는가';
-    document.getElementById('lensDesc').innerHTML = '흐름이 아니라 <b>구성</b>의 관점. 측정·교정 체계를 8개 기능요소로 분해한 것이며, 사업의 매출 영역(장비·SW·서비스)과 그대로 대응한다. <b>전체</b> 모드는 문서계층 전체 표준을 8요소에 빠짐없이 분배한 것.';
+    document.getElementById('lensDesc').innerHTML = '흐름이 아니라 <b>구성</b>의 관점. 측정·교정 체계를 8개 기능요소로 분해한 것이며, 사업의 매출 영역(장비·SW·서비스)과 그대로 대응한다. <b>전체</b> 모드는 문서계층 전체 표준을 8요소에 빠짐없이 분배한 것. <br><b>① 원문자 = 구성 순서</b>(Documentation부터), <b>"착수 N순위" 뱃지 = KAI 제안서의 개발 착수 순서</b>(장비→시험소→문서화→훈련→IETM→Program→교정서비스) — <b>무엇으로 이뤄지나</b>와 <b>무엇부터 만드나</b>는 다르다.';
     let html = `<div class="detail-toggle">
       <span class="dt-label">표준 표시:</span>
       <button class="dt ${detailMode==='core'?'active':''}" data-mode="core">핵심</button>
@@ -2095,9 +2096,10 @@ function drawLens(key){
     </div>`;
     html += `<div class="core-grid">${CORE8.map(c=>{
       const docs = (detailMode==='all' && c.more) ? c.docs.concat(c.more) : c.docs;
+      const prio = c.prio ? `<span class="core-prio" title="KAI 제안서 실행 우선순위">착수 ${c.prio}순위</span>` : '';
       return `<div class="core-card" style="--cc:${c.color}">
         <div class="core-top"><span class="core-no">${c.n}</span>
-          <span class="core-t">${c.t}</span><span class="core-e">${c.e}</span></div>
+          <span class="core-t">${c.t}</span><span class="core-e">${c.e}</span>${prio}</div>
         <div class="core-d">${c.d}</div>
         ${docs.length?`<div class="task-docs">${docs.map(docChip).join('')}</div>`:''}
       </div>`;}).join('')}</div>`;
