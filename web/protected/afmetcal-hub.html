@@ -65,7 +65,7 @@
   /* 우측 슬라이드 패널 (전체 흐름 문서 상세) */
   #slideOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;visibility:hidden;transition:.25s;z-index:90}
   #slideOverlay.show{opacity:1;visibility:visible}
-  #slidePanel{position:fixed;top:0;right:0;height:100vh;width:min(560px,92vw);background:var(--bg);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:100;display:flex;flex-direction:column}
+  #slidePanel{position:fixed;top:0;right:0;height:100vh;width:min(clamp(560px,42vw,880px),96vw);background:var(--bg);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:100;display:flex;flex-direction:column}
   #slidePanel.open{transform:translateX(0)}
   #slideClose{position:absolute;top:12px;right:14px;z-index:2;background:var(--panel2);border:1px solid var(--line);color:var(--dim);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:14px}
   #slideClose:hover{color:var(--txt);border-color:var(--accent)}
@@ -143,6 +143,17 @@
   .tr-note{background:var(--panel);border-left:3px solid var(--accent);padding:7px 12px;border-radius:0 6px 6px 0;font-size:12px;color:var(--dim);margin:6px 0}
   .tr-note b{color:var(--accent)}
   .tr-meta{font-size:11px;color:var(--dim);background:var(--panel);padding:8px 12px;border-radius:6px;margin-bottom:6px;line-height:1.6}
+  /* 통번역 장(章) 아코디언 — 섹션 단위 접기 */
+  .tr-acc{border:1px solid var(--line);border-radius:8px;margin:8px 0;overflow:hidden;background:var(--panel2)}
+  .tr-acc>summary{list-style:none;cursor:pointer;padding:11px 14px;font-weight:700;font-size:13.5px;color:var(--accent);display:flex;align-items:center;gap:8px;user-select:none;background:var(--panel)}
+  .tr-acc>summary::-webkit-details-marker{display:none}
+  .tr-acc>summary:hover{background:var(--panel2)}
+  .tr-acc>summary .caret{transition:transform .2s;color:var(--dim);font-size:11px}
+  .tr-acc[open]>summary .caret{transform:rotate(90deg)}
+  .tr-acc>summary .cnt{margin-left:auto;font-weight:400;font-size:11px;color:var(--dim);font-family:"Consolas",monospace}
+  .tr-acc-body{padding:4px 14px 12px}
+  .tr-acc-body .tr-h{display:none} /* 헤더는 summary로 승격됐으니 본문에선 숨김 */
+  .tr-acc-body .tr-clause:first-child,.tr-acc-body .tr-note:first-child{margin-top:6px}
   .dtabs{display:flex;gap:4px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 8px;margin-top:4px;border-bottom:1px solid var(--line)}
   .dtab{background:var(--panel);border:1px solid var(--line);color:var(--dim);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;white-space:nowrap}
   .dtab:hover{background:var(--panel2);color:var(--txt)}
@@ -701,8 +712,40 @@ const DOCS = {
         {no:"1.2.1.1.", en:"AFLCMC/WNM serves as the AF technical authority on metrology issues and is the AF single point of contact for calibration services and traceability of measurements to NIST.", kr:"AFLCMC/WNM은 계측 사안에 대한 <b>공군 기술 권위(technical authority)</b>이자, 교정 서비스와 NIST까지의 측정 소급성에 대한 <b>공군 단일 창구(single POC)</b> 역할을 한다."},
         {note:"\"<b>single point of contact</b>\"(단일 창구) — 거버넌스 렌즈에서 본 \"권한이 한 곳으로 수렴\"의 원문 근거. 교정의 기술 권위가 AFMETCAL 한 곳에 모인다."},
         {no:"1.2.2.", en:"AF Primary Standards Laboratory (AFPSL). ... The AFPSL is the sole AF-level laboratory responsible to maintain AF measurement standards. These unique standards are traceable to the International System of Units through NIST or other sources, as approved by AFMETCAL.", kr:"<b>공군 1차표준실험실(AFPSL).</b> … AFPSL은 공군 측정표준을 유지하는 <b>공군 유일의 최상위 실험실</b>이다. 이 표준들은 NIST 또는 AFMETCAL이 승인한 출처를 통해 국제단위계(SI)까지 소급된다."},
-        {no:"1.2.3.", en:"Precision Measurement Equipment Laboratory (PMEL). The PMEL is the base-level AFMETCAL Program focal point. It is the activity authorized to possess and use base measurement standards.", kr:"<b>정밀측정장비 실험실(PMEL).</b> PMEL은 <b>기지급</b> AFMETCAL 프로그램의 중심점이다. 기지 측정표준을 <b>보유·사용할 권한</b>을 가진 조직이다."},
-        {note:"소급성 사슬이 조직으로 구현된 모습 — NIST → AFPSL(공군 유일 1차표준) → PMEL(기지) → TMDE(현장 장비). §1.2가 거버넌스 체계도의 원문이다."}
+        {no:"1.2.1.2.", en:"AFLCMC/WNM makes TMDE calibration and repair responsibility determinations. AFMETCAL publishes responsibility determinations in TO 33K-1-100-1, TO 33K-1-100-2, Work Unit Code Reference Guide, and Calibration and Measurement Summary (CMS) TOs.", kr:"AFLCMC/WNM은 각 TMDE를 <b>누가 교정·수리할지 책임을 결정</b>한다. AFMETCAL은 이 책임 결정을 기술교범 TO 33K-1-100-1, TO 33K-1-100-2(업무단위코드 참조 가이드), 그리고 교정·측정 요약(CMS) TO에 <b>공표</b>한다."},
+        {note:"\"누가 교정·수리할지 책임을 결정한다\" — 어떤 장비를 어느 절차로 교정할지가 사람의 판단이 아니라 <b>공표된 문서(TO 33K)</b>로 고정된다. CaliBoard가 가리키는 TO 33K가 바로 이 결정의 산출물이다."},
+        {no:"1.2.2.", en:"AF Primary Standards Laboratory (AFPSL). The AFPSL will be operated in accordance with this DAFMAN and TO 00-20-14, Air Force Metrology/Calibration Program. The AFPSL is the sole AF-level laboratory responsible to maintain AF measurement standards. These unique standards are traceable to the International System of Units through NIST or other sources, as approved by AFMETCAL. AF measurement standards are used to ensure the accuracy and traceability of base measurement standards. Base measurement standards are TMDE provided to PMELs to support their mission.", kr:"<b>공군 1차표준실험실(AFPSL).</b> AFPSL은 이 DAFMAN과 TO 00-20-14(공군 측정/교정 프로그램)에 따라 운영된다. AFPSL은 공군 측정표준을 유지하는 <b>공군 유일의 최상위 실험실</b>이다. 이 표준들은 NIST 또는 AFMETCAL이 승인한 출처를 통해 국제단위계(SI)까지 소급된다. 공군 측정표준은 <b>기지 측정표준</b>의 정확성과 소급성을 보장하는 데 쓰이고, 기지 측정표준은 PMEL의 임무 지원을 위해 PMEL에 지급되는 TMDE다."},
+        {note:"표준이 2층 구조다 — <b>공군 측정표준(AFPSL 보유) → 기지 측정표준(PMEL 보유)</b>. 위 표준이 아래 표준의 정확성을 보증하는 사슬이 조직 안에서 다시 반복된다."},
+        {no:"1.2.3.", en:"Precision Measurement Equipment Laboratory (PMEL). The PMEL is the base-level AFMETCAL Program focal point. It is the activity authorized to possess and use base measurement standards. PMELs are established or closed at selected installations with Deputy Chief of Staff for Logistics, Engineering and Force Protection (AF/A4) approval. PMELs will be operated in accordance with this DAFMAN, TO 00-20-14 and DAFI 21-101, Aircraft and Equipment Maintenance Management, and other prescribed directives.", kr:"<b>정밀측정장비 실험실(PMEL).</b> PMEL은 <b>기지급</b> AFMETCAL 프로그램의 중심점이다. 기지 측정표준을 <b>보유·사용할 권한</b>을 가진 조직이다. PMEL의 신설·폐쇄는 군수참모차장(AF/A4)의 승인으로 결정된다. PMEL은 이 DAFMAN, TO 00-20-14, 그리고 DAFI 21-101(항공기·장비 정비관리)과 기타 규정에 따라 운영된다."},
+        {note:"마지막 문장이 §1.7과 이어진다 — PMEL은 교정실인 동시에 <b>정비부대</b>라서 DAFI 21-101(정비 운영 규칙)도 같이 지켜야 한다. 소급성 사슬: NIST → AFPSL(공군 유일 1차표준) → PMEL(기지) → TMDE(현장 장비)."},
+        {no:"1.2.4.", en:"Metrology and Calibration Flight (MCF). MCFs will be operated in accordance with this DAFMAN, TO 00-20-14, and applicable sections of AFSCMAN 21-102, Depot Maintenance Management. MCFs are established at Air Logistics Complexes (ALC) to provide calibration support to depots and other approved customers. ... MCFs must maintain core depot calibration and maintenance capabilities established in accordance with DoDI 4151.20, Depot Maintenance Core Capabilities Determination Process. (T-0)", kr:"<b>계측·교정대(MCF).</b> MCF는 이 DAFMAN, TO 00-20-14, 그리고 AFSCMAN 21-102(창정비 관리)의 해당 조항에 따라 운영된다. MCF는 <b>창(廠)급 군수단지(ALC)</b>에 설치되어 정비창과 승인된 고객에게 교정을 지원한다. … MCF는 DoDI 4151.20에 따라 수립된 <b>창급 핵심 교정·정비 역량</b>을 유지해야 한다. (T-0)"},
+        {note:"PMEL(기지급) 위에 <b>MCF(창급)</b>가 있다 — 더 무거운 장비를 다루는 상위 정비창. (T-0) = 외부 법령(DoDI) 근거라 가장 면제하기 어려운 등급이다."},
+        {h:"제1장 §1.3 — 교정·지원 개념 (수리 네트워크)"},
+        {no:"1.3.", en:"Calibration and Support Concept. The AFMETCAL program is recognized as a Repair Network under Repair Network Management. Under RNM, the AFMETCAL Director serves as the Product Repair Manager.", kr:"<b>교정·지원 개념.</b> AFMETCAL 프로그램은 수리 네트워크 관리(RNM) 체계 아래 <b>하나의 수리 네트워크</b>로 인정된다. RNM 아래에서 AFMETCAL 책임자는 <b>제품 수리 관리자(Product Repair Manager)</b> 역할을 한다."},
+        {note:"교정 조직 전체를 흩어진 실험실의 모음이 아니라 <b>하나로 엮인 수리 네트워크</b>로 본다. 한 노드가 못 하는 일을 다른 노드로 넘기는 구조 — CaliBoard의 \"유사 장비 빅데이터\" 발상이 닿는 지점이다."},
+        {no:"1.3.1.", en:"Repair Network Managers are aligned under the AFMETCAL Plans and Analysis Section. Repair Network requirements and processes are defined in DAFI 20-117, Repair Network Management.", kr:"수리 네트워크 관리자들은 AFMETCAL <b>기획·분석과(Plans and Analysis Section)</b> 아래 편성된다. 수리 네트워크의 요구와 절차는 DAFI 20-117(수리 네트워크 관리)에 정의된다."},
+        {no:"1.3.2.", en:"Major Command (MAJCOM) Functional Managers (MFM) serve as MAJCOM leads, and Flight Chiefs/PMEL Managers serve as node managers.", kr:"주력사령부(MAJCOM) <b>기능관리자(MFM)</b>가 사령부 단위 책임자를, <b>비행대장·PMEL 관리자</b>가 각 <b>노드 관리자</b>를 맡는다."},
+        {no:"1.3.3.", en:"AF calibration activities consist of the AFPSL, PMELs, and the MCFs.", kr:"공군 교정 활동은 <b>AFPSL(공군 1차표준실) · PMEL(기지 교정실) · MCF(창급 교정대)</b> 세 가지로 구성된다."},
+        {no:"1.3.3.3.", en:"DoD Services Calibration Laboratories. The use of other DoD Services calibration laboratories is authorized when approved by the applicable MFM and AFMETCAL. The Army, Navy, and Marine Corps operate calibration laboratories using similar measurement techniques and management concepts. These laboratories provide measurement traceability to the International System of Units through NIST.", kr:"<b>국방부 타군 교정실험실.</b> 타군(육·해·해병)의 교정실험실 이용은 해당 MFM과 AFMETCAL의 승인이 있을 때 허용된다. 육군·해군·해병대는 <b>유사한 측정 기법과 관리 개념</b>으로 교정실험실을 운영하며, 이들 역시 NIST를 통해 SI까지 측정 소급성을 제공한다."},
+        {note:"미군 각 군이 \"유사한 측정 기법과 관리 개념\"을 공유하기에 서로 교정실을 빌려 쓸 수 있다 — 표준이 통일돼 있다는 뜻. K-METCAL이 이 표준 체계를 따라야 <b>상호운용(interoperability)</b>이 성립한다는 근거다."},
+        {h:"제1장 §1.4 — TMDE 제한 (정밀도를 낮춰 쓰는 경우)"},
+        {no:"1.4.", en:"TMDE Limitations. A limited TMDE calibration consists of reduced accuracies, ranges, functions, or overall usability and deviates from the original equipment manufacturer or AF specifications.", kr:"<b>TMDE 제한.</b> 제한 교정이란 정확도·범위·기능·전반적 사용성을 <b>낮춰서</b> 교정하는 것으로, 제조사(OEM)나 공군 규격에서 <b>벗어난</b> 상태를 말한다."},
+        {no:"1.4.1.", en:"TMDE limitations may seriously impact the mission capability of weapon systems and support agencies. Users approving limitations must take caution to ensure any limitations meet the user requirement defined in a TO, work card, or other technical data used to perform a task.", kr:"TMDE 제한은 무기체계와 지원기관의 <b>임무 수행 능력에 심각한 영향</b>을 줄 수 있다. 제한을 승인하는 사용자는 그 제한이 기술교범(TO)·작업카드 등에 정의된 <b>사용 요건을 여전히 충족</b>하는지 신중히 확인해야 한다."},
+        {no:"1.4.2.", en:"Non-aircraft, general, or common TMDE (i.e., torque wrenches, pressure gauges, multi-meters, generators) may be limited with approval from the user. Limitation approval requirements are defined in TO 00-20-14 and DAFI 21-101.", kr:"비항공기·일반·공통 TMDE(예: <b>토크렌치·압력게이지·멀티미터·발전기</b>)는 사용자 승인 하에 제한 교정할 수 있다. 제한 승인 요건은 TO 00-20-14와 DAFI 21-101에 정의된다."},
+        {note:"원문이 \"<b>토크렌치</b>\"를 일반 TMDE의 첫 예로 직접 든다 — 임채욱 키노트가 토크렌치를 공통분모로 잡은 근거가 군 표준 원문에 그대로 있다. 토크렌치는 \"제한을 승인해서라도 쓰는\" 현장 밀착형 장비의 대표격이다."},
+        {no:"1.4.2.2.", en:"PMEL personnel are considered trained on TMDE limitations and are not required to attend maintenance group calibration limitation approval certification program per DAFI 21-101. Flight Chiefs will recommend and approve PMEL personnel to be added to the Special Certification Roster. (T-3)", kr:"PMEL 인력은 TMDE 제한에 대해 <b>이미 훈련된 것으로 간주</b>되어, DAFI 21-101의 정비단 제한승인 인증 과정을 별도로 이수할 필요가 없다. 비행대장이 PMEL 인력을 <b>특별인증명부(SCR)</b>에 추가하도록 추천·승인한다. (T-3)"},
+        {note:"(T-3) = 현장 지휘관 재량으로 면제 가능한 가장 낮은 등급. 제한 교정의 책임 판단을 현장에 가까운 선에서 처리한다는 뜻이다."},
+        {h:"제1장 §1.5 — 사이버보안 기강"},
+        {no:"1.5.", en:"Cybersecurity Discipline. Calibration activities are required to maintain and perform positive maintenance cyber discipline practices defined in TO 33-1-38, Cybersecurity for Automatic Test Systems and Automatic Test Equipment; TO 00-20-14; TO 33K-1-1, General Instructions Cybersecurity for Test, Measurement and Diagnostic Equipment in the AF Metrology Program, and other prescribed directives.", kr:"<b>사이버보안 기강.</b> 교정 활동은 TO 33-1-38(자동시험시스템·장비 사이버보안), TO 00-20-14, TO 33K-1-1(공군 계측 프로그램 내 TMDE 사이버보안 일반지침) 등에 정의된 <b>능동적 사이버보안 정비 관행</b>을 유지·수행해야 한다."},
+        {note:"현대 교정 장비는 소프트웨어로 돌아가는 자동시험장비(ATE)라서 <b>사이버보안</b>이 측정 신뢰성의 일부가 됐다. 옛 ISO 10012:2003엔 없던 21세기 항목이다."},
+        {h:"제1장 §1.6 — 획득 요구사항 (살 때부터 교정을 설계)"},
+        {no:"1.6.", en:"Acquisition Requirements. Acquisition of systems and equipment includes assessment of calibration and measurement requirements. For additional information see MIL-HDBK 1839A, DoD Handbook Calibration and Measurement Requirements. Acquisitions requiring a Calibration and Measurement Requirement Summary will comply with MIL-STD 1839, Calibration and Measurement Requirements. (T-0)", kr:"<b>획득 요구사항.</b> 시스템·장비를 <b>획득(구매)할 때부터</b> 교정·측정 요구를 평가에 포함한다. 자세한 내용은 MIL-HDBK-1839A(국방부 교정·측정요구 핸드북)를 보라. 교정·측정요구 요약(CMRS)이 필요한 획득은 <b>MIL-STD-1839(교정·측정요구)를 준수</b>한다. (T-0)"},
+        {note:"<b>K-METCAL 사업의 정수.</b> \"장비를 살 때부터 교정 요구를 설계한다\" — KOLAS엔 없는 발상이다. 무기체계 획득 단계에서 미래 교정 요구를 MIL-STD-1839(강제규격)·MIL-HDBK-1839A(지침)로 미리 박아둔다. (T-0)이라 가장 엄격하게 강제된다."},
+        {no:"1.6(계속)", en:"PMELs, MCFs, PMEL customers, TMDE owners, and PMs will obtain AFMETCAL approval prior to obtaining commercial calibration support (including contract logistics support) or when deviating from established calibration determinations or support plans. PMs will comply with this DAFMAN and AFI 63-101/20-101, Integrated Life Cycle Management.", kr:"PMEL·MCF·PMEL 고객·TMDE 소유자·사업관리자(PM)는 <b>상용 교정 지원(계약군수지원 포함)을 받거나</b> 기존 교정 결정·지원계획에서 벗어나려면 <b>사전에 AFMETCAL 승인</b>을 받아야 한다. PM은 이 DAFMAN과 AFI 63-101/20-101(통합수명주기관리)을 준수한다."},
+        {note:"\"상용 교정 지원\"을 받으려면 AFMETCAL의 사전 승인이 필요하다 — 외부 교정업체(KTL 같은)가 군 교정에 들어가려면 반드시 거쳐야 하는 관문이다. K-METCAL 위탁운영의 법적 통제점이 여기다."},
+        {h:"제1장 §1.7 — 항공기 정비정책 요건"},
+        {no:"1.7.", en:"Aircraft Maintenance Policy Requirement. PMELs will comply with applicable sections of DAFI 21-101. Maintenance Standardization and Evaluation Program (MSEP), Tools/Equipment Management, and foreign object damage (FOD) requirements for the PMEL are clarified below under TMDE Flight Chief, PMEL Quality Manager, and PMEL Section Chief responsibilities.", kr:"<b>항공기 정비정책 요건.</b> PMEL은 DAFI 21-101의 해당 조항을 준수한다. PMEL에 적용되는 <b>정비표준화평가(MSEP)·공구/장비 관리·이물질손상(FOD) 방지</b> 요건은 아래 TMDE 비행대장·PMEL 품질관리자·PMEL 직장(Section Chief) 책임 항목에서 구체화된다."},
+        {note:"§1.2.3 마지막 문장이 여기서 매듭지어진다 — PMEL은 교정실인 동시에 <b>정비부대</b>라서, 측정 기술과 별개로 공구 분실 방지·FOD 같은 <b>정비 현장 운영 규칙(DAFI 21-101)</b>까지 지켜야 한다. 제1장이 \"무엇을·누가·어떤 규칙으로\"를 한 바퀴 돈 셈이다."}
       ]
     }
   },
@@ -934,6 +977,59 @@ const DOCS = {
       ]
     }
   },
+  milstd45662a: {
+    code:"MIL-STD-45662A", ename:"Calibration Systems Requirements (1988, 5쪽) · 미 국방부 · MIL-STD-45662(1980) 대체 · 현재 폐지",
+    oneliner:"군 납품업체가 <b>\"교정 시스템을 이렇게 갖춰라\"</b>는 12개 요구사항을 처음 못박은 <b>교정 규격의 원조</b>. 지금 쓰는 <b>TUR 4:1·신뢰성·소급성·주기조정</b> 개념이 전부 여기서 시작됨. 뒤에 ISO 10012·Z540로 대체됨.",
+    lineage:"교정 문서 계보의 <b>가장 오래된 뿌리</b>. \"측정이 믿을 만하려면 무엇을 관리해야 하나\"를 1980년에 처음 목록화했고, <b>ISO 10012(2003)·ANSI/NCSL Z540(1994)이 이걸 이어받아 국제·민간 표준으로 발전</b>시킴. 즉 오늘날 모든 교정 품질규격의 <b>공통 조상</b>.",
+    analogy:"교정 품질의 <b>'최초 헌법'</b>. 지금은 개정판(ISO 10012)에 자리를 물려줬지만, <b>조문의 뼈대(소급성·불확도 1/4·주기·부적합 통보·기록)는 그대로 후손 표준에 유전</b>됨. 낡았다고 무시할 게 아니라 \"왜 이 조항이 있나\"의 원점.",
+    flow:[
+      "정의 (§3): 교정·소급성·M&TE·측정표준을 최초로 규정",
+      "일반 요구 (§4): 교정 시스템을 문서화하고 정부가 불시 검증",
+      "<b>§5.2: 측정표준 불확도 ≤ 허용공차의 25%</b> (= TUR 4:1의 원조)",
+      "<b>§5.4: 주기 = 신뢰성(주기 내 규격유지 확률)을 지키는 최대시간</b> → 데이터로 늘리고 줄임",
+      "§5.6 부적합(OOT) 통보 · §5.9 개별 교정기록 · §5.10 교정상태 표시"
+    ],
+    table:[
+      ["시대","KOLAS는 ISO 17025(현대)","이건 1980·88년 — 모든 교정규격의 조상"],
+      ["핵심 숫자","불확도로 표현","<b>표준 불확도 ≤ 공차의 25% (§5.2)</b> = TUR 4:1"],
+      ["신뢰성","ISO 10012가 계승","<b>§5.4에서 '신뢰성=주기내 규격유지 확률' 최초 정의</b>"],
+      ["현재 상태","-","폐지(canceled) — ISO 10012·Z540가 대체. 계보 이해용"]
+    ],
+    strange:[
+      "<b>'25% 규칙'이 곧 TUR 4:1</b> — §5.2 \"측정표준의 불확도는 피교정 공차의 25%를 넘지 마라\" = 교정기가 4배 정확하라는 뜻. Z540.3·38793C의 4:1이 여기서 나옴",
+      "<b>신뢰성(reliability) 정의를 1988년에 이미 명시</b> — §5.4 \"주기 내내 규격 안에 머물 확률\". RP-1·CaliBoard 신뢰성탭의 정의가 40년 전 이 한 줄에서 출발",
+      "<b>폐지된 규격을 왜 보나</b> — 후손 표준(ISO 10012)이 '무엇을'만 남기고 '왜'를 지웠기 때문. 원점을 알아야 조항의 의도가 보임"
+    ],
+    biz:"KAI 사업의 정량 기준(TUR 4:1·신뢰성 85%·주기 데이터조정)이 <b>왜 그런 형태인지</b>의 근원. 후손 규격만 인용하면 '숫자의 유래'를 설명 못 함 — 이 조상 규격이 그 서사를 완성함. CaliBoard 교정주기·신뢰성 로직의 정통성 근거.",
+    detail:{
+      src:"MIL-STD-45662A (1 August 1988, 5쪽) 원문 정독. §3 정의·§4 일반요구·§5.1~5.13 상세요구 직접 확인. assist.dla.mil 다운로드본.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "군에 물건을 납품하는 업체가 <b>측정·시험장비(M&TE)를 어떻게 교정·관리해야 하나</b>를 규정한 <b>최초의 교정 시스템 규격</b>",
+          "1980년 초판(45662) → 1988년 개정(45662A) → 이후 <b>ISO 10012·ANSI/NCSL Z540로 대체되며 폐지</b>",
+          "쉽게: <b>오늘날 교정 품질규격들의 '족보상 시조'</b> — 지금 개념 대부분이 여기서 처음 정의됨"
+        ]},
+        {h:"★ §5.2 — 25% 규칙 (TUR 4:1의 원조, 원문)", items:[
+          "<b>\"측정표준의 총괄 불확도는 교정하는 각 특성 허용공차의 25%를 넘지 않아야 한다\"</b> — 교정기가 피교정기보다 <b>최소 4배 정확</b>하라는 뜻",
+          "이 25%(=4:1)가 이후 <b>ANSI/NCSL Z540.3의 TUR 4:1, MIL-PRF-38793C §3.2.3.2의 TAR 4:1</b>로 그대로 계승됨",
+          "즉 CaliBoard가 쓰는 'TUR 4:1'은 유행이 아니라 <b>40년 이어진 군 교정의 기본 안전율</b>"
+        ]},
+        {h:"★ §5.4 — 주기와 신뢰성 (원문)", items:[
+          "<b>\"M&TE와 측정표준은 허용 정확도와 신뢰성을 보장하도록 정해진 주기로 교정한다\"</b>",
+          "<b>신뢰성 정의: \"장비가 정해진 주기 내내 규격(in-tolerance) 안에 머물 확률\"</b> — RP-1·CaliBoard 신뢰성탭의 정의가 이 문장에서 유래",
+          "<b>\"이전 교정 결과가 그렇게 하는 게 타당하다고 나타내면, 업체가 주기를 단축하거나 연장할 수 있다\"</b> — 데이터 기반 주기조정을 1988년에 이미 허용 (ISO 10012 §7.1.2의 선조)",
+          "필수 리콜 시스템으로 <b>주기 지난 장비의 사용을 차단</b> (진행 중 시험 완료 등 조건부 임시연장은 허용)"
+        ]},
+        {h:"나머지 요구사항 (§5.1~5.13)", items:[
+          "<b>§5.3 환경통제</b>: 온도·습도·진동·청정도를 정확도 유지에 필요한 만큼 통제 (→ 시설규격 FC 4-218-01F로 이어짐)",
+          "<b>§5.5 교정절차서</b>: 표준·범위·정확도·공차를 명시한 절차서 사용 (→ 작성규격 MIL-PRF-38793C로 이어짐)",
+          "<b>§5.6 부적합(OOT) 통보</b>: 규격 이탈 발견 시 사용자·품질부서에 측정데이터와 함께 통보 → 시정",
+          "<b>§5.9 기록</b>: 장비별 개별 교정기록(주기·일자·소스·절차·결과·조치). CaliBoard 데이터 모델의 원형",
+          "<b>§5.10 교정상태</b>: 교정 여부를 라벨 등으로 표시 · <b>§5.11 하도급 교정 통제</b> · <b>§5.8 소급성 있는 교정소스</b>만 사용"
+        ]}
+      ]
+    }
+  },
   z540: {
     code:"ANSI/NCSL Z540.3", ename:"Requirements for the Calibration of Measuring and Test Equipment (2006, R2013) · 미국 민간 국가표준",
     oneliner:"\"교정 결과의 <b>통계적 신뢰성</b>을 보장하라\"는 미국 민간표준. 사업의 <b>TUR</b>(불확도 대비 정밀도 비율)<b>≥4:1 · False Accept</b>(불합격품을 합격 처리할 확률)<b>≤2%</b>가 여기서 나옴. (군 아님, 군이 계약에 인용)",
@@ -1157,6 +1253,57 @@ const DOCS = {
         {h:"3·4·7장 — 절차·권위·온라인 열람", items:[
           "<b>CMS(교정·측정 요약)</b> = 무기체계별 '이 장비는 이 표준으로 교정' 권위 문서 — 교정주기 우선순위 1위",
           "<b>★ 7장 AFCAV / WebAFCAV</b> = 교정 권위 데이터를 <b>온라인으로 열람하는 뷰어</b> — KAI 사업기획서의 'WebAFCAV 동등 뷰어'가 바로 이것 (CaliBoard가 만들 대상)"
+        ]}
+      ]
+    }
+  },
+  milprf38793c: {
+    code:"MIL-PRF-38793C", ename:"Technical Manuals: Calibration Procedures — Preparation (2008) · 미 국방부 · 성능규격(PRF)",
+    oneliner:"<b>교정절차서(TO 33K 같은)를 어떻게 쓰는가</b>의 작성 규격. \"이런 항목을 이런 형식으로 담아라\"를 규정. <b>TAR 4:1을 절차서마다 명시</b>하게 하고, 절차서 하나로 교정을 끝낼 수 있게 <b>자립성</b>을 강제.",
+    lineage:"<b>TO 33K(실제 교정절차서)의 '작성 설명서'</b>. TO 33K가 \"이 장비를 이렇게 교정하라\"는 내용이라면, 이 규격은 \"그 절차서를 어떤 뼈대·형식으로 쓰라\"는 <b>상위 틀</b>. 위로는 문서양식 일반규격(MIL-STD-38784), 옆으로는 교정시스템(MIL-STD-45662A)과 맞물림.",
+    analogy:"교정절차서의 <b>'집필 가이드라인'</b>. 요리로 치면 개별 레시피(TO 33K)가 아니라 <b>\"레시피는 재료·분량·순서·검증법을 이 순서로 적어라\"는 편집 규칙</b>. 그래서 누가 써도 같은 품질의 절차서가 나옴.",
+    flow:[
+      "문서 구조 (§3.2): 식별→장비요구→예비작업→교정공정→교정성능표(CPT)",
+      "<b>§3.1.2 자립성: 다른 문서 참고 없이 절차서 하나로 판정 가능</b>",
+      "<b>§3.2.3.2 측정시스템 TAR ≥ 4:1 · 불가 시 실제 TAR을 절차서에 명시(§3.2.3.3)</b>",
+      "§3.2.5.8 공차 표기법: ±가 아닌 상·하한값(예: 49~51V)",
+      "§3.2.6 교정성능표(CPT): 특성·단계·적용값·성능한계를 표로 의무화"
+    ],
+    table:[
+      ["이게 뭐냐","KOLAS엔 '성적서 양식'만","<b>교정절차서 자체의 작성 규격</b> (메타규격)"],
+      ["핵심 숫자","불확도 표기","<b>TAR 4:1 (§3.2.3.2)</b> — 45662A 25%규칙의 계승"],
+      ["절차서 성격","외부 규격 참조 가능","<b>자립성 강제 — 절차서 하나로 완결(§3.1.2)</b>"]
+    ],
+    strange:[
+      "<b>TAR을 '절차서마다 숫자로 박아라'</b> — §3.2.3.3, 4:1이 안 되면 최선의 TAR을 쓰되 <b>실제 값을 절차서에 명시</b>. 교정기가 몇 배 정확한지를 문서가 스스로 밝힘",
+      "<b>절차서 자립성(§3.1.2)</b> — \"다른 출판물 참고 없이 이 절차서만으로 규격 내/외 판정 가능\". KOLAS 성적서엔 없는 '완결성' 요구",
+      "<b>교정성능표(CPT, §3.2.6)</b> — 모든 교정 특성·인가값·성능한계를 표로 강제. 재현성·추적성 강화"
+    ],
+    biz:"CaliBoard가 파싱하는 교정성적서·절차서의 <b>형식적 근원</b>. TO 33K 절차서가 왜 그 구조인지가 여기서 나옴. TAR 4:1을 절차서마다 명시(§3.2.3.3)하는 규칙은 CaliBoard의 'TUR 자동검증'이 붙을 수 있는 지점.",
+    detail:{
+      src:"MIL-PRF-38793C (19 August 2008, MIL-PRF-38793B 대체) 원문 정독. §3.1.2·§3.2.3.2~3·§3.2.5·§3.2.6·§6.4.5 직접 확인.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "군 <b>교정절차서(수동·자동)를 작성하는 방법</b>을 규정한 성능규격 — '규격을 만드는 규격'",
+          "적용 제외: 육·해·공 <b>1차표준실(primary standards lab) 전용 절차서</b>는 대상 아님",
+          "쉽게: <b>TO 33K 같은 절차서의 '집필 편집 규칙집'</b>"
+        ]},
+        {h:"★ §3.2.3.2 · §6.4.5 — TAR 4:1 (원문)", items:[
+          "<b>\"측정시스템은 시험하는 각 특성마다 피시험기기 불확도의 1/4 이상 정확해야 한다 (즉 TAR 4:1 이상)\"</b> (§3.2.3.2)",
+          "<b>\"4:1이 기술적으로 불가능하면 가용한 최선의 TAR을 쓰되, 실제 TAR을 절차서에 명시한다\"</b> (§3.2.3.3)",
+          "<b>TAR 정의(§6.4.5)</b>: \"피교정기의 최대 허용오차 ÷ 교정기의 최대 기지오차\". 예) 8% 요구 특성을 2% 장비로 재면 TAR=4",
+          "→ MIL-STD-45662A §5.2의 '25% 규칙'이 여기서 <b>TAR 4:1</b>로 명문화됨 (같은 뿌리)"
+        ]},
+        {h:"★ 절차서가 갖춰야 할 것", items:[
+          "<b>§3.1.2 자립성</b>: \"교정기술자가 다른 출판물 참고 없이 피시험기기가 규격 내에 있는지 판정할 수 있을 만큼 충분히 상세할 것\"",
+          "<b>§3.2.5.6 검증·시정 문구</b>: Section IV 첫머리에 \"각 시험 결과를 검증하고, 요구 미충족 시 진행 전에 시정조치하라\"는 NOTE 의무 삽입",
+          "<b>§3.2.5.2 종단성능시험</b>: 내부가 아니라 <b>출력(end product)</b>을 측정해 판정 (예: 전원부는 출력 주파수·진폭으로 간접 시험)",
+          "<b>§3.2.6 교정성능표(CPT)</b>: 교정 가능한 모든 특성·단계번호·적용범위·인가값·성능한계를 표로 제시 (기기별 별도 CPT)"
+        ]},
+        {h:"형식 규칙", items:[
+          "<b>§3.2.5.8 공차 표기</b>: 공칭값과 같은 단위, <b>±가 아닌 상·하한값(예: 49~51V)</b> 우선 (예측 불가할 때만 ± 허용)",
+          "상위 문서양식 규격 <b>MIL-STD-38784</b>(기술교범 일반 스타일)을 따름 — 38793C는 그 교정 특화판",
+          "COTS·기밀정보 포함 장비엔 예외 조항(§3.1.2) — 군 특수성 반영"
         ]}
       ]
     }
@@ -1511,6 +1658,58 @@ const DOCS = {
         ]}
       ]
     }
+  },
+  fc421801f: {
+    code:"FC 4-218-01F", ename:"Air Force Criteria for PMEL Design and Construction (Change 2, 2025) · 미 공군 시설공병센터(AFCEC)",
+    oneliner:"<b>교정실(PMEL) 건물을 어떻게 짓나</b>의 시설 규격. 교정 '기술'이 아니라 <b>교정이 가능하려면 필요한 환경</b>(온도 20±0.6℃·습도·진동·청정도·전원·양압)을 수치로 못박음. 정확한 측정은 <b>정확한 환경</b>에서만 나온다는 규격.",
+    lineage:"MIL-STD-45662A §5.3(\"환경을 정확도 유지에 필요한 만큼 통제\")의 <b>구체적 시공 기준판</b>. 교정 문서들이 '무엇을·어떻게 재나'라면 이건 그 측정이 <b>일어나는 방(房) 자체의 규격</b>. UFC(국방 통합시설기준) 체계 하위, ⑥시험소·인프라 계층에 위치.",
+    analogy:"교정실의 <b>'건축 설계도이자 환경 사양서'</b>. 반도체 클린룸에 청정도 등급이 있듯, PMEL엔 <b>온·습도·진동·먼지·전원 안정성의 허용치</b>가 정해져 있음. 이 방을 못 지으면 아무리 좋은 표준기도 제 정확도를 못 냄.",
+    flow:[
+      "실 등급: Type II·III + <b>68도 실</b>(정밀 차원측정 전용 환경모듈)",
+      "<b>온습도(§4-4~4-6): 68도실 20±0.6℃ / 일반 C/R 22.8±3.3℃, 습도 35%(+10/−15)</b>",
+      "<b>진동(§3-2.2): 0.1~30Hz에서 변위 0.25μm 이하</b>",
+      "청정도(§3-7.9.13): 68도실 0.5μm 입자 100,000/ft³ 이하",
+      "<b>전원(§3-7.4.1): 전압 ±2% · THD 5% 이하</b> · 양압(§4-x): 대기 대비 +12.5Pa 유지"
+    ],
+    table:[
+      ["이게 뭐냐","KOLAS는 '적절한 환경' 서술","<b>온·습도·진동·청정도·전원을 수치로 강제</b>"],
+      ["실 구분","'교정실' 단일","<b>Type II/III + 68도 실</b> 세분 (정확도별)"],
+      ["성격","교정 기술","<b>교정실 '시설·환경' 규격 (건축)</b>"]
+    ],
+    strange:[
+      "<b>'68도 실(20±0.6℃)'</b> — 정밀 차원측정용 전용 환경모듈. 화씨 68도가 국제 표준 측정온도(20℃)라 방 이름이 됨. KOLAS엔 없는 군 특유 개념",
+      "<b>진동·EMI까지 규격</b> — §3-2.2 진동 0.25μm 이하, 접지저항 10Ω 이하·강자성재 금지. 군 레이더·고압선 근접을 전제한 차폐 요구",
+      "<b>양압 유지(+12.5Pa)</b> — 방을 주변보다 살짝 높은 압력으로 유지해 먼지 유입 차단. 클린룸과 같은 사상"
+    ],
+    biz:"KAI가 수출패키지에 <b>K-PMEL 시설을 함께 설계·구축</b>할 때의 직접 기준. 사업기획서 ⑥시험소(Laboratory)·인프라 계층의 근거 문서. '측정 체계를 통째로 공급'의 '체계'에 <b>건물·환경</b>까지 포함됨을 보여주는 규격.",
+    detail:{
+      src:"FC 4-218-01F (Change 2, 24 March 2025, 원본 2015) 원문 정독. §3-2.2·§3-7.4·§3-7.9·§3-7.10·§4-4~4-11 확인. 상당부가 표·도면이라 수치는 조항별 발췌. AFCEC 발행.",
+      groups:[
+        {h:"이 문서가 무엇인가", items:[
+          "미 공군 <b>정밀측정장비 실험실(PMEL)의 설계·건설 기준</b> — 교정실 건물을 짓는 규격",
+          "교정 '기술'(TO 00-20-14)이 아니라 <b>교정이 가능한 환경</b>을 보장하는 시설 규격. UFC 통합시설기준 체계 하위",
+          "쉽게: <b>교정실의 '건축 사양서' — 온도·습도·진동·먼지·전원의 허용치집</b>"
+        ]},
+        {h:"★ 온·습도 기준 (원문 수치)", items:[
+          "<b>68도 실: 68±1℉ (20±0.6℃), 습도 35%(+10/−15%)</b> — 정밀 차원측정 전용. 시간당 1℉ 초과 변동 금지, 실내 구배 최대 1.1℃ (§4-4)",
+          "<b>일반 C/R 영역: 73±6℉ (22.8±3.3℃), 습도 35%(+10/−15%)</b> (§4-5)",
+          "<b>온습도 민감 구역(68도실 미보유 시): 73±2℉ (22.8±1℃)</b>, 시간당 0.5℃ 초과 변동 금지 (§4-6)",
+          "→ 왜 '68도'인가: 화씨 68도 = 섭씨 20도 = <b>국제 표준 측정 기준온도</b>. 그래서 방 이름이 됨"
+        ]},
+        {h:"★ 진동·청정도·전원 (원문 수치)", items:[
+          "<b>진동(§3-2.2): 0.1~30Hz에서 변위 0.25μm(10μin) 피크 이하, 30~200Hz에서 0.001g 이상 발생 기기는 교정영역과 분리</b>",
+          "<b>청정도(§3-7.9.13, 68도실): 5μm↑ 입자 700/ft³ 이하, 0.5μm↑ 입자 100,000/ft³ 이하</b>",
+          "<b>전원(§3-7.4.1): 기술용 전압 ±2%, 28Vdc ±3%, 배선 전압강하 3% 이하, 정류 응답 0.3초 이하, 고조파왜곡(THD) 5% 이하</b>",
+          "<b>양압(§4-4~4-11): 주변 대기 대비 최소 0.05inWC(12.5Pa) 양압</b> — 먼지 유입 방지"
+        ]},
+        {h:"군 특유 / KOLAS와 다른 점", items:[
+          "<b>Type II/III + 68도 실 세분</b> — 지원대상·요구정확도에 따라 실을 등급화. 68도 실은 독립 환경모듈로 운영",
+          "<b>EMI/RFI 차폐 의무</b> — 접지저항 10Ω 이하, 강자성 재료 금지, 필요 시 구리망 차폐실. 군 레이더·통신·고압선 근접 전제",
+          "<b>압축공기 품질(§3-7.10.2): 유분 24ppm 이하, 이슬점 −40℃ 이하, 작업대 15psig</b> — 공압 계측 지원",
+          "커미셔닝(§2-1.2): HVAC를 인증 요원이 <b>성수기 양 계절에 성능시험</b> — 사계절 환경 보장"
+        ]}
+      ]
+    }
   }
 };
 
@@ -1567,19 +1766,60 @@ function tabDetail(d){
   if(d.detail.src) t += `<div class="src">📄 출처: ${d.detail.src}</div>`;
   return t;
 }
+/* ════════════════════════════════════════════════════════════════════
+ *  통번역(translation) 공통 모듈 — 스키마 (★ 모든 표준 문서에 이 틀로 채우면 끝)
+ * ────────────────────────────────────────────────────────────────────
+ *  새 문서를 통번역하려면 DOCS[id]에 아래 형태의 translation 키만 추가한다.
+ *  tabTrans()/trItemHtml()는 문서를 가리지 않는 공통 렌더라 코드 수정 불필요.
+ *  추가 즉시 '🌐 통번역' 탭이 자동 노출되고 장(章) 아코디언이 자동 생성된다.
+ *
+ *  DOCS.<id>.translation = {
+ *    meta: "이 통번역의 범위·판본 안내 (상단 회색 박스). 생략 가능",
+ *    items: [
+ *      { h:"제2장 §2.1 — 일반" },                 // 섹션 헤더 → 아코디언 한 칸이 됨(경계)
+ *      { no:"2.1.",  en:"원문 직역", kr:"자연스러운 의역" },  // 조항: 영문↓한글 교차
+ *      { no:"2.1.1.", en:"...", kr:"..." },        // no의 점(.) 개수 → 들여쓰기 depth 자동(최대3)
+ *      { note:"💡 해설/맥락 박스 (조항 사이에 끼움)" },
+ *      ...
+ *    ]
+ *  }
+ *  규칙 ① {h:} 를 만날 때마다 새 아코디언 섹션이 열린다(첫 {h:} 이전 항목들은
+ *        '표지·머리말' 섹션으로 자동 수렴).  ② 기본 전부 접힘.  ③ en/kr/note 안의
+ *        군 약어는 highlightTerms가 자동 밑줄·툴팁 연결(TERMS 소스).  ④ kr만/en만도 허용.
+ * ════════════════════════════════════════════════════════════════════ */
+// 통번역 본문 항목 1개(조항/해설) 렌더 — 헤더(h)는 섹션 summary로 승격되므로 여기선 처리 안 함
+function trItemHtml(it){
+  if(it.note) return `<div class="tr-note">💡 ${it.note}</div>`;
+  const depth = it.no ? Math.min((it.no.match(/\./g)||[]).length, 3) : 1;
+  let t = `<div class="tr-clause tr-depth${depth}">`;
+  if(it.no) t += `<div class="tr-no">${it.no}</div>`;
+  if(it.en) t += `<div class="tr-en">${it.en}</div>`;
+  if(it.kr) t += `<div class="tr-kr">${it.kr}</div>`;
+  return t + `</div>`;
+}
+// 통번역 탭 — {h:}를 경계로 장(章)/절(節)을 아코디언 섹션으로 묶음. 첫 섹션만 펼침.
+// 데이터(items)는 무변경: 헤더 없는 선행 항목(표지 등)은 '표지·머리말' 섹션으로 자동 수렴.
 function tabTrans(d){
   const tr = d.translation;
   let t = '';
   if(tr.meta) t += `<div class="tr-meta">${tr.meta}</div>`;
+  // 1) items를 헤더 경계로 섹션 분할
+  const secs = [];
+  let cur = null;
   tr.items.forEach(it=>{
-    if(it.h){ t += `<div class="tr-h">${it.h}</div>`; return; }
-    if(it.note){ t += `<div class="tr-note">💡 ${it.note}</div>`; return; }
-    const depth = it.no ? Math.min((it.no.match(/\./g)||[]).length, 3) : 1;
-    t += `<div class="tr-clause tr-depth${depth}">`;
-    if(it.no) t += `<div class="tr-no">${it.no}</div>`;
-    if(it.en) t += `<div class="tr-en">${it.en}</div>`;
-    if(it.kr) t += `<div class="tr-kr">${it.kr}</div>`;
-    t += `</div>`;
+    if(it.h){ cur = {title:it.h, body:[]}; secs.push(cur); return; }
+    if(!cur){ cur = {title:'표지 · 머리말', body:[]}; secs.push(cur); }
+    cur.body.push(it);
+  });
+  // 2) 섹션마다 <details> 아코디언. 기본 전부 접힘(사용자가 필요한 절만 펼침).
+  secs.forEach((s,i)=>{
+    const n = s.body.filter(b=>b.no).length;       // 조항 수 표기
+    const cnt = n ? `<span class="cnt">${n}개 조항</span>` : '';
+    t += `<details class="tr-acc">`;
+    t += `<summary><span class="caret">▶</span>${s.title}${cnt}</summary>`;
+    t += `<div class="tr-acc-body">`;
+    s.body.forEach(it=> t += trItemHtml(it));
+    t += `</div></details>`;
   });
   return t;
 }
