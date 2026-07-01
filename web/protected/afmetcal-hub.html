@@ -565,7 +565,7 @@ const LENSES = {
   },
   layers5: {
     title: '🏗️ 5계층 통합 워크플로우 — 체계는 어떻게 위아래로 맞물리나',
-    desc: 'KAI 담당자 최상위 뼈대(Multilayer Diagram)의 그대로. <b>위→아래로 읽는다</b>: 거버넌스가 정책을 세우면 → 표준이 규칙을 성문화하고 → 그 규칙을 8 핵심 구성요소(프로세스)가 실행하며 → 인프라·도구가 이를 지원해 → 임무가 보장된다. 앞의 소급성·거버넌스·8Core 관점은 모두 이 5계층의 한 층(層)씩을 확대한 것이다.',
+    desc: '측정·교정 체계의 <b>최상위 통합 뼈대</b>. <b>위→아래로 읽는다</b>: 거버넌스가 정책을 세우면 → 표준이 규칙을 성문화하고 → 그 규칙을 8 핵심 구성요소(프로세스)가 실행하며 → 인프라·도구가 이를 지원해 → 임무가 보장된다. 앞의 소급성·거버넌스·8Core 관점은 모두 이 5계층의 한 층(層)씩을 확대한 것이다.',
     color: '#7c6cff',
     layers: true,
     steps: [
@@ -620,7 +620,7 @@ const DOCS = {
     code:"DAFPD 21-1", ename:"Department of the Air Force Policy Directive 21-1 — Maintenance of Military Materiel (8쪽)",
     oneliner:"\"공군부(공군+우주군)는 모든 군 장비를 정비하며, 그 정비를 데이터로 측정·보고해 관리한다\"는 <b>최상위 정책 선언</b>. 교정은 이 '정비'의 일부.",
     lineage:"<b>이 계보의 출발점(맨 위)</b>. 아래의 <b>DAFMAN 21-113</b>·<b>DAFI</b>·<b>TO</b>가 전부 이 선언을 근거로 만들어짐. 그 자체로는 '무엇을 할지'만 짧게 말하고, '누가·어떻게'는 아래 문서들에 위임.",
-    analogy:"회사로 치면 CEO가 발표하는 <b>'경영 방침 한 장'</b>. \"우리는 품질을 데이터로 관리한다\"는 큰 방향만 선언하고, 구체적 실행은 부서 규정에 맡기는 격.",
+    analogy:"회사로 치면 최고경영진이 내거는 <b>'경영 방침 한 장'</b>. \"품질을 데이터로 관리한다\"는 큰 방향만 선언하고, 구체적 실행은 부서 규정에 맡기는 격.",
     flow:[
       "정책 선언 (§1): 정비를 3단계로 / 가능한 낮은 단계에서 / 표준화하고 / 검증된 절차로 / <b>데이터로</b> 관리한다",
       "정비 3단계 정의 (§1.1): 부대(Organizational) → 중간(Intermediate) → 창(Depot)",
@@ -756,7 +756,7 @@ const DOCS = {
         {no:"1.4.", en:"TMDE Limitations. A limited TMDE calibration consists of reduced accuracies, ranges, functions, or overall usability and deviates from the original equipment manufacturer or AF specifications.", kr:"<b>TMDE 제한.</b> 제한 교정이란 정확도·범위·기능·전반적 사용성을 <b>낮춰서</b> 교정하는 것으로, 제조사(OEM)나 공군 규격에서 <b>벗어난</b> 상태를 말한다."},
         {no:"1.4.1.", en:"TMDE limitations may seriously impact the mission capability of weapon systems and support agencies. Users approving limitations must take caution to ensure any limitations meet the user requirement defined in a TO, work card, or other technical data used to perform a task.", kr:"TMDE 제한은 무기체계와 지원기관의 <b>임무 수행 능력에 심각한 영향</b>을 줄 수 있다. 제한을 승인하는 사용자는 그 제한이 기술교범(TO)·작업카드 등에 정의된 <b>사용 요건을 여전히 충족</b>하는지 신중히 확인해야 한다."},
         {no:"1.4.2.", en:"Non-aircraft, general, or common TMDE (i.e., torque wrenches, pressure gauges, multi-meters, generators) may be limited with approval from the user. Limitation approval requirements are defined in TO 00-20-14 and DAFI 21-101.", kr:"비항공기·일반·공통 TMDE(예: <b>토크렌치·압력게이지·멀티미터·발전기</b>)는 사용자 승인 하에 제한 교정할 수 있다. 제한 승인 요건은 TO 00-20-14와 DAFI 21-101에 정의된다."},
-        {note:"원문이 \"<b>토크렌치</b>\"를 일반 TMDE의 첫 예로 직접 든다 — 임채욱 키노트가 토크렌치를 공통분모로 잡은 근거가 군 표준 원문에 그대로 있다. 토크렌치는 \"제한을 승인해서라도 쓰는\" 현장 밀착형 장비의 대표격이다."},
+        {note:"원문이 \"<b>토크렌치</b>\"를 일반 TMDE의 첫 예로 직접 든다 — 토크렌치가 군·민 교정의 공통분모라는 근거가 군 표준 원문에 그대로 있다. 토크렌치는 \"제한을 승인해서라도 쓰는\" 현장 밀착형 장비의 대표격이다."},
         {no:"1.4.2.2.", en:"PMEL personnel are considered trained on TMDE limitations and are not required to attend maintenance group calibration limitation approval certification program per DAFI 21-101. Flight Chiefs will recommend and approve PMEL personnel to be added to the Special Certification Roster. (T-3)", kr:"PMEL 인력은 TMDE 제한에 대해 <b>이미 훈련된 것으로 간주</b>되어, DAFI 21-101의 정비단 제한승인 인증 과정을 별도로 이수할 필요가 없다. 비행대장이 PMEL 인력을 <b>특별인증명부(SCR)</b>에 추가하도록 추천·승인한다. (T-3)"},
         {note:"(T-3) = 현장 지휘관 재량으로 면제 가능한 가장 낮은 등급. 제한 교정의 책임 판단을 현장에 가까운 선에서 처리한다는 뜻이다."},
         {h:"제1장 §1.5 — 사이버보안 기강"},
@@ -1448,7 +1448,7 @@ const DOCS = {
       "<b>Summary Data Table은 Access/Excel 필수</b> — 군 문서인데 데이터부는 전자표 의무. 우리 CaliBoard가 다루는 바로 그 형태",
       "<b>살아있는 문서</b> — 설계·엔지니어링 변경(ECP)마다 갱신 의무. 한 번 만들고 끝이 아니라 계속 관리"
     ],
-    biz:"<b>CaliBoard 데이터 모델의 군 규격 원형.</b> Cat I/II/III 3단 계층 = 우리가 다루는 '장비-측정-소급성' 구조 그 자체이고, 컬럼(모델·CAGE·NSN·교정주기·절차·SERD)은 ktools_items와 거의 겹침. <b>TUR 4:1·토크렌치 조항</b>은 ICMPM 발표(토크렌치 소급성)의 1차 근거. \"Access/Excel 전자표 의무\"는 우리 파이프라인(Excel→파싱)의 정당성.",
+    biz:"<b>CaliBoard 데이터 모델의 군 규격 원형.</b> Cat I/II/III 3단 계층 = 우리가 다루는 '장비-측정-소급성' 구조 그 자체이고, 컬럼(모델·CAGE·NSN·교정주기·절차·SERD)은 ktools_items와 거의 겹침. <b>TUR 4:1·토크렌치 조항</b>은 토크렌치 소급성 논리의 군 표준 근거. \"Access/Excel 전자표 의무\"는 우리 파이프라인(Excel→파싱)의 정당성.",
     detail:{
       src:"DI-QCIC-80278C (2017.1.23 승인, 18쪽 전체) 원문 정독 — 본문 5쪽 + 샘플 템플릿 13쪽. Preparing Activity 36, supersedes 80278B. 괄호 안 영어는 원문 용어.",
       groups:[
@@ -1463,7 +1463,7 @@ const DOCS = {
           "<b>Category III (교정장비·표준기)</b>: Cat II를 교정할 표준기 (예: Fluke 5700A Calibrator)",
           "Cat IV(선택): 시험소 내 전송표준. <b>한 줄에 I→II→III를 나란히</b> = 소급성 사슬을 데이터로 시각화한 것"
         ]},
-        {h:"★ TUR(시험불확도비) 규칙 — 우리 발표 근거 (§3.6)", items:[
+        {h:"★ TUR(시험불확도비) 규칙 (§3.6)", items:[
           "<b>§3.6c (토크)</b>: Cat I 토크 교정 시 — Cat II 토크공구 TUR은 <b>1:1 이상</b>이면 되고, <b>Cat III 토크 교정표준은 4:1 이상</b>이어야 함",
           "<b>§3.6d (일반 자극)</b>: Cat II가 자극을 공급할 때 TUR 1:1 이상이면 됨 — 단 pass/fail·결함허용 시험은 예외(더 높여야)",
           "<b>p16 실제 표</b>: Category III에 <b>TUR=4</b>가 열로 박혀 있음 (Fluke 5700A 기준). to(TO 00-20-14)·milstd1839의 'TUR 4:1 원칙'이 여기서 데이터로 실현됨"
@@ -1498,11 +1498,11 @@ const DOCS = {
     strange:[
       "<b>\"지침일 뿐, 계약에 인용 불가\"</b> — 군 문서인데 스스로 강제력을 부인. \"인용하면 계약자는 안 따라도 된다\"고 명시. 강제는 MIL-STD-1839가, 해설은 이 핸드북이 맡는 분업",
       "<b>★ 교정주기 = 신뢰성 (§3.12)</b> — \"주기란 목표 측정신뢰성을 유지하며 교정 사이 갈 수 있는 최대 시간\". 우리 RP-1 신뢰성 탭(주기말 85%)의 정의 그 자체",
-      "<b>★ 데시벨 함정 (§3.5)</b> — \"4dB:1dB는 비율 4:1로 보이나 선형 환산하면 2:1\". TUR 설명 시 흔한 오해 — 발표 정확성의 근거",
+      "<b>★ 데시벨 함정 (§3.5)</b> — \"4dB:1dB는 비율 4:1로 보이나 선형 환산하면 2:1\". TUR 설명 시 흔한 오해 — 정확한 해석의 근거",
       "<b>자가교정 불인정 (§5.4.4.3d)</b> — \"DoD는 self-calibration을 인정 안 함\"(소급성 불가). 우리 키오스크 점검이 '자가교정'이 아니라 '소급성 있는 점검'이어야 하는 이유",
       "<b>BIT/BITE도 교정 대상 (§5.2)</b> — 빌트인 측정장치도 판정에 쓰이면 교정·소급성 필요. 미교정 시 false reject/accept 위험"
     ],
-    biz:"<b>1839·CMRS 짝의 내용을 실제로 읽을 수 있는 단 하나의 문서.</b> TUR 4:1 정의·데시벨 함정·교정주기=신뢰성 정의가 ICMPM 발표(토크렌치 소급성·RP-1 신뢰성)의 1차 근거. 부록 B의 완성 CMRS는 우리가 만들 산출물의 '정답지'이고, 그 컬럼(모델·CAGE·NSN·Cal Int·절차·SERD)은 ktools_items와 일치. 토크 1:1·자가교정 불인정은 키오스크 사업 논리의 군 표준 뒷받침.",
+    biz:"<b>1839·CMRS 짝의 내용을 실제로 읽을 수 있는 단 하나의 문서.</b> TUR 4:1 정의·데시벨 함정·교정주기=신뢰성 정의가 토크렌치 소급성·RP-1 신뢰성 논리의 군 표준 근거. 부록 B의 완성 CMRS는 우리가 만들 산출물의 '정답지'이고, 그 컬럼(모델·CAGE·NSN·Cal Int·절차·SERD)은 ktools_items와 일치. 토크 1:1·자가교정 불인정은 키오스크 사업 논리의 군 표준 뒷받침.",
     detail:{
       src:"MIL-HDBK-1839A (2000.11.27, 본문 12쪽+부록 27쪽) 원문 정독. 발급: AFMETCAL(WR-ALC). MIL-HDBK-1839(1996) 대체. 인용부호(\" \")는 MIL-STD-1839 원문 직접 인용.",
       groups:[
@@ -1677,7 +1677,7 @@ const DOCS = {
         ]},
         {h:"우리 사업과의 연결", items:[
           "<b>⑧임무보증 폐쇄루프</b>: 현장→문서 환류로 교범을 살아있게 유지 — 측정체계의 성적서·절차서 오류 정정에도 같은 사상",
-          "<b>절감액 정량화 (§21·22)</b>: 현장 개선을 달러·맨아워로 기록 → \"개선=비용절감\"의 양방향 정직(발표 교훈)과 일치",
+          "<b>절감액 정량화 (§21·22)</b>: 현장 개선을 달러·맨아워로 기록 → \"개선=비용절감\"이라는 양방향 정직의 원칙과 일치",
           "<b>Form 57·252</b>: 명칭만 — 57=PMEL TO 정보, 252=TO 발행 변경요청. 같은 교범 피드백 양식군이라 묶어 이해"
         ]}
       ]
@@ -2095,7 +2095,7 @@ function gotoDoc(id){
 }
 
 // ── 전체 흐름 관점 렌더 ────────────────────────────────────────────
-let curLens = 'layers5';   // 첫 화면 = 담당자 최상위 전체지도(5계층). 큰그림→세부→사업 순.
+let curLens = 'layers5';   // 첫 화면 = 최상위 전체지도(5계층). 큰그림→세부→사업 순.
 let detailMode = 'all';   // 핵심/전체 토글 (기본=전체)
 function renderChain(){ drawLens(curLens); }
 const docChip = d => {
