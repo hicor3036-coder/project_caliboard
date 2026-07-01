@@ -328,12 +328,12 @@
       <h1 id="lensTitle">측정 신뢰성 체계 — 전체 흐름</h1>
       <p class="chain-a" id="lensDesc"></p>
       <div class="lens-tabs">
-        <button class="lens active" data-lens="traceability">🔗 소급성</button>
+        <button class="lens active" data-lens="layers5">🏗️ 5계층 종합</button>
+        <button class="lens" data-lens="core8">🧩 8 핵심 구성요소</button>
+        <button class="lens" data-lens="traceability">🔗 소급성</button>
+        <button class="lens" data-lens="governance">🏛️ 거버넌스</button>
         <button class="lens" data-lens="lifecycle">⚙️ 장비의 일생</button>
         <button class="lens" data-lens="business">💼 사업 가치</button>
-        <button class="lens" data-lens="governance">🏛️ 거버넌스</button>
-        <button class="lens" data-lens="core8">🧩 8 핵심 구성요소</button>
-        <button class="lens" data-lens="layers5">🏗️ 5계층 종합</button>
       </div>
     </div>
 
@@ -2095,7 +2095,7 @@ function gotoDoc(id){
 }
 
 // ── 전체 흐름 관점 렌더 ────────────────────────────────────────────
-let curLens = 'traceability';
+let curLens = 'layers5';   // 첫 화면 = 담당자 최상위 전체지도(5계층). 큰그림→세부→사업 순.
 let detailMode = 'all';   // 핵심/전체 토글 (기본=전체)
 function renderChain(){ drawLens(curLens); }
 const docChip = d => {
