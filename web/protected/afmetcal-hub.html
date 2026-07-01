@@ -229,6 +229,8 @@
   .task-doc{font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px;color:var(--dim);white-space:nowrap}
   .task-doc.link{cursor:pointer;color:var(--accent2);border-color:rgba(74,158,255,.4)}
   .task-doc.link:hover{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  .task-doc.lensjump{cursor:pointer;font-weight:700;color:#7c6cff;border-color:rgba(124,108,255,.5);background:rgba(124,108,255,.08)}
+  .task-doc.lensjump:hover{background:#7c6cff;color:#fff;border-color:#7c6cff}
   .stage-arrow{text-align:center;color:var(--dim);font-size:16px;margin:2px 0}
   /* 전체 흐름 관점 */
   .lens-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
@@ -242,6 +244,7 @@
   .tstep-rail::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--fc);opacity:.35;transform:translateX(-50%)}
   .tstep.last .tstep-rail::before{bottom:auto;height:17px}
   .tstep-no{position:relative;z-index:1;width:30px;height:30px;border-radius:50%;background:var(--fc);color:#11161c;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin-top:2px;box-shadow:0 0 0 4px var(--bg)}
+  .tstep-no.tier{border-radius:8px;width:32px;height:24px;font-size:12px}
   .tstep-card{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--fc);border-radius:10px;padding:13px 16px;margin-bottom:14px}
   .tstep-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
   .tstep-k{font-size:11px;color:var(--fc);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
@@ -330,6 +333,7 @@
         <button class="lens" data-lens="business">💼 사업 가치</button>
         <button class="lens" data-lens="governance">🏛️ 거버넌스</button>
         <button class="lens" data-lens="core8">🧩 8 핵심 구성요소</button>
+        <button class="lens" data-lens="layers5">🏗️ 5계층 종합</button>
       </div>
     </div>
 
@@ -558,6 +562,25 @@ const LENSES = {
         more:[{label:'AFI 36-2650',id:null},{label:'AFMAN 21-202',id:null},{label:'AFMAN 21-204',id:null},{label:'AFMAN 21-206',id:null}] },
     ],
     note: '한국판의 핵심 질문 — 이 "단일 권한(AFMETCAL)"의 역할을 누가 맡는가. 사업기획서는 KAI가 위탁운영하는 K-AFMETCAL Center를 제시한다.',
+  },
+  layers5: {
+    title: '🏗️ 5계층 통합 워크플로우 — 체계는 어떻게 위아래로 맞물리나',
+    desc: 'KAI 담당자 최상위 뼈대(Multilayer Diagram)의 그대로. <b>위→아래로 읽는다</b>: 거버넌스가 정책을 세우면 → 표준이 규칙을 성문화하고 → 그 규칙을 8 핵심 구성요소(프로세스)가 실행하며 → 인프라·도구가 이를 지원해 → 임무가 보장된다. 앞의 소급성·거버넌스·8Core 관점은 모두 이 5계층의 한 층(層)씩을 확대한 것이다.',
+    color: '#7c6cff',
+    layers: true,
+    steps: [
+      { k:'L1 · 거버넌스', v:'정책을 세운다 (Governance)', d:'권한의 수직 사슬. 국가표준부터 기지 교정실까지 누가 무엇을 책임지는가.', docs:[{label:'DAFPD 21-1',id:'dafpd'}],
+        more:[{label:'NIST · USNO',id:null},{label:'DoD · JTCG-CMT',id:null},{label:'AFLCMC',id:null},{label:'DAFMAN 21-113',id:'dafman'}] },
+      { k:'L2 · 표준·문서', v:'규칙을 성문화한다 (Standards & Docs)', d:'정책을 실행 가능한 규격·절차로 옮긴 문서 스택.', docs:[{label:'DAFMAN 21-113',id:'dafman'},{label:'TO 00-20-14',id:'to'}],
+        more:[{label:'MIL-STD-3048C',id:null},{label:'MIL-DTL-87929F',id:null},{label:'ISO/IEC 17025',id:'iso17025'},{label:'ISO 10012',id:'iso10012'},{label:'TO 33K-1-100-1',id:'to33k'},{label:'MIL-PRF-38793C',id:null},{label:'MIL-STD-1839D',id:'milstd1839'}] },
+      { k:'L3 · 프로세스', v:'8 핵심 구성요소로 실행한다 (Process)', d:'표준을 실제 일로 바꾸는 실행 계층. <b>이 계층 전체가 곧 8 핵심 구성요소</b> — 문서화·훈련·장비·IETM·교정·시험소·프로그램·임무보증.', docs:[{label:'▶ 8 핵심 구성요소 상세 보기',id:'__core8__'}],
+        more:[] },
+      { k:'L4 · 인프라·도구', v:'도구가 지원한다 (Infrastructure & Tools)', d:'8 구성요소를 떠받치는 시설·시스템. 한국판이 CaliBoard·K-PMEL로 구현할 대상.', docs:[],
+        more:[{label:'AFPSL',id:null},{label:'PMEL Type I–V',id:null},{label:'JCALS',id:null},{label:'CSDB',id:null},{label:'PAMS / FEMS',id:null},{label:'LabMet',id:null},{label:'AFCAV / MetWeb',id:null}] },
+      { k:'L5 · 임무 결과', v:'임무가 보장된다 (Mission Outcome)', d:'정확한 측정이 최종적으로 지켜내는 대상 — 무기체계의 신뢰성·안전성.', docs:[],
+        more:[{label:'항공기',id:null},{label:'미사일',id:null},{label:'우주',id:null},{label:'ICBM',id:null},{label:'사이버',id:null},{label:'C4ISR',id:null},{label:'탄약·무장',id:null}] },
+    ],
+    note: '원문(Multilayer Diagram 3p): "Reads top-down — Governance sets policy → Standards codify rules → Process executes through 8 components → Infrastructure tools support → Mission Outcome assured." 우리 다른 관점들은 이 그림의 한 층을 각각 확대한 것.',
   },
 };
 
@@ -2076,6 +2099,8 @@ let curLens = 'traceability';
 let detailMode = 'all';   // 핵심/전체 토글 (기본=전체)
 function renderChain(){ drawLens(curLens); }
 const docChip = d => {
+  if(d.id==='__core8__')          // 5계층 L3 → 8Core 관점으로 점프하는 특수 칩
+    return `<span class="task-doc lensjump" data-lens="core8">${d.label}</span>`;
   const gid = resolveChipId(d);   // 명시 id 우선, 없으면 DOCS.code 자동 매칭
   return gid
     ? `<span class="task-doc link" data-goto="${gid}">${d.label} ↗</span>`
@@ -2122,12 +2147,13 @@ function drawLens(key){
         <button class="dt ${detailMode==='all'?'active':''}" data-mode="all">전체</button>
       </div>`;
     }
-    html += '<div class="timeline" style="--fc:'+L.color+'">';
+    html += '<div class="timeline'+(L.layers?' layers':'')+'" style="--fc:'+L.color+'">';
     L.steps.forEach((s, i)=>{
       const docs = (detailMode==='all' && s.more) ? s.docs.concat(s.more) : s.docs;
       const last = i===L.steps.length-1 ? ' last' : '';
+      const railTxt = L.layers ? `L${i+1}` : (i+1);
       html += `<div class="tstep${last}">
-        <div class="tstep-rail"><span class="tstep-no">${i+1}</span></div>
+        <div class="tstep-rail"><span class="tstep-no${L.layers?' tier':''}">${railTxt}</span></div>
         <div class="tstep-card">
           <div class="tstep-head"><span class="tstep-k">${s.k}</span><span class="tstep-v">${s.v}</span></div>
           <div class="tstep-d">${s.d}</div>
@@ -2146,6 +2172,9 @@ function drawLens(key){
 
   wrap.querySelectorAll('.task-doc.link').forEach(el=>{
     el.addEventListener('click', ()=> gotoDoc(el.dataset.goto));
+  });
+  wrap.querySelectorAll('.task-doc.lensjump').forEach(el=>{
+    el.addEventListener('click', ()=>{ curLens = el.dataset.lens; drawLens(curLens); });
   });
   highlightTerms(wrap);
 }
